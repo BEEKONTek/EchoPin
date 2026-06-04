@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions or Ideas?
+    url: https://github.com/botlhalepono/echopin/discussions
+    about: Ask questions or discuss ideas in Discussions
+  - name: Security Vulnerability?
+    url: https://github.com/botlhalepono/echopin/blob/main/SECURITY.md
+    about: Follow responsible disclosure in SECURITY.md
