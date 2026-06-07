@@ -10,10 +10,9 @@ on:
     - cron: '0 2 * * *'
 
 jobs:
-  pub-outdated:
-    name: Check for Outdated Dependencies
+  validate-config:
+    name: Validate Configuration
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,17 +22,141 @@ jobs:
         with:
           flutter-version: '3.44.1'
           channel: 'stable'
+
+      - name: Verify SDK compatibility
+        run: |
+          FLUTTER_VERSION=$(flutter --version | grep -oP 'Flutter \K[0-9.]+')
+          DART_VERSION=$(dart --version | grep -oP '\d+\.\d+\.\d+')
+          REQUIRED_SDK=">=3.12.0"
+          echo "Flutter: $FLUTTER_VERSION"
+          echo "Dart: $DART_VERSION"
+          echo "Required SDK: $REQUIRED_SDK"
+          # Ensure Dart version is >= 3.12.0
+          python3 << 'EOF'
+          import re
+          dart_version = "$DART_VERSION"
+          major, minor, patch = map(int, dart_version.split('.'))
+          if (major, minor) < (3, 12):
+              print(f"ERROR: Dart {dart_version} is below required 3.12.0")
+              exit(1)
+          print(f"✓ Dart {dart_version} meets SDK requirement")
+          EOF
+
+      - name: Validate pubspec.yaml sorting
+        run: |
+          python3 << 'EOF'
+          import yaml
+          import sys
+          
+          with open('pubspec.yaml', 'r') as f:
+              data = yaml.safe_load(f)
+          
+          # Check dev_dependencies alphabetical order
+          if 'dev_dependencies' in data and isinstance(data['dev_dependencies'], dict):
+              deps = list(data['dev_dependencies'].keys())
+              sorted_deps = sorted(deps)
+              if deps != sorted_deps:
+                  print(f"ERROR: dev_dependencies not sorted alphabetically")
+                  print(f"Current: {deps}")
+                  print(f"Expected: {sorted_deps}")
+                  sys.exit(1)
+              print("✓ dev_dependencies are sorted alphabetically")
+          
+          # Check dependencies alphabetical order
+          if 'dependencies' in data and isinstance(data['dependencies'], dict):
+              deps = list(data['dependencies'].keys())
+              sorted_deps = sorted(deps)
+              if deps != sorted_deps:
+                  print(f"ERROR: dependencies not sorted alphabetically")
+                  print(f"Current: {deps}")
+                  print(f"Expected: {sorted_deps}")
+                  sys.exit(1)
+              print("✓ dependencies are sorted alphabetically")
+          EOF
+
+      - name: Validate analysis_options.yaml
+        run: |
+          python3 << 'EOF'
+          import yaml
+          import sys
+          
+          # Known obsolete lint rules in Dart 3.0.0+
+          obsolete_rules = {
+              'avoid_relative_import_paths',
+              'avoid_returning_null_for_future',
+              'avoid_returning_null',
+              'avoid_returning_null_for_streams',
+              'avoid_bool_logic_in_user_facing_api',
+              'avoid_null_checks_in_equality_operators',
+              'invariant_booleans',
+              'no_leading_underscores_for_local_variables',
+              'package_api_docs',
+              'prefer_equal_for_default_values',
+              'prefer_if_null_to_conditional_expressions',
+              'prefer_if_on_single_line_statements',
+              'prefer_is_operator',
+              'prefer_null_coalescing_operator',
+              'prefer_relative_import_paths',
+              'sized_box_for_spacer',
+              'unsafe_html',
+              'use_getters_to_define_derived_fields',
+              'use_if_null_to_convert_nullables',
+              'use_to_close_resource',
+              'use_underscores_for_unused_callback_parameters',
+          }
+          
+          with open('analysis_options.yaml', 'r') as f:
+              data = yaml.safe_load(f)
+          
+          if 'linter' in data and 'rules' in data['linter']:
+              rules = data['linter']['rules']
+              found_obsolete = []
+              for rule in rules:
+                  if rule in obsolete_rules:
+                      found_obsolete.append(rule)
+              
+              if found_obsolete:
+                  print(f"ERROR: Found {len(found_obsolete)} obsolete lint rules:")
+                  for rule in found_obsolete:
+                      print(f"  - {rule}")
+                  sys.exit(1)
+              print(f"✓ analysis_options.yaml has no obsolete lint rules")
+          EOF
+
+  pub-outdated:
+    name: Check for Outdated Dependencies
+    needs: validate-config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+
+      - name: Cache pub cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.cache/dart
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
 
       - name: Get dependencies
         run: flutter pub get
 
       - name: Check outdated packages
-        run: flutter pub outdated --mode=null-safety
+        run: flutter pub outdated
 
   security-audit:
     name: Security Audit
+    needs: validate-config
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,6 +166,16 @@ jobs:
         with:
           flutter-version: '3.44.1'
           channel: 'stable'
+
+      - name: Cache pub cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.cache/dart
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
 
       - name: Get dependencies
         run: flutter pub get
@@ -52,8 +185,8 @@ jobs:
 
   license-check:
     name: License Compliance
+    needs: validate-config
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -63,6 +196,16 @@ jobs:
         with:
           flutter-version: '3.44.1'
           channel: 'stable'
+
+      - name: Cache pub cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.cache/dart
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
 
       - name: Get dependencies
         run: flutter pub get
