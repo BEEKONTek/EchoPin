@@ -31,7 +31,6 @@ jobs:
           echo "Flutter: $FLUTTER_VERSION"
           echo "Dart: $DART_VERSION"
           echo "Required SDK: $REQUIRED_SDK"
-          # Ensure Dart version is >= 3.12.0
           python3 << 'EOF'
           import re
           dart_version = "$DART_VERSION"
@@ -51,7 +50,6 @@ jobs:
           with open('pubspec.yaml', 'r') as f:
               data = yaml.safe_load(f)
           
-          # Check dev_dependencies alphabetical order
           if 'dev_dependencies' in data and isinstance(data['dev_dependencies'], dict):
               deps = list(data['dev_dependencies'].keys())
               sorted_deps = sorted(deps)
@@ -62,7 +60,6 @@ jobs:
                   sys.exit(1)
               print("✓ dev_dependencies are sorted alphabetically")
           
-          # Check dependencies alphabetical order
           if 'dependencies' in data and isinstance(data['dependencies'], dict):
               deps = list(data['dependencies'].keys())
               sorted_deps = sorted(deps)
@@ -80,7 +77,6 @@ jobs:
           import yaml
           import sys
           
-          # Known obsolete lint rules in Dart 3.0.0+
           obsolete_rules = {
               'avoid_relative_import_paths',
               'avoid_returning_null_for_future',
