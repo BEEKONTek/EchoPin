@@ -23,6 +23,14 @@ jobs:
           flutter-version: '3.44.1'
           channel: 'stable'
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: pip install pyyaml
+
       - name: Verify SDK compatibility
         run: |
           FLUTTER_VERSION=$(flutter --version | grep -oP 'Flutter \K[0-9.]+')
