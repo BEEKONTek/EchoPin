@@ -39,9 +39,9 @@ jobs:
           echo "Flutter: $FLUTTER_VERSION"
           echo "Dart: $DART_VERSION"
           echo "Required SDK: $REQUIRED_SDK"
-          python3 << 'EOF'
-          import re
-          dart_version = "$DART_VERSION"
+          DART_VERSION="$DART_VERSION" python3 << 'EOF'
+          import os
+          dart_version = os.environ["DART_VERSION"]
           major, minor, patch = map(int, dart_version.split('.'))
           if (major, minor) < (3, 12):
               print(f"ERROR: Dart {dart_version} is below required 3.12.0")
