@@ -34,7 +34,7 @@ jobs:
       - name: Verify SDK compatibility
         run: |
           FLUTTER_VERSION=$(flutter --version | grep -oP 'Flutter \K[0-9.]+')
-          DART_VERSION=$(dart --version | grep -oP '\d+\.\d+\.\d+')
+          DART_VERSION=$(dart --version 2>&1 | grep -oP '\d+\.\d+\.\d+')
           REQUIRED_SDK=">=3.12.0"
           echo "Flutter: $FLUTTER_VERSION"
           echo "Dart: $DART_VERSION"
@@ -54,10 +54,10 @@ jobs:
           python3 << 'EOF'
           import yaml
           import sys
-          
+
           with open('pubspec.yaml', 'r') as f:
               data = yaml.safe_load(f)
-          
+
           if 'dev_dependencies' in data and isinstance(data['dev_dependencies'], dict):
               deps = list(data['dev_dependencies'].keys())
               sorted_deps = sorted(deps)
@@ -67,7 +67,7 @@ jobs:
                   print(f"Expected: {sorted_deps}")
                   sys.exit(1)
               print("✓ dev_dependencies are sorted alphabetically")
-          
+
           if 'dependencies' in data and isinstance(data['dependencies'], dict):
               deps = list(data['dependencies'].keys())
               sorted_deps = sorted(deps)
@@ -84,7 +84,7 @@ jobs:
           python3 << 'EOF'
           import yaml
           import sys
-          
+
           obsolete_rules = {
               'avoid_relative_import_paths',
               'avoid_returning_null_for_future',
@@ -108,17 +108,13 @@ jobs:
               'use_to_close_resource',
               'use_underscores_for_unused_callback_parameters',
           }
-          
+
           with open('analysis_options.yaml', 'r') as f:
               data = yaml.safe_load(f)
-          
+
           if 'linter' in data and 'rules' in data['linter']:
               rules = data['linter']['rules']
-              found_obsolete = []
-              for rule in rules:
-                  if rule in obsolete_rules:
-                      found_obsolete.append(rule)
-              
+              found_obsolete = [r for r in rules if r in obsolete_rules]
               if found_obsolete:
                   print(f"ERROR: Found {len(found_obsolete)} obsolete lint rules:")
                   for rule in found_obsolete:
@@ -164,6 +160,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -184,8 +182,21 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Run pub audit
-        run: flutter pub audit
+      - name: Trivy dependency scan (pubspec.lock)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          exit-code: '1'
+          format: 'table'
+
+      - name: TruffleHog secret scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          extra_args: --only-verified
 
   license-check:
     name: License Compliance
@@ -215,4 +226,6 @@ jobs:
         run: flutter pub get
 
       - name: Check licenses
-        run: flutter pub license --json > licenses.json && cat licenses.json
+        run: |
+          dart pub global activate dart_license_checker
+          dart pub global run dart_license_checker
