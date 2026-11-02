@@ -1,115 +1,63 @@
-import 'dart:convert';
-import 'dart:math' as math;
+import 'dart:math';
 
-import '../models/session.dart';
+import 'package:echo_pin/models/session.dart';
 
-class MeshMessage {
-  const MeshMessage({
-    required this.fromPeerId,
-    required this.type,
-    required this.payload,
-    required this.nonce,
-    required this.timestamp,
-  });
+class MeshService {
+  MeshService();
 
-  final String fromPeerId;
-  final String type;
-  final Map<String, dynamic> payload;
-  final int nonce;
-  final DateTime timestamp;
-
-  factory MeshMessage.fromJson(String peerId, String jsonText) {
-    final decoded = jsonDecode(jsonText) as Map<String, dynamic>;
-    return MeshMessage(
-      fromPeerId: peerId,
-      type: decoded['type'] as String? ?? 'presence',
-      payload: Map<String, dynamic>.from(decoded['payload'] as Map? ?? {}),
-      nonce: decoded['nonce'] as int? ?? 0,
-      timestamp: DateTime.fromMillisecondsSinceEpoch(
-        decoded['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+  Session createSession(String name, {double boundaryRadiusMeters = 150}) {
+    final sessionId = 'session-${DateTime.now().millisecondsSinceEpoch}';
+    final basePeers = <PeerPresence>[
+      const PeerPresence(
+        id: 'peer-a',
+        label: 'Peer A',
+        bearingDegrees: 30,
+        distanceMeters: 68,
       ),
+      const PeerPresence(
+        id: 'peer-b',
+        label: 'Peer B',
+        bearingDegrees: 120,
+        distanceMeters: 142,
+      ),
+      const PeerPresence(
+        id: 'peer-c',
+        label: 'Peer C',
+        bearingDegrees: 200,
+        distanceMeters: 254,
+      ),
+    ];
+
+    return Session(
+      id: sessionId,
+      name: name,
+      boundaryRadiusMeters: boundaryRadiusMeters,
+      peers: basePeers,
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'fromPeerId': fromPeerId,
-        'type': type,
-        'payload': payload,
-        'nonce': nonce,
-        'timestamp': timestamp.millisecondsSinceEpoch,
-      };
-}
-
-class MeshService {
-  MeshService({this.maxPeers = 20, this.maxTokensPerPeer = 5});
-
-  final int maxPeers;
-  final int maxTokensPerPeer;
-
-  final Map<String, int> _lastNonceByPeer = <String, int>{};
-  final Map<String, DateTime> _lastSeenByPeer = <String, DateTime>{};
-  final Map<String, int> _tokenBuckets = <String, int>{};
-  final Map<String, DateTime> _lastMessageAt = <String, DateTime>{};
-
-  bool canAcceptPeer(String peerId) {
-    return _lastSeenByPeer.length < maxPeers || _lastSeenByPeer.containsKey(peerId);
-  }
-
-  bool onRawMessageReceived({
-    required String fromPeerId,
-    required String jsonMessage,
-    required Map<String, SessionPeer> peers,
+  Session joinSession({
+    required String sessionName,
+    required String sessionId,
+    double boundaryRadiusMeters = 150,
   }) {
-    if (!canAcceptPeer(fromPeerId) && !peers.containsKey(fromPeerId)) {
-      return false;
-    }
+    final random = Random();
 
-    try {
-      final message = MeshMessage.fromJson(fromPeerId, jsonMessage);
-      final now = DateTime.now();
-      final previousNonce = _lastNonceByPeer[fromPeerId];
+    final peers = List<PeerPresence>.generate(
+      3,
+      (index) => PeerPresence(
+        id: 'peer-${index + 1}',
+        label: 'Peer ${index + 1}',
+        bearingDegrees: (index * 110.0 + 35) % 360,
+        distanceMeters: 40 + random.nextInt(180).toDouble(),
+      ),
+    );
 
-      if (previousNonce != null && message.nonce <= previousNonce) {
-        return false;
-      }
-
-      final lastSeen = _lastSeenByPeer[fromPeerId];
-      if (lastSeen != null && now.difference(lastSeen).inSeconds > 30) {
-        _lastNonceByPeer.remove(fromPeerId);
-      }
-
-      final bucket = _tokenBuckets[fromPeerId] ?? maxTokensPerPeer;
-      if (bucket <= 0) {
-        return false;
-      }
-
-      _tokenBuckets[fromPeerId] = bucket - 1;
-      _lastNonceByPeer[fromPeerId] = message.nonce;
-      _lastSeenByPeer[fromPeerId] = now;
-      _lastMessageAt[fromPeerId] = now;
-      return true;
-    } on FormatException {
-      return false;
-    } on TypeError {
-      return false;
-    }
-  }
-
-  void refillTokens() {
-    final now = DateTime.now();
-    for (final peerId in _lastMessageAt.keys) {
-      final lastMessageAt = _lastMessageAt[peerId]!;
-      if (now.difference(lastMessageAt).inMilliseconds >= 500) {
-        final current = _tokenBuckets[peerId] ?? maxTokensPerPeer;
-        _tokenBuckets[peerId] = math.min(maxTokensPerPeer, current + 1);
-      }
-    }
-  }
-
-  void removePeer(String peerId) {
-    _lastNonceByPeer.remove(peerId);
-    _lastSeenByPeer.remove(peerId);
-    _tokenBuckets.remove(peerId);
-    _lastMessageAt.remove(peerId);
+    return Session(
+      id: sessionId,
+      name: sessionName,
+      boundaryRadiusMeters: boundaryRadiusMeters,
+      peers: peers,
+    );
   }
 }

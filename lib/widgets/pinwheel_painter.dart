@@ -1,72 +1,86 @@
-import 'dart:math' as math;
-import 'package:flutter/material.dart';
+import 'dart:math';
 
-import '../models/session.dart';
+import 'package:flutter/material.dart';
 
 class PinwheelPainter extends CustomPainter {
   const PinwheelPainter({
     required this.peers,
-    required this.boundaryRadiusM,
+    required this.boundaryRadius,
     required this.centerRadius,
   });
 
-  final List<SessionPeer> peers;
-  final double boundaryRadiusM;
+  final List<PeerPresence> peers;
+  final double boundaryRadius;
   final double centerRadius;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final maxDistance = math.max(boundaryRadiusM, 150.0);
-    final ringRadius = math.min(size.width, size.height) * 0.38;
-
-    final paint = Paint()
-      ..color = Colors.blue.shade200
+    final ringPaint = Paint()
+      ..color = Colors.blue.withOpacity(0.25)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
-    canvas.drawCircle(center, ringRadius, paint);
-
-    final innerRing = Paint()
-      ..color = Colors.blue.withOpacity(0.2)
+    final outer = Paint()
+      ..color = Colors.blue.withOpacity(0.65)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    canvas.drawCircle(center, ringRadius * 0.75, innerRing);
-    canvas.drawCircle(center, ringRadius * 0.5, innerRing);
+      ..strokeWidth = 2;
 
-    final centerDot = Paint()..color = Colors.white;
-    canvas.drawCircle(center, centerRadius, centerDot);
+    final inner = Paint()
+      ..color = Colors.white.withOpacity(0.7)
+      ..style = PaintingStyle.fill;
+
+    final devicePaint = Paint()..color = const Color(0xFF60A5FA);
+
+    canvas.drawCircle(center, boundaryRadius, ringPaint);
+    canvas.drawCircle(center, centerRadius, outer);
+    canvas.drawCircle(center, centerRadius * 0.5, outer);
+    canvas.drawCircle(center, centerRadius * 0.22, inner);
+
+    final textPainter = TextPainter(
+      text: const TextSpan(
+        text: 'You',
+        style: TextStyle(color: Colors.white, fontSize: 16),
+      ),
+      textDirection: Directionality.of(canvas.getTransform().storage.isEmpty ? const Offset(0, 0) : const Offset(0, 0)),
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, center - const Offset(18, 10));
 
     for (final peer in peers) {
-      final angle = (peer.relativeBearingDeg - 90) * math.pi / 180;
-      final distanceFactor = math.min(1, peer.relativeDistanceM / maxDistance);
-      final curatedDistance = ringRadius * distanceFactor;
-      final peerPoint = Offset(
-        center.dx + math.cos(angle) * curatedDistance,
-        center.dy + math.sin(angle) * curatedDistance,
-      );
+      final angle = (peer.bearingDegrees - 90) * (pi / 180);
+      final distance = (peer.distanceMeters / 450) * boundaryRadius;
+      final x = center.dx + cos(angle) * distance;
+      final y = center.dy + sin(angle) * distance;
+      final point = Offset(x, y);
 
-      final dotPaint = Paint()
-        ..color = peer.outsideBoundary ? Colors.red : Colors.green
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(peerPoint, 8, dotPaint);
-
+      canvas.drawCircle(point, 10, devicePaint);
       final labelPainter = TextPainter(
         text: TextSpan(
-          text: peer.emoji,
-          style: const TextStyle(fontSize: 18),
+          text: peer.label,
+          style: const TextStyle(color: Colors.white, fontSize: 12),
         ),
-        textDirection: Directionality.of(canvas.context ?? const SizedBox()),
+        textDirection: TextDirection.ltr,
       );
       labelPainter.layout();
-      labelPainter.paint(canvas, peerPoint + const Offset(-8, -26));
+      labelPainter.paint(canvas, point + const Offset(12, -10));
     }
   }
 
   @override
-  bool shouldRepaint(covariant PinwheelPainter oldDelegate) {
-    return oldDelegate.peers != peers ||
-        oldDelegate.boundaryRadiusM != boundaryRadiusM ||
-        oldDelegate.centerRadius != centerRadius;
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class PeerPresence {
+  const PeerPresence({
+    required this.id,
+    required this.label,
+    required this.bearingDegrees,
+    required this.distanceMeters,
+  });
+
+  final String id;
+  final String label;
+  final double bearingDegrees;
+  final double distanceMeters;
 }
