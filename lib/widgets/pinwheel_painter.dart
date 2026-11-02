@@ -22,25 +22,33 @@ class PinwheelPainter extends CustomPainter {
     final safeBoundary = boundaryRadius.clamp(40.0, maxRadius);
 
     final boundaryPaint = Paint()
-      ..color = Colors.blue.withOpacity(0.35)
+      ..color = Colors.blue.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
     final innerRingPaint = Paint()
-      ..color = Colors.blue.withOpacity(0.7)
+      ..color = Colors.blue.withValues(alpha: 0.7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
     final centerPaint = Paint()
-      ..color = Colors.white.withOpacity(0.8)
+      ..color = Colors.white.withValues(alpha: 0.8)
       ..style = PaintingStyle.fill;
 
     final peerPaint = Paint()..color = const Color(0xFF60A5FA);
 
     canvas.drawCircle(center, safeBoundary, boundaryPaint);
     canvas.drawCircle(center, centerRadius.clamp(14.0, 28.0), innerRingPaint);
-    canvas.drawCircle(center, centerRadius.clamp(14.0, 28.0) * 0.6, innerRingPaint);
-    canvas.drawCircle(center, centerRadius.clamp(14.0, 28.0) * 0.27, centerPaint);
+    canvas.drawCircle(
+      center,
+      centerRadius.clamp(14.0, 28.0) * 0.6,
+      innerRingPaint,
+    );
+    canvas.drawCircle(
+      center,
+      centerRadius.clamp(14.0, 28.0) * 0.27,
+      centerPaint,
+    );
 
     final youLabel = TextPainter(
       text: const TextSpan(

@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>EchoPin uses Bluetooth to detect nearby peers in your session. Only relative distance is used; no absolute location is measured or transmitted.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>EchoPin broadcasts your presence to peers in your session.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
