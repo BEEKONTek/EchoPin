@@ -1,64 +1,45 @@
-import 'dart:math';
+import 'package:flutter/foundation.dart';
 
-import 'package:flutter/material.dart';
+import 'package:echo_pin/models/session.dart';
 
-class RealTimeLocation { 
-  const RealTimeLocation({
-    required this.latitude,
-    required this.longitude,
-    required this.bearingDegrees,
-  });
+class SessionProvider extends ChangeNotifier {
+  SessionProvider({Session? initialSession})
+      : _session = initialSession ??
+            Session(
+              id: 'demo-session',
+              name: 'Demo Session',
+              peers: const <PeerPresence>[
+                PeerPresence(
+                  id: 'peer-a',
+                  label: 'Peer A',
+                  bearingDegrees: 30,
+                  distanceMeters: 68,
+                ),
+                PeerPresence(
+                  id: 'peer-b',
+                  label: 'Peer B',
+                  bearingDegrees: 120,
+                  distanceMeters: 142,
+                ),
+              ],
+            );
 
-  final double latitude;
-  final double longitude;
-  final double bearingDegrees;
+  Session _session;
 
-  factory RealTimeLocation.example() {
-    return const RealTimeLocation(
-      latitude: 51.5074,
-      longitude: -0.1278,
-      bearingDegrees: 45,
-    );
-  }
-}
+  Session get session => _session;
 
-class LocationEngine {
-  const LocationEngine();
-
-  double normalizeBearing(double degrees) {
-    final normalized = degrees % 360;
-    return normalized < 0 ? normalized + 360 : normalized;
-  }
-
-  bool isWithinBoundary({
-    required double distanceMeters,
-    required double boundaryRadiusMeters,
-  }) {
-    return distanceMeters <= boundaryRadiusMeters;
+  void updateSession(Session nextSession) {
+    _session = nextSession;
+    notifyListeners();
   }
 
-  double relativeBearingDegrees({
-    required double userHeading,
-    required double peerBearing,
-  }) {
-    return normalizeBearing(peerBearing - userHeading);
+  void updateSessionName(String name) {
+    _session = _session.copyWith(name: name);
+    notifyListeners();
   }
 
-  double distanceMetersBetween({
-    required double lat1,
-    required double lon1,
-    required double lat2,
-    required double lon2,
-  }) {
-    const radius = 6371000.0;
-    final lat1Rad = lat1 * pi / 180;
-    final lat2Rad = lat2 * pi / 180;
-    final deltaLat = (lat2 - lat1) * pi / 180;
-    final deltaLon = (lon2 - lon1) * pi / 180;
-
-    final a = sin(deltaLat / 2) * sin(deltaLat / 2) +
-        cos(lat1Rad) * cos(lat2Rad) * sin(deltaLon / 2) * sin(deltaLon / 2);
-
-    return 2 * radius * asin(sqrt(a));
+  void updateBoundaryRadius(double boundaryRadiusMeters) {
+    _session = _session.copyWith(boundaryRadiusMeters: boundaryRadiusMeters);
+    notifyListeners();
   }
 }
