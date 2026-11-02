@@ -1,4 +1,5 @@
 import 'package:echo_pin/models/session.dart';
+import 'package:echo_pin/widgets/pinwheel_painter.dart';
 import 'package:flutter/material.dart';
 
 class SessionScreen extends StatefulWidget {
@@ -11,7 +12,7 @@ class SessionScreen extends StatefulWidget {
 }
 
 class _SessionScreenState extends State<SessionScreen> {
-  double _boundaryRadius = 150;
+  late double _boundaryRadius;
 
   @override
   void initState() {
@@ -31,50 +32,19 @@ class _SessionScreenState extends State<SessionScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: <Widget>[
-            const Text(
-              'Nearby peers',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: 300,
+            const SizedBox(height: 8),
+            SizedBox(
               height: 300,
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: <Widget>[
-                  for (final peer in peers)
-                    Positioned(
-                      left: 150 + (cos((peer.bearingDegrees - 90) * pi / 180) * (peer.distanceMeters / 4.5)),
-                      top: 150 + (sin((peer.bearingDegrees - 90) * pi / 180) * (peer.distanceMeters / 4.5)),
-                      child: Column(
-                        children: <Widget>[
-                          Container(
-                            width: 14,
-                            height: 14,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.blue,
-                            ),
-                          ),
-                          Text(
-                            peer.label,
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const Positioned(
-                    child: Icon(Icons.person_pin_circle, size: 32, color: Colors.black),
-                  ),
-                ],
+              child: CustomPaint(
+                painter: PinwheelPainter(
+                  peers: peers,
+                  boundaryRadius: _boundaryRadius,
+                  centerRadius: 18,
+                ),
+                child: Container(),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             const Text(
               'Boundary radius',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
@@ -91,6 +61,7 @@ class _SessionScreenState extends State<SessionScreen> {
                 });
               },
             ),
+            const SizedBox(height: 12),
             Expanded(
               child: ListView.builder(
                 itemCount: peers.length,
