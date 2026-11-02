@@ -1,6 +1,4 @@
-import 'package:echo_pin/models/session.dart';
 import 'package:echo_pin/services/mesh_service.dart';
-import 'package:echo_pin/widgets/pinwheel_painter.dart';
 import 'package:flutter/material.dart';
 
 import 'session_screen.dart';
