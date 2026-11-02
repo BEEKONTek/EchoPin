@@ -1,0 +1,15 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, deepseek-mvp]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  ci-summary:
+    name: Aggregate Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Note
+        run: echo "Individual checks run in build.yml, lint.yml, test.yml, dependency-check.yml."
