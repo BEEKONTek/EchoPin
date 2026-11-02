@@ -1,0 +1,15 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, deepseek-mvp]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Note
+        run: echo see dedicated workflow runs
