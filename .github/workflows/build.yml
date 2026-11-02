@@ -22,19 +22,3 @@ jobs:
         with:
           name: echopin-apk
           path: build/app/outputs/flutter-apk/
-
-  build-web:
-    name: Build Web
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter build web
-      - uses: actions/upload-artifact@v4
-        with:
-          name: echopin-web
-          path: build/web/
