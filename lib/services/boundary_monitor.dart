@@ -30,15 +30,18 @@ List<BoundaryAlert> computeCrossings({
     final bool nowInside = peer.distanceMeters <= boundaryRadiusMeters;
     if (prevInside == nowInside) continue;
 
-    out.add(BoundaryAlert(
-      id: '${peer.id}-${now.microsecondsSinceEpoch}',
-      peerId: peer.id,
-      peerLabel: peer.label,
-      direction:
-          nowInside ? CrossingDirection.entered : CrossingDirection.exited,
-      distanceMeters: peer.distanceMeters,
-      at: now,
-    ));
+    out.add(
+      BoundaryAlert(
+        id: '${peer.id}-${now.microsecondsSinceEpoch}',
+        peerId: peer.id,
+        peerLabel: peer.label,
+        direction: nowInside
+            ? CrossingDirection.entered
+            : CrossingDirection.exited,
+        distanceMeters: peer.distanceMeters,
+        at: now,
+      ),
+    );
   }
   return out;
 }

@@ -9,7 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 /// subsequent call becomes a no-op — no exceptions escape.
 class LocalNotificationBackend implements NotificationBackend {
   LocalNotificationBackend({FlutterLocalNotificationsPlugin? plugin})
-      : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+    : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
   static const String _channelId = 'echo_pin_boundary';
   static const String _channelName = 'Boundary alerts';
@@ -26,13 +26,16 @@ class LocalNotificationBackend implements NotificationBackend {
       const AndroidInitializationSettings android =
           AndroidInitializationSettings('@mipmap/ic_launcher');
       const DarwinInitializationSettings ios = DarwinInitializationSettings();
-      const InitializationSettings settings =
-          InitializationSettings(android: android, iOS: ios);
+      const InitializationSettings settings = InitializationSettings(
+        android: android,
+        iOS: ios,
+      );
       await _plugin.initialize(settings);
 
       final AndroidFlutterLocalNotificationsPlugin? androidImpl = _plugin
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       if (androidImpl != null) {
         const AndroidNotificationChannel channel = AndroidNotificationChannel(
           _channelId,
@@ -44,15 +47,12 @@ class LocalNotificationBackend implements NotificationBackend {
         await androidImpl.requestNotificationsPermission();
       }
 
-      final IOSFlutterLocalNotificationsPlugin? iosImpl =
-          _plugin.resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin>();
+      final IOSFlutterLocalNotificationsPlugin? iosImpl = _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
       if (iosImpl != null) {
-        await iosImpl.requestPermissions(
-          alert: true,
-          badge: true,
-          sound: true,
-        );
+        await iosImpl.requestPermissions(alert: true, badge: true, sound: true);
       }
 
       _available = true;
@@ -67,15 +67,14 @@ class LocalNotificationBackend implements NotificationBackend {
     try {
       const AndroidNotificationDetails androidDetails =
           AndroidNotificationDetails(
-        _channelId,
-        _channelName,
-        channelDescription: _channelDescription,
-        importance: Importance.high,
-        priority: Priority.high,
-        icon: '@mipmap/ic_launcher',
-      );
-      const DarwinNotificationDetails iosDetails =
-          DarwinNotificationDetails();
+            _channelId,
+            _channelName,
+            channelDescription: _channelDescription,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          );
+      const DarwinNotificationDetails iosDetails = DarwinNotificationDetails();
       const NotificationDetails details = NotificationDetails(
         android: androidDetails,
         iOS: iosDetails,

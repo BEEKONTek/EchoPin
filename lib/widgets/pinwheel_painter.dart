@@ -39,8 +39,16 @@ class PinwheelPainter extends CustomPainter {
 
     canvas.drawCircle(center, safeBoundary, boundaryPaint);
     canvas.drawCircle(center, centerRadius.clamp(14.0, 28.0), innerRingPaint);
-    canvas.drawCircle(center, centerRadius.clamp(14.0, 28.0) * 0.6, innerRingPaint);
-    canvas.drawCircle(center, centerRadius.clamp(14.0, 28.0) * 0.27, centerPaint);
+    canvas.drawCircle(
+      center,
+      centerRadius.clamp(14.0, 28.0) * 0.6,
+      innerRingPaint,
+    );
+    canvas.drawCircle(
+      center,
+      centerRadius.clamp(14.0, 28.0) * 0.27,
+      centerPaint,
+    );
 
     final youLabel = TextPainter(
       text: const TextSpan(

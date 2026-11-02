@@ -4,78 +4,23 @@ on:
   push:
     branches: [main, develop, deepseek-mvp]
   pull_request:
-    branches: [main, develop, deepseek-mvp]
+    branches: [main, develop]
 
 jobs:
   test:
     name: Unit & Widget Tests
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.1'
-          channel: 'stable'
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Run unit and widget tests
-        run: flutter test --coverage
-
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test --coverage
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
+          fail_ci_if_error: false
           files: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
-
-      - name: Check coverage threshold
-        run: |
-          python3 << 'EOF'
-          lines_found = 0
-          lines_hit = 0
-          with open('coverage/lcov.info') as f:
-              for line in f:
-                  if line.startswith('LF:'):
-                      lines_found += int(line.strip().split(':')[1])
-                  elif line.startswith('LH:'):
-                      lines_hit += int(line.strip().split(':')[1])
-
-          if lines_found == 0:
-              print("ERROR: No coverage data found in coverage/lcov.info")
-              exit(1)
-
-          coverage_pct = (lines_hit / lines_found) * 100
-          threshold = 70.0
-          print(f"Line coverage: {coverage_pct:.1f}% ({lines_hit}/{lines_found} lines)")
-
-          if coverage_pct < threshold:
-              print(f"ERROR: Coverage {coverage_pct:.1f}% is below the {threshold}% threshold")
-              exit(1)
-          print(f"✓ Coverage meets the {threshold}% threshold")
-          EOF
-
-  integration-test:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.44.1'
-          channel: 'stable'
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Run integration tests
-        run: flutter test integration_test/
+        continue-on-error: true

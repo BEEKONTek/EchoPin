@@ -33,11 +33,7 @@ class BoundaryAlertBanner extends StatelessWidget {
 }
 
 class _AlertCard extends StatelessWidget {
-  const _AlertCard({
-    super.key,
-    required this.alert,
-    required this.onDismiss,
-  });
+  const _AlertCard({super.key, required this.alert, required this.onDismiss});
 
   final BoundaryAlert alert;
   final VoidCallback onDismiss;
@@ -45,8 +41,9 @@ class _AlertCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool entering = alert.direction == CrossingDirection.entered;
-    final Color color =
-        entering ? Colors.teal.shade700 : Colors.orange.shade800;
+    final Color color = entering
+        ? Colors.teal.shade700
+        : Colors.orange.shade800;
     final IconData icon = entering
         ? Icons.person_add_alt_1
         : Icons.person_remove_alt_1;

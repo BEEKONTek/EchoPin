@@ -7,9 +7,8 @@ on:
     branches: [main, develop]
 
 jobs:
-  ci-summary:
-    name: Aggregate Check
+  summary:
+    name: CI Summary
     runs-on: ubuntu-latest
     steps:
-      - name: Note
-        run: echo "Individual checks run in build.yml, lint.yml, test.yml, dependency-check.yml."
+      - run: echo "Individual checks: build.yml (APK + web), lint.yml (analyze), test.yml (unit + widget)"

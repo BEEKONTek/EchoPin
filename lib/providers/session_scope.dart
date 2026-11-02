@@ -9,15 +9,15 @@ class SessionScope extends InheritedNotifier<SessionProvider> {
   }) : super(notifier: notifier);
 
   static SessionProvider of(BuildContext context) {
-    final SessionScope? scope =
-        context.dependOnInheritedWidgetOfExactType<SessionScope>();
+    final SessionScope? scope = context
+        .dependOnInheritedWidgetOfExactType<SessionScope>();
     assert(scope != null, 'SessionScope.of: no SessionScope in tree');
     return scope!.notifier!;
   }
 
   static SessionProvider read(BuildContext context) {
-    final InheritedElement? element =
-        context.getElementForInheritedWidgetOfExactType<SessionScope>();
+    final InheritedElement? element = context
+        .getElementForInheritedWidgetOfExactType<SessionScope>();
     assert(element != null, 'SessionScope.read: no SessionScope in tree');
     return (element!.widget as SessionScope).notifier!;
   }

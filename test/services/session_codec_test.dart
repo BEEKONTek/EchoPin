@@ -36,8 +36,8 @@ void main() {
     test('parse rejects codes with corrupted checksum', () {
       final String encoded = codec.encode(codec.generateId());
       final String last = encoded.substring(encoded.length - 1);
-      final String bad = encoded.substring(0, encoded.length - 1) +
-          (last == 'A' ? 'B' : 'A');
+      final String bad =
+          encoded.substring(0, encoded.length - 1) + (last == 'A' ? 'B' : 'A');
       expect(codec.parse(bad), isNull);
     });
 

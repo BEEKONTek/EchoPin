@@ -85,16 +85,15 @@ void main() {
           _peer('b', 5),
           _peer('c', 10),
         ],
-        current: <PeerPresence>[
-          _peer('a', 5),
-          _peer('b', 100),
-          _peer('c', 15),
-        ],
+        current: <PeerPresence>[_peer('a', 5), _peer('b', 100), _peer('c', 15)],
         boundaryRadiusMeters: 50,
         now: now,
       );
       expect(alerts.length, 2);
-      expect(alerts.map((BoundaryAlert a) => a.peerId), containsAll(<String>['a', 'b']));
+      expect(
+        alerts.map((BoundaryAlert a) => a.peerId),
+        containsAll(<String>['a', 'b']),
+      );
     });
 
     test('alert id is unique per crossing timestamp', () {

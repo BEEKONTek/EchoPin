@@ -23,21 +23,20 @@ class SessionSummary {
   final DateTime lastJoinedAt;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'id': id,
-        'name': name,
-        'code': code,
-        'boundaryRadiusMeters': boundaryRadiusMeters,
-        'createdAt': createdAt.toIso8601String(),
-        'lastJoinedAt': lastJoinedAt.toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'code': code,
+    'boundaryRadiusMeters': boundaryRadiusMeters,
+    'createdAt': createdAt.toIso8601String(),
+    'lastJoinedAt': lastJoinedAt.toIso8601String(),
+  };
 
   factory SessionSummary.fromJson(Map<String, dynamic> json) {
     return SessionSummary(
       id: json['id'] as String,
       name: json['name'] as String,
       code: json['code'] as String,
-      boundaryRadiusMeters:
-          (json['boundaryRadiusMeters'] as num).toDouble(),
+      boundaryRadiusMeters: (json['boundaryRadiusMeters'] as num).toDouble(),
       createdAt: DateTime.parse(json['createdAt'] as String),
       lastJoinedAt: DateTime.parse(json['lastJoinedAt'] as String),
     );
@@ -56,11 +55,11 @@ class SessionSummary {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        name,
-        code,
-        boundaryRadiusMeters,
-        createdAt,
-        lastJoinedAt,
-      );
+    id,
+    name,
+    code,
+    boundaryRadiusMeters,
+    createdAt,
+    lastJoinedAt,
+  );
 }

@@ -18,7 +18,8 @@ class MeshService {
   List<PeerPresence> _currentPeers = <PeerPresence>[];
 
   Stream<List<PeerPresence>> get peerUpdates => _peerUpdates.stream;
-  List<PeerPresence> get currentPeers => List<PeerPresence>.unmodifiable(_currentPeers);
+  List<PeerPresence> get currentPeers =>
+      List<PeerPresence>.unmodifiable(_currentPeers);
   bool get isStreaming => _ticker != null;
 
   Session createSession({
@@ -67,8 +68,10 @@ class MeshService {
     if (_currentPeers.isEmpty) return;
     _currentPeers = _currentPeers.map((PeerPresence p) {
       final double newDistance =
-          (p.distanceMeters + (_random.nextDouble() - 0.5) * 50)
-              .clamp(0.0, 500.0);
+          (p.distanceMeters + (_random.nextDouble() - 0.5) * 50).clamp(
+            0.0,
+            500.0,
+          );
       final double rawBearing =
           p.bearingDegrees + (_random.nextDouble() - 0.5) * 20;
       final double newBearing = rawBearing < 0

@@ -37,16 +37,18 @@ void main() {
       expect(list.last.id, 'a');
     });
 
-    test('re-recording the same id moves it to the top without duplicating',
-        () async {
-      final SessionHistoryService svc = SessionHistoryService();
-      await svc.record(_summary('a'));
-      await svc.record(_summary('b'));
-      await svc.record(_summary('a'));
-      final List<SessionSummary> list = await svc.load();
-      expect(list.length, 2);
-      expect(list.first.id, 'a');
-    });
+    test(
+      're-recording the same id moves it to the top without duplicating',
+      () async {
+        final SessionHistoryService svc = SessionHistoryService();
+        await svc.record(_summary('a'));
+        await svc.record(_summary('b'));
+        await svc.record(_summary('a'));
+        final List<SessionSummary> list = await svc.load();
+        expect(list.length, 2);
+        expect(list.first.id, 'a');
+      },
+    );
 
     test('caps storage at 20 entries', () async {
       final SessionHistoryService svc = SessionHistoryService();
@@ -65,8 +67,7 @@ void main() {
       expect(await svc.load(), isEmpty);
     });
 
-    test('corrupted JSON returns an empty list rather than throwing',
-        () async {
+    test('corrupted JSON returns an empty list rather than throwing', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{
         'echo_pin.session_history': 'not-json',
       });
@@ -76,8 +77,9 @@ void main() {
 
     test('summary JSON round-trips all fields', () {
       final SessionSummary original = _summary('round-trip');
-      final SessionSummary restored =
-          SessionSummary.fromJson(original.toJson());
+      final SessionSummary restored = SessionSummary.fromJson(
+        original.toJson(),
+      );
       expect(restored, original);
     });
   });

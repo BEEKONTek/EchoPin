@@ -69,7 +69,11 @@ void main() {
         ..push(_alert('d'));
 
       expect(svc.active.length, 3);
-      expect(svc.active.map((BoundaryAlert a) => a.id), <String>['d', 'c', 'b']);
+      expect(svc.active.map((BoundaryAlert a) => a.id), <String>[
+        'd',
+        'c',
+        'b',
+      ]);
     });
 
     test('dismiss removes a single alert', () {

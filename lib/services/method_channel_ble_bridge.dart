@@ -7,29 +7,25 @@ import 'package:flutter/services.dart';
 /// Channel names must match `BleBridgePlugin.kt` and `BleBridgePlugin.swift`
 /// exactly.
 class MethodChannelBleBridge implements PlatformBleBridge {
-  static const MethodChannel _methods =
-      MethodChannel('echo_pin/ble/methods');
+  static const MethodChannel _methods = MethodChannel('echo_pin/ble/methods');
   static const EventChannel _events = EventChannel('echo_pin/ble/events');
 
   Stream<BlePeerEvent>? _peerEvents;
 
   @override
   Stream<BlePeerEvent> get peerEvents {
-    return _peerEvents ??= _events.receiveBroadcastStream().map(
-      (dynamic raw) {
-        final Map<String, dynamic> m =
-            Map<String, dynamic>.from(raw as Map<dynamic, dynamic>);
-        return BlePeerEvent(
-          peerId: m['peerId'] as String,
-          displayName: m['displayName'] as String,
-          distanceMeters: (m['distanceMeters'] as num).toDouble(),
-          rssi: (m['rssi'] as num).toInt(),
-          lastSeen: DateTime.fromMillisecondsSinceEpoch(
-            m['lastSeenMs'] as int,
-          ),
-        );
-      },
-    );
+    return _peerEvents ??= _events.receiveBroadcastStream().map((dynamic raw) {
+      final Map<String, dynamic> m = Map<String, dynamic>.from(
+        raw as Map<dynamic, dynamic>,
+      );
+      return BlePeerEvent(
+        peerId: m['peerId'] as String,
+        displayName: m['displayName'] as String,
+        distanceMeters: (m['distanceMeters'] as num).toDouble(),
+        rssi: (m['rssi'] as num).toInt(),
+        lastSeen: DateTime.fromMillisecondsSinceEpoch(m['lastSeenMs'] as int),
+      );
+    });
   }
 
   @override
@@ -51,11 +47,14 @@ class MethodChannelBleBridge implements PlatformBleBridge {
     required String displayName,
   }) async {
     try {
-      final bool? ok = await _methods.invokeMethod<bool>('start', <String, String>{
-        'sessionId': sessionId,
-        'peerId': peerId,
-        'displayName': displayName,
-      });
+      final bool? ok = await _methods.invokeMethod<bool>(
+        'start',
+        <String, String>{
+          'sessionId': sessionId,
+          'peerId': peerId,
+          'displayName': displayName,
+        },
+      );
       return ok ?? false;
     } catch (_) {
       return false;
