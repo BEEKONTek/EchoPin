@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 class SessionPeer {
   const SessionPeer({
     required this.peerId,
@@ -78,11 +80,11 @@ class EchoSession {
 
   static String generateSessionCode() {
     const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final random = DateTime.now().microsecondsSinceEpoch;
+    final random = math.Random(DateTime.now().microsecondsSinceEpoch);
     final buffer = StringBuffer();
     for (var i = 0; i < 6; i++) {
-      final codePoint = (random + i * 131) % charset.length;
-      buffer.write(charset[codePoint]);
+      final index = random.nextInt(charset.length);
+      buffer.write(charset[index]);
     }
     return buffer.toString();
   }
@@ -92,21 +94,12 @@ class EchoSession {
     double boundaryRadiusM = 200,
     Duration sessionDuration = const Duration(hours: 8),
     String ownPeerId = 'local-peer',
-    Object? peers,
+    Map<String, SessionPeer>? peers,
   }) {
     final now = DateTime.now();
     final code = sessionId ?? generateSessionCode();
     final payload =
         'echopin://join?s=$code&exp=${now.add(sessionDuration).millisecondsSinceEpoch}';
-
-    final normalizedPeers = <String, SessionPeer>{};
-    if (peers is Map<String, SessionPeer>) {
-      normalizedPeers.addAll(peers);
-    } else if (peers is List<SessionPeer>) {
-      for (final peer in peers) {
-        normalizedPeers[peer.peerId] = peer;
-      }
-    }
 
     return EchoSession(
       sessionId: code,
@@ -115,7 +108,7 @@ class EchoSession {
       expiresAt: now.add(sessionDuration),
       boundaryRadiusM: boundaryRadiusM,
       status: SessionStatus.active,
-      peers: normalizedPeers,
+      peers: peers,
       ownPeerId: ownPeerId,
     );
   }
