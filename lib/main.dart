@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'models/session.dart';
+
 void main() {
   runApp(const EchoPinApp());
 }
@@ -16,7 +18,7 @@ class EchoPinApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF1E88E5),
+        colorSchemeSeed: const Color(0xFF0F6BFF),
         brightness: Brightness.light,
       ),
       home: const HomeScreen(),
@@ -32,7 +34,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _sessionCodeController = TextEditingController();
+  final TextEditingController _sessionCodeController = TextEditingController();
 
   @override
   void dispose() {
@@ -43,66 +45,77 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF4F7FB),
       body: SafeArea(
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 440),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.location_on_rounded,
-                    size: 90,
-                    color: Color(0xFF0F6BFF),
+                  Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F6BFF).withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.location_on_rounded,
+                      size: 64,
+                      color: Color(0xFF0F6BFF),
+                    ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 22),
                   const Text(
                     'EchoPinLocator',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 30,
+                      fontSize: 34,
                       fontWeight: FontWeight.w800,
+                      letterSpacing: -0.6,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   const Text(
-                    'Privacy-first, decentralized location sharing',
+                    'Privacy-first, decentralized P2P location sharing',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: Colors.black54),
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF526279),
+                    ),
                   ),
                   const SizedBox(height: 36),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
                       onPressed: () {
-                        final code = _generateSessionCode();
+                        final session = EchoSession.create(
+                          sessionId: _generateSessionCode(),
+                          boundaryRadiusM: 200,
+                          peers: [
+                            SessionPeer(
+                              peerId: 'peer-1',
+                              displayName: 'Alice',
+                              emoji: '🧡',
+                              relativeBearingDeg: 45,
+                              relativeDistanceM: 80,
+                            ),
+                            SessionPeer(
+                              peerId: 'peer-2',
+                              displayName: 'Tumi',
+                              emoji: '💙',
+                              relativeBearingDeg: 220,
+                              relativeDistanceM: 210,
+                              outsideBoundary: true,
+                            ),
+                          ],
+                        );
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => SessionScreen(
-                              session: EchoSession(
-                                sessionId: code,
-                                boundaryRadiusM: 200,
-                                peers: [
-                                  SessionPeer(
-                                    peerId: 'peer-1',
-                                    displayName: 'Alice',
-                                    emoji: '🧡',
-                                    relativeBearingDeg: 30,
-                                    relativeDistanceM: 90,
-                                  ),
-                                  SessionPeer(
-                                    peerId: 'peer-2',
-                                    displayName: 'Tumi',
-                                    emoji: '💙',
-                                    relativeBearingDeg: 200,
-                                    relativeDistanceM: 210,
-                                    outsideBoundary: true,
-                                  ),
-                                ],
-                              ),
-                            ),
+                            builder: (_) => SessionScreen(session: session),
                           ),
                         );
                       },
@@ -110,29 +123,29 @@ class _HomeScreenState extends State<HomeScreen> {
                       label: const Text('Create session'),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () {
-                        _showJoinDialog(context);
-                      },
+                      onPressed: () => _showJoinDialog(context),
                       icon: const Icon(Icons.qr_code_2_rounded),
                       label: const Text('Join via QR code'),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 22),
                   const Divider(),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 18),
                   TextField(
                     controller: _sessionCodeController,
                     textAlign: TextAlign.center,
+                    textCapitalization: TextCapitalization.characters,
                     decoration: const InputDecoration(
+                      hintText: 'ENTER SESSION CODE',
                       border: OutlineInputBorder(),
-                      hintText: 'Session code',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
                     child: TextButton(
@@ -140,23 +153,23 @@ class _HomeScreenState extends State<HomeScreen> {
                         final code = _sessionCodeController.text.trim();
                         if (code.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Enter a session code')),
+                            const SnackBar(content: Text('Enter a session code first.')),
                           );
                           return;
                         }
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => SessionScreen(
-                              session: EchoSession(
+                              session: EchoSession.create(
                                 sessionId: code,
                                 boundaryRadiusM: 200,
                                 peers: const [
                                   SessionPeer(
-                                    peerId: 'peer-3',
-                                    displayName: 'Jules',
-                                    emoji: '💚',
-                                    relativeBearingDeg: 120,
-                                    relativeDistanceM: 75,
+                                    peerId: 'manual-peer',
+                                    displayName: 'Nearby',
+                                    emoji: '📍',
+                                    relativeBearingDeg: 130,
+                                    relativeDistanceM: 60,
                                   ),
                                 ],
                               ),
@@ -183,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return AlertDialog(
           title: const Text('QR join'),
           content: const Text(
-            'QR join is a pending feature. This shell app supports manual session entry and continues the flow for the prototype.',
+            'QR join is implemented as a follow-on feature in the next phase. Manual code entry is available here for the working prototype.',
           ),
           actions: [
             TextButton(
@@ -207,77 +220,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class EchoSession {
-  EchoSession({
-    required this.sessionId,
-    required this.boundaryRadiusM,
-    required this.peers,
-  });
-
-  final String sessionId;
-  final double boundaryRadiusM;
-  final List<SessionPeer> peers;
-
-  List<SessionPeer> get activePeers =>
-      peers.where((peer) => !peer.isStale).toList()
-        ..sort((a, b) => a.relativeDistanceM.compareTo(b.relativeDistanceM));
-
-  bool get hasOutsidePeer => activePeers.any((peer) => peer.outsideBoundary);
-}
-
-class SessionPeer {
-  const SessionPeer({
-    required this.peerId,
-    required this.displayName,
-    required this.emoji,
-    required this.relativeBearingDeg,
-    required this.relativeDistanceM,
-    this.outsideBoundary = false,
-    this.lastSeen,
-  });
-
-  final String peerId;
-  final String displayName;
-  final String emoji;
-  final double relativeBearingDeg;
-  final double relativeDistanceM;
-  final bool outsideBoundary;
-  final DateTime? lastSeen;
-
-  bool get isStale {
-    final seen = lastSeen ?? DateTime.now();
-    return DateTime.now().difference(seen).inSeconds > 10;
-  }
-}
-
-class SessionScreen extends StatefulWidget {
+class SessionScreen extends StatelessWidget {
   const SessionScreen({super.key, required this.session});
 
   final EchoSession session;
 
   @override
-  State<SessionScreen> createState() => _SessionScreenState();
-}
-
-class _SessionScreenState extends State<SessionScreen> {
-  late double _boundaryRadius;
-
-  @override
-  void initState() {
-    super.initState();
-    _boundaryRadius = widget.session.boundaryRadiusM;
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final peers = widget.session.activePeers;
+    final peers = session.activePeers;
+    final hasOutsidePeer = peers.any((peer) => peer.outsideBoundary);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Session'),
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,35 +249,38 @@ class _SessionScreenState extends State<SessionScreen> {
                       const Text(
                         'Active session',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
+                          letterSpacing: 1,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        widget.session.sessionId,
+                        session.sessionId,
                         style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 4,
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      const Text('Expiry: 8 hours • mesh shell prototype'),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Boundary: ${session.boundaryRadiusM.round()} m • peers: ${peers.length}',
+                        style: const TextStyle(color: Color(0xFF526279)),
+                      ),
                     ],
                   ),
                 ),
               ),
-              if (widget.session.hasOutsidePeer)
+              if (hasOutsidePeer)
                 Container(
                   width: double.infinity,
-                  margin: const EdgeInsets.only(top: 18, bottom: 8),
+                  margin: const EdgeInsets.only(top: 14),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade100,
+                    color: Colors.red.shade50,
+                    border: Border.all(color: Colors.red.shade200),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.shade300),
                   ),
                   child: const Row(
                     children: [
@@ -337,86 +298,102 @@ class _SessionScreenState extends State<SessionScreen> {
                     ],
                   ),
                 ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 18),
               const Text(
                 'Boundary radius',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
-              Slider(
-                value: _boundaryRadius,
-                min: 50,
-                max: 500,
-                divisions: 45,
-                label: '${_boundaryRadius.round()} m',
-                onChanged: (value) {
-                  setState(() {
-                    _boundaryRadius = value;
-                  });
+              StatefulBuilder(
+                builder: (context, setState) {
+                  double radius = session.boundaryRadiusM;
+                  return Column(
+                    children: [
+                      Slider(
+                        value: radius,
+                        min: 50,
+                        max: 500,
+                        divisions: 45,
+                        label: '${radius.round()} m',
+                        onChanged: (value) {
+                          radius = value;
+                          setState(() {});
+                        },
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('50 m'),
+                          Text('${radius.round()} m'),
+                          const Text('500 m'),
+                        ],
+                      ),
+                    ],
+                  );
                 },
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('50 m'),
-                  Text('${_boundaryRadius.round()} m'),
-                  const Text('500 m'),
-                ],
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               SizedBox(
                 height: 260,
-                width: double.infinity,
                 child: Card(
                   child: Padding(
                     padding: const EdgeInsets.all(12),
-                    child: PinwheelWidget(
-                      radiusM: _boundaryRadius,
-                      peers: peers,
-                    ),
+                    child: PinwheelWidget(peers: peers),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               const Text(
                 'Peers',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: peers.length,
-                  itemBuilder: (context, index) {
-                    final peer = peers[index];
-                    final outside = peer.outsideBoundary;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: outside ? Colors.red.shade50 : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: outside ? Colors.red.shade200 : Colors.grey.shade300,
-                          ),
-                        ),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: outside ? Colors.red.shade100 : Colors.blue.shade100,
-                            child: Text(peer.emoji),
-                          ),
-                          title: Text(peer.displayName),
-                          subtitle: Text(
-                            '${peer.relativeDistanceM.round()} m away • ${peer.relativeBearingDeg.round()}°',
-                          ),
-                          trailing: Chip(
-                            backgroundColor: outside ? Colors.red.shade200 : Colors.green.shade200,
-                            label: Text(outside ? 'outside' : 'inside'),
-                          ),
+              if (peers.isEmpty)
+                const Text('No active peers.')
+              else
+                ...peers.map(
+                  (peer) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: peer.outsideBoundary ? Colors.red.shade50 : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: peer.outsideBoundary ? Colors.red.shade200 : Colors.grey.shade300,
                         ),
                       ),
-                    );
-                  },
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: peer.outsideBoundary ? Colors.red.shade100 : Colors.blue.shade100,
+                            child: Text(peer.emoji),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  peer.displayName,
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                                Text(
+                                  '${peer.relativeDistanceM.round()} m away • ${peer.relativeBearingDeg.round()}°',
+                                  style: const TextStyle(color: Color(0xFF526279)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Chip(
+                            label: Text(peer.outsideBoundary ? 'outside' : 'inside'),
+                            backgroundColor: peer.outsideBoundary ? Colors.red.shade200 : Colors.green.shade200,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -426,127 +403,109 @@ class _SessionScreenState extends State<SessionScreen> {
 }
 
 class PinwheelWidget extends StatelessWidget {
-  const PinwheelWidget({
-    super.key,
-    required this.radiusM,
-    required this.peers,
-  });
+  const PinwheelWidget({super.key, required this.peers});
 
-  final double radiusM;
   final List<SessionPeer> peers;
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: PinwheelPainter(radiusM: radiusM, peers: peers),
+      painter: PinwheelPainter(peers: peers),
       child: const SizedBox.expand(),
     );
   }
 }
 
 class PinwheelPainter extends CustomPainter {
-  PinwheelPainter({required this.radiusM, required this.peers});
+  PinwheelPainter({required this.peers});
 
-  final double radiusM;
   final List<SessionPeer> peers;
 
-  static const _palette = [
-    Color(0xFF4FC3F7),
-    Color(0xFF29B6F6),
-    Color(0xFF0288D1),
-    Color(0xFF5C6BC0),
-    Color(0xFF26A69A),
-    Color(0xFF66BB6A),
-    Color(0xFFFFA726),
-    Color(0xFFEF5350),
+  static const List<Color> _palette = [
+    Color(0xFF0F6BFF),
+    Color(0xFF00A7A7),
+    Color(0xFF7C4DFF),
+    Color(0xFF3ECF8E),
+    Color(0xFFFF9F1C),
+    Color(0xFFEC407A),
+    Color(0xFF78909C),
+    Color(0xFF26C6DA),
   ];
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final outer = math.min(size.width, size.height) / 2 - 10;
+    final outer = math.min(size.width, size.height) / 2 - 8;
 
-    final backgroundPaint = Paint()..color = const Color(0xFFF5F9FF);
-    canvas.drawCircle(center, outer, backgroundPaint);
+    canvas.drawCircle(
+      center,
+      outer,
+      Paint()..color = const Color(0xFFF3F8FF),
+    );
 
-    final ringPaint = Paint()
-      ..color = const Color(0xFFB5D6FF)
+    final ring = Paint()
+      ..color = const Color(0xFFBFD8FF)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
-    canvas.drawCircle(center, outer, ringPaint);
+    canvas.drawCircle(center, outer, ring);
 
-    final boundaryPixels = _distanceToPx(radiusM, outer);
-    final boundaryPaint = Paint()
-      ..color = const Color(0xFF66A9FF)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round;
-    canvas.drawCircle(center, boundaryPixels, boundaryPaint);
-
-    final labels = ['N', 'E', 'S', 'W'];
-    final labelR = outer - 18;
+    const labels = ['N', 'E', 'S', 'W'];
+    final labelRadius = outer - 18;
     for (var i = 0; i < labels.length; i++) {
       final angle = (i * 90 - 90) * math.pi / 180;
-      final marker = Offset(
-        center.dx + labelR * math.cos(angle),
-        center.dy + labelR * math.sin(angle),
+      final point = Offset(
+        center.dx + labelRadius * math.cos(angle),
+        center.dy + labelRadius * math.sin(angle),
       );
       final textPainter = TextPainter(
         text: TextSpan(
           text: labels[i],
           style: const TextStyle(
-            color: Colors.blueGrey,
-            fontSize: 12,
+            color: Color(0xFF526279),
             fontWeight: FontWeight.w700,
+            fontSize: 12,
           ),
         ),
-        textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
       )..layout();
       textPainter.paint(
         canvas,
-        marker - Offset(textPainter.width / 2, textPainter.height / 2),
+        point - Offset(textPainter.width / 2, textPainter.height / 2),
       );
     }
 
     for (var i = 0; i < peers.length; i++) {
       final peer = peers[i];
       final angle = (peer.relativeBearingDeg - 90) * math.pi / 180;
-      final distancePx = _distanceToPx(peer.relativeDistanceM, outer);
-      final armEnd = Offset(
+      final distancePx = _distanceToPixels(peer.relativeDistanceM, outer);
+      final end = Offset(
         center.dx + distancePx * math.cos(angle),
         center.dy + distancePx * math.sin(angle),
       );
 
-      final paint = Paint()
+      final armPaint = Paint()
         ..color = _palette[i % _palette.length]
         ..style = PaintingStyle.stroke
-        ..strokeWidth = peer.outsideBoundary ? 2.4 : 1.8
+        ..strokeWidth = peer.outsideBoundary ? 2.5 : 1.8
         ..strokeCap = StrokeCap.round;
-
-      canvas.drawLine(center, armEnd, paint);
+      canvas.drawLine(center, end, armPaint);
 
       final dotPaint = Paint()
         ..color = _palette[i % _palette.length]
         ..style = PaintingStyle.fill;
-      canvas.drawCircle(
-        armEnd,
-        peer.outsideBoundary ? 8 : 6,
-        dotPaint,
-      );
+      canvas.drawCircle(end, peer.outsideBoundary ? 8 : 6, dotPaint);
 
-      final labelOffset = Offset(
-        center.dx + (distancePx + 14) * math.cos(angle),
-        center.dy + (distancePx + 14) * math.sin(angle),
-      );
       final labelPainter = TextPainter(
         text: TextSpan(
           text: peer.emoji,
           style: const TextStyle(fontSize: 14),
         ),
-        textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
       )..layout();
+      final labelOffset = Offset(
+        center.dx + (distancePx + 14) * math.cos(angle),
+        center.dy + (distancePx + 14) * math.sin(angle),
+      );
       labelPainter.paint(
         canvas,
         labelOffset - Offset(labelPainter.width / 2, labelPainter.height / 2),
@@ -554,14 +513,14 @@ class PinwheelPainter extends CustomPainter {
     }
   }
 
-  double _distanceToPx(double distanceM, double maxPx) {
-    final clamped = distanceM.clamp(0.0, radiusM).toDouble();
-    final scale = (maxPx - 20) / radiusM;
+  double _distanceToPixels(double distanceM, double maxPx) {
+    final clamped = distanceM.clamp(0.0, 500.0).toDouble();
+    final scale = (maxPx - 20) / 500;
     return 20 + clamped * scale;
   }
 
   @override
   bool shouldRepaint(covariant PinwheelPainter oldDelegate) {
-    return oldDelegate.radiusM != radiusM || oldDelegate.peers.length != peers.length;
+    return oldDelegate.peers.length != peers.length;
   }
 }
