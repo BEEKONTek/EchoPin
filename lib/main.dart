@@ -3,17 +3,21 @@ import 'package:echo_pin/providers/alert_scope.dart';
 import 'package:echo_pin/providers/session_provider.dart';
 import 'package:echo_pin/providers/session_scope.dart';
 import 'package:echo_pin/screens/home_screen.dart';
+import 'package:echo_pin/services/bootstrap.dart';
 import 'package:echo_pin/services/haptic_service.dart';
-import 'package:echo_pin/services/noop_notification_backend.dart';
 import 'package:echo_pin/services/notification_service.dart';
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const EchoPinApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final Bootstrap bootstrap = await Bootstrap.initialize();
+  runApp(EchoPinApp(bootstrap: bootstrap));
 }
 
 class EchoPinApp extends StatefulWidget {
-  const EchoPinApp({super.key});
+  const EchoPinApp({super.key, required this.bootstrap});
+
+  final Bootstrap bootstrap;
 
   @override
   State<EchoPinApp> createState() => _EchoPinAppState();
@@ -28,14 +32,17 @@ class _EchoPinAppState extends State<EchoPinApp> {
     super.initState();
     final NotificationService notifications = NotificationService(
       alertsEnabled: () => true,
-      backend: const NoopNotificationBackend(),
+      backend: widget.bootstrap.notifications,
     );
     final HapticService haptics = HapticService(isEnabled: () => true);
     _alertProvider = AlertProvider(
       notifications: notifications,
       haptics: haptics,
     );
-    _sessionProvider = SessionProvider(alertProvider: _alertProvider);
+    _sessionProvider = SessionProvider(
+      alertProvider: _alertProvider,
+      sessionCodec: widget.bootstrap.codec,
+    );
   }
 
   @override

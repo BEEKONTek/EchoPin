@@ -2,9 +2,9 @@ name: Lint & Analyze
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, deepseek-mvp]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, deepseek-mvp]
 
 jobs:
   analyze:
