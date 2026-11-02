@@ -11,4 +11,5 @@ jobs:
     name: CI Summary
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Individual checks: build.yml (APK + web), lint.yml (analyze), test.yml (unit + widget)"
+      - name: Note
+        run: echo see dedicated workflow runs
