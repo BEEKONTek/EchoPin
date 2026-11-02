@@ -4,83 +4,37 @@ on:
   push:
     branches: [main, develop, deepseek-mvp]
   pull_request:
-    branches: [main, develop, deepseek-mvp]
+    branches: [main, develop]
 
 jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.1'
-          channel: 'stable'
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Build APK
-        run: flutter build apk --split-per-abi
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --debug
+      - uses: actions/upload-artifact@v4
         with:
           name: echopin-apk
           path: build/app/outputs/flutter-apk/
 
-  build-ios:
-    name: Build iOS (Archive)
-    runs-on: macos-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.44.1'
-          channel: 'stable'
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Build iOS (no-codesign)
-        run: flutter build ios --no-codesign
-
-      - name: Upload iOS build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: echopin-ios
-          path: build/ios/
-
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.1'
-          channel: 'stable'
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Build Web
-        run: flutter build web
-
-      - name: Upload Web artifact
-        uses: actions/upload-artifact@v4
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build web
+      - uses: actions/upload-artifact@v4
         with:
           name: echopin-web
           path: build/web/

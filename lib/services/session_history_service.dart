@@ -18,8 +18,9 @@ class SessionHistoryService {
     try {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
       return list
-          .map((dynamic e) =>
-              SessionSummary.fromJson(e as Map<String, dynamic>))
+          .map(
+            (dynamic e) => SessionSummary.fromJson(e as Map<String, dynamic>),
+          )
           .toList();
     } catch (_) {
       return <SessionSummary>[];
@@ -30,8 +31,7 @@ class SessionHistoryService {
   Future<void> record(SessionSummary summary) async {
     // Defensive copy: load() may return a fixed-size or unmodifiable list in
     // the future; record() must be free to mutate its working set.
-    final List<SessionSummary> existing =
-        List<SessionSummary>.of(await load());
+    final List<SessionSummary> existing = List<SessionSummary>.of(await load());
     existing.removeWhere((SessionSummary s) => s.id == summary.id);
     existing.insert(0, summary);
     if (existing.length > _maxEntries) {

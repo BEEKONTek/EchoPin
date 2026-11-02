@@ -41,11 +41,7 @@ class LocationEngine {
     required double rawDistanceMeters,
     double noiseSigma = 7,
   }) {
-    return clamp(
-      applyNoise(rawDistanceMeters, sigma: noiseSigma),
-      0,
-      10000,
-    );
+    return clamp(applyNoise(rawDistanceMeters, sigma: noiseSigma), 0, 10000);
   }
 
   List<PeerPresence> createDemoPeers() {

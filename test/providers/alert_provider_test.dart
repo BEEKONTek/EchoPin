@@ -66,11 +66,9 @@ void main() {
     });
 
     test('exiting peer triggers medium haptic', () async {
-      provider.handleCrossing(_alert(
-        id: 'a',
-        peerId: 'p1',
-        direction: CrossingDirection.exited,
-      ));
+      provider.handleCrossing(
+        _alert(id: 'a', peerId: 'p1', direction: CrossingDirection.exited),
+      );
       await Future<void>.microtask(() {});
 
       expect(haptics.mediumCount, 1);

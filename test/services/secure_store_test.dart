@@ -82,15 +82,17 @@ void main() {
       expect(await kv.read('echo_pin.install_secret_v1'), legacy);
     });
 
-    test('does not touch prefs when the backend is already PrefsKvStore',
-        () async {
-      const String existing = 'existing-secret-of-sufficient-len-here-123';
-      SharedPreferences.setMockInitialValues(<String, Object>{
-        'echo_pin.install_secret_v1': existing,
-      });
-      final SecureStore store = SecureStore(kv: PrefsKvStore());
-      final String secret = await store.getOrCreateSecret();
-      expect(secret, existing);
-    });
+    test(
+      'does not touch prefs when the backend is already PrefsKvStore',
+      () async {
+        const String existing = 'existing-secret-of-sufficient-len-here-123';
+        SharedPreferences.setMockInitialValues(<String, Object>{
+          'echo_pin.install_secret_v1': existing,
+        });
+        final SecureStore store = SecureStore(kv: PrefsKvStore());
+        final String secret = await store.getOrCreateSecret();
+        expect(secret, existing);
+      },
+    );
   });
 }

@@ -16,15 +16,15 @@ class HomeScreen extends StatelessWidget {
       await start(provider);
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not start session: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not start session: $e')));
       return;
     }
     if (!context.mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const SessionScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const SessionScreen()));
   }
 
   @override

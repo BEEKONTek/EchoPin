@@ -27,8 +27,7 @@ class _SessionScreenState extends State<SessionScreen> {
       );
     }
 
-    final double displayRadius =
-        _dragRadius ?? session.boundaryRadiusMeters;
+    final double displayRadius = _dragRadius ?? session.boundaryRadiusMeters;
 
     return Scaffold(
       appBar: AppBar(
@@ -62,10 +61,7 @@ class _SessionScreenState extends State<SessionScreen> {
             const SizedBox(height: 12),
             Text(
               'Boundary radius: ${session.boundaryRadiusMeters.round()} m',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             Slider(
               value: displayRadius,

@@ -37,8 +37,8 @@ class Session {
     this.boundaryRadiusMeters = 150,
     List<PeerPresence>? peers,
     DateTime? createdAt,
-  })  : createdAt = createdAt ?? DateTime.now(),
-        peers = peers ?? <PeerPresence>[];
+  }) : createdAt = createdAt ?? DateTime.now(),
+       peers = peers ?? <PeerPresence>[];
 
   final String id;
   final String name;

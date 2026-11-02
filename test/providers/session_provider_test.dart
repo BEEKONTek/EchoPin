@@ -24,8 +24,9 @@ void main() {
     late SessionProvider provider;
 
     setUp(() {
-      final NotificationService notifications =
-          NotificationService(alertsEnabled: () => true);
+      final NotificationService notifications = NotificationService(
+        alertsEnabled: () => true,
+      );
       alerts = AlertProvider(
         notifications: notifications,
         haptics: _NoopHaptics(),
@@ -42,8 +43,10 @@ void main() {
     });
 
     test('createSession stores an active session with a valid id', () async {
-      final Session session =
-          await provider.createSession(name: 'Test', boundaryRadiusMeters: 50);
+      final Session session = await provider.createSession(
+        name: 'Test',
+        boundaryRadiusMeters: 50,
+      );
       expect(session.id.length, 8);
       expect(provider.session, isNotNull);
       expect(provider.session!.name, 'Test');
@@ -117,16 +120,18 @@ void main() {
       provider.leaveSession();
     });
 
-    test('updateBoundaryRadius updates session radius without alerts',
-        () async {
-      await provider.createSession(name: 'Test', boundaryRadiusMeters: 150);
-      provider.updateBoundaryRadius(200);
-      await Future<void>.microtask(() {});
+    test(
+      'updateBoundaryRadius updates session radius without alerts',
+      () async {
+        await provider.createSession(name: 'Test', boundaryRadiusMeters: 150);
+        provider.updateBoundaryRadius(200);
+        await Future<void>.microtask(() {});
 
-      expect(provider.session!.boundaryRadiusMeters, 200);
-      expect(alerts.active, isEmpty);
-      provider.leaveSession();
-    });
+        expect(provider.session!.boundaryRadiusMeters, 200);
+        expect(alerts.active, isEmpty);
+        provider.leaveSession();
+      },
+    );
 
     test('leaveSession clears session and alerts', () async {
       await provider.createSession(name: 'Test', boundaryRadiusMeters: 50);

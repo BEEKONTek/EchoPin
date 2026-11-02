@@ -11,7 +11,7 @@ import 'key_value_store.dart';
 /// crashing the caller.
 class SecureStorageKvStore implements KeyValueStore {
   SecureStorageKvStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
 

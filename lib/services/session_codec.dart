@@ -49,9 +49,10 @@ class SessionCodec {
     final String trimmed = code.trim();
     if (trimmed.isEmpty) return null;
 
-    final String normalized = trimmed
-        .toUpperCase()
-        .replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    final String normalized = trimmed.toUpperCase().replaceAll(
+      RegExp(r'[^A-Z0-9]'),
+      '',
+    );
     if (!normalized.startsWith(_prefix)) {
       return lenient ? trimmed : null;
     }
