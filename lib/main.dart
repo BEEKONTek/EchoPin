@@ -5,6 +5,7 @@ import 'package:echo_pin/providers/session_scope.dart';
 import 'package:echo_pin/screens/home_screen.dart';
 import 'package:echo_pin/services/bootstrap.dart';
 import 'package:echo_pin/services/haptic_service.dart';
+import 'package:echo_pin/services/method_channel_ble_bridge.dart';
 import 'package:echo_pin/services/notification_service.dart';
 import 'package:flutter/material.dart';
 
@@ -42,6 +43,9 @@ class _EchoPinAppState extends State<EchoPinApp> {
     _sessionProvider = SessionProvider(
       alertProvider: _alertProvider,
       sessionCodec: widget.bootstrap.codec,
+      bleBridge: widget.bootstrap.usingRealBle
+          ? MethodChannelBleBridge()
+          : null,
     );
   }
 

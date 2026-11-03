@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:echo_pin/models/session.dart';
+import 'package:echo_pin/services/ble_mesh_transport.dart';
 import 'package:flutter/foundation.dart';
 
-/// Simulates a mesh transport by jittering peers over time.
-///
-/// Real BLE transport plugs in later via the same stream interface
-/// ([peerUpdates]) — nothing above this class knows how peers are sourced.
+enum TransportMode { none, simulated, ble }
+
+/// Owns the peer-presence stream. Can be driven by simulation (jitter) or by
+/// a real [BleMeshTransport]. Session factories are transport-agnostic — the
+/// caller decides which stream source to start.
 class MeshService {
   MeshService({Random? random}) : _random = random ?? Random();
 
@@ -15,12 +17,16 @@ class MeshService {
   final StreamController<List<PeerPresence>> _peerUpdates =
       StreamController<List<PeerPresence>>.broadcast();
   Timer? _ticker;
+  BleMeshTransport? _bleTransport;
+  StreamSubscription<List<PeerPresence>>? _bleSubscription;
   List<PeerPresence> _currentPeers = <PeerPresence>[];
+  TransportMode _mode = TransportMode.none;
 
   Stream<List<PeerPresence>> get peerUpdates => _peerUpdates.stream;
   List<PeerPresence> get currentPeers =>
       List<PeerPresence>.unmodifiable(_currentPeers);
-  bool get isStreaming => _ticker != null;
+  bool get isStreaming => _mode != TransportMode.none;
+  TransportMode get mode => _mode;
 
   Session createSession({
     required String id,
@@ -54,29 +60,45 @@ class MeshService {
     );
   }
 
-  void startStreaming({Duration interval = const Duration(seconds: 2)}) {
+  void startSimulated({Duration interval = const Duration(seconds: 2)}) {
     stopStreaming();
+    _mode = TransportMode.simulated;
     _ticker = Timer.periodic(interval, (_) => _tick());
+  }
+
+  Future<bool> startBle({required BleMeshTransport transport}) async {
+    stopStreaming();
+    final bool ok = await transport.start();
+    if (!ok) return false;
+    _bleTransport = transport;
+    _bleSubscription = transport.peerUpdates.listen((List<PeerPresence> peers) {
+      _currentPeers = peers;
+      if (!_peerUpdates.isClosed) _peerUpdates.add(peers);
+    });
+    _mode = TransportMode.ble;
+    return true;
   }
 
   void stopStreaming() {
     _ticker?.cancel();
     _ticker = null;
+    _bleSubscription?.cancel();
+    _bleSubscription = null;
+    _bleTransport?.stop();
+    _bleTransport = null;
+    _mode = TransportMode.none;
   }
 
   void _tick() {
     if (_currentPeers.isEmpty) return;
     _currentPeers = _currentPeers.map((PeerPresence p) {
       final double newDistance =
-          (p.distanceMeters + (_random.nextDouble() - 0.5) * 50).clamp(
-            0.0,
-            500.0,
-          );
+          (p.distanceMeters + (_random.nextDouble() - 0.5) * 50)
+              .clamp(0.0, 500.0);
       final double rawBearing =
           p.bearingDegrees + (_random.nextDouble() - 0.5) * 20;
-      final double newBearing = rawBearing < 0
-          ? rawBearing + 360
-          : rawBearing % 360;
+      final double newBearing =
+          rawBearing < 0 ? rawBearing + 360 : rawBearing % 360;
       return p.copyWith(
         distanceMeters: newDistance,
         bearingDegrees: newBearing,
