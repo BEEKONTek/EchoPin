@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   push:
     branches: [ deepseek-mvp ]
-  workflow_dispatch: # Allows you to trigger it manually from GitHub
+  workflow_dispatch:
 
 jobs:
   build:
@@ -20,31 +20,18 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
+          flutter-version: '3.47.9'
           channel: 'stable'
           cache: true
-
-      - name: Decode Keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
-
-      - name: Create key.properties
-        run: |
-          cat > android/key.properties << EOF
-          storePassword=${{ secrets.STORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=upload-keystore.jks
-          EOF
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Release APK
-        run: flutter build apk --release
+      - name: Build Debug APK
+        run: flutter build apk --debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: EchoPin-Release-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: EchoPin-Debug-APK
+          path: build/app/outputs/flutter-apk/app-debug.apk

@@ -59,16 +59,25 @@ class SessionProvider extends ChangeNotifier {
   MeshService get meshService => _meshService;
   SessionCodec get sessionCodec => _sessionCodec;
   TransportMode get transportMode => _meshService.mode;
-  List<SessionSummary> get history =>
-      List<SessionSummary>.unmodifiable(_history);
+  List<SessionSummary> get history => List<SessionSummary>.unmodifiable(_history);
 
   Future<Session> createSession({
     required String name,
     double? boundaryRadiusMeters,
+    bool forceSimulation = false,
   }) async {
     final String id = _sessionCodec.generateId();
-    final Session? bleSession = await _tryBle(id, name,
-        sessionName: null, boundaryRadiusMeters: boundaryRadiusMeters);
+
+    if (forceSimulation) {
+      return _startSimulated(id, name, null, boundaryRadiusMeters);
+    }
+
+    final Session? bleSession = await _tryBle(
+      id,
+      name,
+      sessionName: null,
+      boundaryRadiusMeters: boundaryRadiusMeters,
+    );
     if (bleSession != null) return bleSession;
     return _startSimulated(id, name, null, boundaryRadiusMeters);
   }
@@ -77,15 +86,35 @@ class SessionProvider extends ChangeNotifier {
     required String sessionName,
     String? sessionId,
     double? boundaryRadiusMeters,
+    bool forceSimulation = false,
   }) async {
     final String id = sessionId ?? _sessionCodec.generateId();
-    final Session? bleSession = await _tryBle(id, sessionName,
-        sessionName: sessionName,
-        boundaryRadiusMeters: boundaryRadiusMeters,
-        isJoin: true);
+
+    if (forceSimulation) {
+      return _startSimulated(
+        id,
+        sessionName,
+        sessionName,
+        boundaryRadiusMeters,
+        isJoin: true,
+      );
+    }
+
+    final Session? bleSession = await _tryBle(
+      id,
+      sessionName,
+      sessionName: sessionName,
+      boundaryRadiusMeters: boundaryRadiusMeters,
+      isJoin: true,
+    );
     if (bleSession != null) return bleSession;
-    return _startSimulated(id, sessionName, sessionName, boundaryRadiusMeters,
-        isJoin: true);
+    return _startSimulated(
+      id,
+      sessionName,
+      sessionName,
+      boundaryRadiusMeters,
+      isJoin: true,
+    );
   }
 
   Future<Session?> _tryBle(
@@ -99,8 +128,6 @@ class SessionProvider extends ChangeNotifier {
     final bool granted = await _permissionService.request();
     if (!granted) return null;
 
-    // peerId is DISTINCT from sessionId so both devices advertise different
-    // 16-byte payloads; otherwise each filters the other as "self".
     final String myPeerId = _sessionCodec.generateId();
     final Session session = isJoin
         ? _meshService.joinSession(

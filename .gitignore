@@ -50,3 +50,5 @@ android/keystore/*.jks
 keystore_base64.txt
 .flutter-plugins
 *.html
+keystore_base64.txt
+.flutter-plugins
