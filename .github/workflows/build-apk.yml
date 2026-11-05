@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android Debug APK
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.9'
+          flutter-version: '3.24.5'
           channel: 'stable'
           cache: true
 
@@ -33,5 +33,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: EchoPin-Debug-APK
+          name: EchoPin-Demo-APK
           path: build/app/outputs/flutter-apk/app-debug.apk

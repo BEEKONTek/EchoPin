@@ -5,7 +5,6 @@ import 'package:echo_pin/providers/session_scope.dart';
 import 'package:echo_pin/screens/home_screen.dart';
 import 'package:echo_pin/services/bootstrap.dart';
 import 'package:echo_pin/services/haptic_service.dart';
-import 'package:echo_pin/services/method_channel_ble_bridge.dart';
 import 'package:echo_pin/services/notification_service.dart';
 import 'package:flutter/material.dart';
 
@@ -17,7 +16,6 @@ Future<void> main() async {
 
 class EchoPinApp extends StatefulWidget {
   const EchoPinApp({super.key, required this.bootstrap});
-
   final Bootstrap bootstrap;
 
   @override
@@ -43,9 +41,7 @@ class _EchoPinAppState extends State<EchoPinApp> {
     _sessionProvider = SessionProvider(
       alertProvider: _alertProvider,
       sessionCodec: widget.bootstrap.codec,
-      bleBridge: widget.bootstrap.usingRealBle
-          ? MethodChannelBleBridge()
-          : null,
+      bleBridge: null, // BLE Disabled for Demo Build
     );
   }
 
@@ -66,9 +62,7 @@ class _EchoPinAppState extends State<EchoPinApp> {
           title: 'EchoPin',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF2563EB),
-            ),
+            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
             useMaterial3: true,
           ),
           home: const HomeScreen(),

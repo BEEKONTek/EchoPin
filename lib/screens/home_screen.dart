@@ -2,57 +2,24 @@ import 'package:echo_pin/providers/session_scope.dart';
 import 'package:flutter/material.dart';
 import 'session_screen.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
 
-class _HomeScreenState extends State<HomeScreen> {
-  final _codeController = TextEditingController();
-
-  @override
-  void dispose() {
-    _codeController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _start(
-    BuildContext context, {
-    required bool isJoin,
-    bool forceSim = false,
-  }) async {
+  Future<void> _startDemo(BuildContext context) async {
     final provider = SessionScope.read(context);
-
     try {
-      if (isJoin) {
-        final code = _codeController.text.trim();
-        if (code.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please enter a code')),
-          );
-          return;
-        }
-
-        await provider.joinSession(
-          sessionName: 'Joined Session',
-          sessionId: code.toUpperCase(),
-          forceSimulation: forceSim,
-        );
-      } else {
-        await provider.createSession(
-          name: 'Host Session',
-          forceSimulation: forceSim,
+      await provider.createSession(
+        name: 'Demo Session',
+        forceSimulation: true,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error starting demo: $e')),
         );
       }
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
       return;
     }
-
     if (!context.mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const SessionScreen()),
@@ -64,56 +31,36 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('EchoPin'), centerTitle: true),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: <Widget>[
-              const Icon(Icons.location_on, size: 64, color: Colors.blue),
-              const SizedBox(height: 16),
-              const Text(
-                'Privacy-first presence',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                const Icon(Icons.location_on, size: 80, color: Colors.blue),
+                const SizedBox(height: 24),
+                const Text(
+                  'EchoPin Demo',
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                 ),
-                onPressed: () => _start(context, isJoin: false),
-                icon: const Icon(Icons.bluetooth),
-                label: const Text('Create Live Session (Host)'),
-              ),
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 24),
-              TextField(
-                controller: _codeController,
-                textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
-                  labelText: 'Enter Session Code (to Join)',
-                  border: OutlineInputBorder(),
-                  hintText: 'ECHO-XXXX-XXXX-YY',
+                const SizedBox(height: 12),
+                const Text(
+                  'A privacy-first peer presence simulation.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.black54),
                 ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50),
+                const SizedBox(height: 48),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _startDemo(context),
+                    icon: const Icon(Icons.play_circle_outline),
+                    label: const Text('Start Demo', style: TextStyle(fontSize: 18)),
+                  ),
                 ),
-                onPressed: () => _start(context, isJoin: true),
-                icon: const Icon(Icons.login),
-                label: const Text('Join Live Session (Peer)'),
-              ),
-              const SizedBox(height: 32),
-              TextButton.icon(
-                onPressed: () => _start(context, isJoin: false, forceSim: true),
-                icon: const Icon(Icons.play_circle_outline, color: Colors.green),
-                label: const Text(
-                  'Presenter Safety Net (Demo Mode)',
-                  style: TextStyle(color: Colors.green),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
