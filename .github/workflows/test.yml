@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Unit and Widget Tests
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,15 +22,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.47.9'
+          flutter-version: '3.24.5'
           cache: true
 
       - run: flutter pub get
-      - run: flutter test --coverage
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          fail_ci_if_error: false
-          files: ./coverage/lcov.info
-        continue-on-error: true
+      - run: flutter test
