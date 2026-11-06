@@ -6,6 +6,24 @@ EchoPin is designed with **privacy-first principles**: no servers, no accounts, 
 
 ---
 
+## Implementation status (protocol v2)
+
+How each attack below is handled in the shipped code. The wire format is
+specified in `PROTOCOL.md`.
+
+| Attack | Status in v2 |
+| --- | --- |
+| 1. Eavesdropping location | No coordinates exist anywhere. Distance is measured locally from RSSI; every message is XChaCha20-Poly1305 encrypted, including its type. |
+| 2. Replay | Per-sender 64-message replay window plus a ±2 min timestamp check. Tested. |
+| 3. Impersonation | Ed25519 signatures; sender id derived from the key and pinned on first use; a key change for a known id raises a security tray. Safety codes allow in-person verification. Tested. |
+| 4. Flooding | Token bucket per sender (5, refill 1 / 500 ms), 20-member cap, 1 KiB body and 32-recipient limits, check-in cooldown. Tested. |
+| 5. Timing inference | Not mitigated beyond privacy noise on displayed distances. |
+| 6. BLE address tracking | The public session id and an 8-character per-session peer id are advertised. Peer ids are fresh per session, so devices are not linkable across sessions; within a session they are. |
+| 7. GPS jamming | Not applicable: GPS is not used. |
+| Spoofed BLE sightings | Unconfirmed sightings are shown as such, never trigger alerts, and cannot be pinged until a signed message proves identity. |
+| Hostile names / notes | Control and bidi-override characters stripped, lengths capped. Tested. |
+| Code leakage | Out of scope by design: whoever has the code is a member. No forward secrecy within a session (see `PROTOCOL.md` §8). |
+
 ## Threat Model Framework
 
 ### STRIDE Analysis

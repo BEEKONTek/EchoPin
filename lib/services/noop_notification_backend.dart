@@ -7,8 +7,17 @@ class NoopNotificationBackend implements NotificationBackend {
   const NoopNotificationBackend();
 
   @override
+  String get name => 'In-app only';
+
+  @override
   Future<void> initialize() async {}
 
   @override
+  Future<void> requestPermissions() async {}
+
+  @override
   Future<void> showBoundaryAlert(BoundaryAlert alert) async {}
+
+  @override
+  Future<void> showNotice(LocalNotice notice) async {}
 }

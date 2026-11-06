@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] — 2026-11-06
+
+Protocol v2. Breaking: v1 invite codes no longer work; old entries are
+hidden from Recent sessions.
+
+### Added
+- **Encrypted, signed messaging** (`docs/PROTOCOL.md`): session key from the
+  invite code via HKDF-SHA256, XChaCha20-Poly1305 envelopes, per-session
+  Ed25519 identities, key-derived and pinned peer ids, replay window, clock
+  skew check, per-sender rate limits, 20-member cap.
+- **Pings**: check in with selected people or everyone; answers *I'm OK*,
+  *On my way*, *Need help*; delivery receipts and retries; press-and-hold
+  **SOS** that reaches late joiners and resolves everywhere on *I'm safe*.
+- **Wi-Fi / hotspot transport** (Bonjour + TCP) alongside Bluetooth.
+- **Bluetooth GATT messaging** in the Android and iOS plugins, adapter-state
+  events, and an in-app request to turn Bluetooth on.
+- **QR scanning** for invites, paste from clipboard, `echopin://join` links.
+- **Safety codes** for in-person verification.
+- **Status trays** for Bluetooth off / denied / blocked, no Wi-Fi, nobody
+  reachable, and security warnings, each with a one-tap fix where possible.
+- **Animated tray UI**: draggable people sheet with cards that slide in and
+  out, animated recent sessions, rounded alert trays, SOS halo on the
+  pinwheel, side panel on wide screens.
+- Display name setting; Bluetooth and Wi-Fi radio switches in admin.
+- Integration test over real Bonjour and TCP.
+
+### Changed
+- Invite codes are `ECHO-XXXX-XXXX-XXXX-XXXX-CC` with a keyless checksum, so
+  any device can validate them (v1 checksums only worked on the device that
+  made the code).
+- Recent sessions, which contain invite codes, are stored in the OS keystore.
+- Demo mode runs the real protocol with simulated people; real sessions never
+  show simulated people.
+- Android Gradle Plugin 8.9.1, Gradle 8.11.1, Kotlin 2.2.20; Flutter 3.38+.
+
+### Fixed
+- Teardown no longer awaits broadcast-stream cancellation (hung under
+  FakeAsync).
+- Wi-Fi socket write errors are handled instead of escaping as unhandled
+  errors.
+
+## [0.2.0] — 2026-11-05
+
+### Added
+- PIN-protected admin system, settings, privacy noise, drag-to-set pinwheel,
+  QR display, session history. Build fixes for every platform.
+
 ## [0.1.0] — 2026-06-15 (MVP Alpha)
 
 ### Added

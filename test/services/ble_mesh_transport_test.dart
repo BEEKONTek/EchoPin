@@ -1,205 +1,186 @@
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:echo_pin/core/echo_error.dart';
 import 'package:echo_pin/models/session.dart';
 import 'package:echo_pin/services/ble_mesh_transport.dart';
 import 'package:echo_pin/services/platform_ble_bridge.dart';
+import 'package:echo_pin/transport/message_transport.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _FakeBridge implements PlatformBleBridge {
-  final StreamController<BlePeerEvent> _events =
-      StreamController<BlePeerEvent>.broadcast();
-  bool started = false;
-  String? lastSessionId;
-  String? lastPeerId;
+import '../helpers/fake_ble_bridge.dart';
 
-  @override
-  Stream<BlePeerEvent> get peerEvents => _events.stream;
-
-  @override
-  Future<bool> isAvailable() async => true;
-
-  @override
-  Future<bool> start({
-    required String sessionId,
-    required String peerId,
-    required String displayName,
-  }) async {
-    lastSessionId = sessionId;
-    lastPeerId = peerId;
-    started = true;
-    return true;
-  }
-
-  @override
-  Future<void> stop() async {
-    started = false;
-  }
-
-  @override
-  Future<void> injectPeer(PeerPresence peer) async {}
-
-  @override
-  Future<void> dispose() async {
-    if (!_events.isClosed) await _events.close();
-  }
-
-  void emit(BlePeerEvent e) => _events.add(e);
-}
-
-class _DenyBridge implements PlatformBleBridge {
-  @override
-  Stream<BlePeerEvent> get peerEvents => const Stream<BlePeerEvent>.empty();
-
-  @override
-  Future<bool> isAvailable() async => false;
-
-  @override
-  Future<bool> start({
-    required String sessionId,
-    required String peerId,
-    required String displayName,
-  }) async =>
-      false;
-
-  @override
-  Future<void> stop() async {}
-
-  @override
-  Future<void> injectPeer(PeerPresence peer) async {}
-
-  @override
-  Future<void> dispose() async {}
-}
-
-BlePeerEvent _event(String peerId, double distance) {
-  return BlePeerEvent(
-    peerId: peerId,
-    displayName: 'Peer $peerId',
-    distanceMeters: distance,
-    rssi: -60,
-    lastSeen: DateTime.now(),
-  );
-}
+Future<void> _settle() => Future<void>.delayed(const Duration(milliseconds: 5));
 
 void main() {
-  group('BleMeshTransport', () {
-    test('start returns false when bridge refuses', () async {
-      final _DenyBridge deny = _DenyBridge();
-      final BleMeshTransport t = BleMeshTransport(
-        bridge: deny,
-        sessionId: 'ABCD1234',
-        peerId: 'EFGH5678',
-      );
-      expect(await t.start(), isFalse);
-      await t.dispose();
-    });
+  late FakeBleBridge bridge;
 
-    test('start passes session and peer ids to bridge', () async {
-      final _FakeBridge bridge = _FakeBridge();
-      final BleMeshTransport t = BleMeshTransport(
-        bridge: bridge,
-        sessionId: 'ABCD1234',
-        peerId: 'EFGH5678',
-      );
-      expect(await t.start(), isTrue);
-      expect(bridge.started, isTrue);
-      expect(bridge.lastSessionId, 'ABCD1234');
-      expect(bridge.lastPeerId, 'EFGH5678');
-      await t.dispose();
-      await bridge.dispose();
-    });
+  setUp(() => bridge = FakeBleBridge());
+  tearDown(() => bridge.dispose());
 
-    test('emits PeerPresence when bridge emits BlePeerEvent', () async {
-      final _FakeBridge bridge = _FakeBridge();
-      final BleMeshTransport t = BleMeshTransport(
-        bridge: bridge,
-        sessionId: 'ABCD1234',
-        peerId: 'EFGH5678',
-      );
-      await t.start();
-
-      final Completer<List<PeerPresence>> c =
-          Completer<List<PeerPresence>>();
-      t.peerUpdates.listen((List<PeerPresence> peers) {
-        if (peers.isNotEmpty && !c.isCompleted) c.complete(peers);
-      });
-
-      bridge.emit(_event('PEER0001', 42.0));
-      final List<PeerPresence> result =
-          await c.future.timeout(const Duration(seconds: 2));
-      expect(result.length, 1);
-      expect(result.single.id, 'PEER0001');
-      expect(result.single.distanceMeters, 42.0);
-      expect(result.single.label, 'Peer PEER0001');
-      await t.dispose();
-      await bridge.dispose();
-    });
-
-    test('filters self out of emitted peer list', () async {
-      final _FakeBridge bridge = _FakeBridge();
-      final BleMeshTransport t = BleMeshTransport(
-        bridge: bridge,
-        sessionId: 'ABCD1234',
-        peerId: 'SELF0001',
-      );
-      await t.start();
-
-      final Completer<List<PeerPresence>> c =
-          Completer<List<PeerPresence>>();
-      t.peerUpdates.listen((List<PeerPresence> peers) {
-        if (peers.isNotEmpty && !c.isCompleted) c.complete(peers);
-      });
-
-      bridge.emit(_event('SELF0001', 5.0));
-      bridge.emit(_event('PEER0001', 42.0));
-      final List<PeerPresence> result =
-          await c.future.timeout(const Duration(seconds: 2));
-      expect(result.any((PeerPresence p) => p.id == 'SELF0001'), isFalse);
-      expect(result.any((PeerPresence p) => p.id == 'PEER0001'), isTrue);
-      await t.dispose();
-      await bridge.dispose();
-    });
-
-    test('prunes peers not seen recently', () async {
-      final _FakeBridge bridge = _FakeBridge();
-      final BleMeshTransport t = BleMeshTransport(
-        bridge: bridge,
-        sessionId: 'ABCD1234',
-        peerId: 'EFGH5678',
-        staleTimeout: const Duration(milliseconds: 100),
-        pruneInterval: const Duration(milliseconds: 50),
-      );
-      await t.start();
-
-      final List<List<PeerPresence>> emissions = <List<PeerPresence>>[];
-      t.peerUpdates.listen(emissions.add);
-
-      bridge.emit(_event('PEER0001', 42.0));
-      await Future<void>.delayed(const Duration(milliseconds: 250));
-
-      expect(
-        emissions.any((List<PeerPresence> e) => e.isEmpty),
-        isTrue,
-        reason: 'peer should have been pruned',
-      );
-      await t.dispose();
-      await bridge.dispose();
-    });
-
-    test('stop marks streaming as ended and calls bridge.stop', () async {
-      final _FakeBridge bridge = _FakeBridge();
-      final BleMeshTransport t = BleMeshTransport(
-        bridge: bridge,
-        sessionId: 'ABCD1234',
-        peerId: 'EFGH5678',
-      );
-      await t.start();
+  group('BleMeshTransport lifecycle', () {
+    test('adapter on: starts the radio and reports running', () async {
+      final BleMeshTransport t = BleMeshTransport(bridge: bridge);
+      expect(await t.start(sessionId: 'SESSION1', peerId: 'MEMEMEME'), isTrue);
+      expect(bridge.startCalls, 1);
+      expect(t.status.health, TransportHealth.running);
       expect(t.isStreaming, isTrue);
       await t.stop();
-      expect(t.isStreaming, isFalse);
-      expect(bridge.started, isFalse);
-      await t.dispose();
-      await bridge.dispose();
+      expect(bridge.stopCalls, 1);
+    });
+
+    test(
+      'Bluetooth off: waits with a precise problem, recovers when on',
+      () async {
+        bridge.state = BleAdapterState.off;
+        final BleMeshTransport t = BleMeshTransport(bridge: bridge);
+        expect(
+          await t.start(sessionId: 'SESSION1', peerId: 'MEMEMEME'),
+          isTrue,
+        );
+        expect(t.status.health, TransportHealth.waiting);
+        expect(
+          t.status.problem,
+          isA<RadioUnavailableError>().having(
+            (RadioUnavailableError e) => e.problem,
+            'problem',
+            RadioProblem.off,
+          ),
+        );
+        expect(bridge.startCalls, 0);
+
+        bridge.setAdapter(BleAdapterState.on);
+        await _settle();
+        expect(bridge.startCalls, 1);
+        expect(t.status.health, TransportHealth.running);
+
+        bridge.setAdapter(BleAdapterState.off);
+        await _settle();
+        expect(t.status.health, TransportHealth.waiting);
+        await t.stop();
+      },
+    );
+
+    test('permission denied: waits; retry after granting starts it', () async {
+      bool granted = false;
+      final BleMeshTransport t = BleMeshTransport(
+        bridge: bridge,
+        ensurePermission: () async => granted,
+      );
+      await t.start(sessionId: 'SESSION1', peerId: 'MEMEMEME');
+      expect(t.status.problem, isA<PermissionDeniedError>());
+      granted = true;
+      await t.retry();
+      expect(t.status.health, TransportHealth.running);
+      await t.stop();
+    });
+
+    test('unsupported hardware: start returns false', () async {
+      bridge.state = BleAdapterState.unsupported;
+      final BleMeshTransport t = BleMeshTransport(bridge: bridge);
+      expect(await t.start(sessionId: 'SESSION1', peerId: 'MEMEMEME'), isFalse);
+      expect(t.status.health, TransportHealth.unsupported);
+      await t.stop();
+    });
+
+    test('native start refusal is reported, not thrown', () async {
+      bridge.startResult = false;
+      final BleMeshTransport t = BleMeshTransport(bridge: bridge);
+      await t.start(sessionId: 'SESSION1', peerId: 'MEMEMEME');
+      expect(t.status.health, TransportHealth.waiting);
+      expect(t.status.problem, isA<TransportError>());
+      await t.stop();
+    });
+
+    test('enable request is forwarded to the OS', () async {
+      final BleMeshTransport t = BleMeshTransport(bridge: bridge);
+      await t.requestEnable();
+      expect(bridge.enableRequested, isTrue);
+      await t.stop();
+    });
+  });
+
+  group('BleMeshTransport presence', () {
+    test('sightings become presence; self is filtered out', () async {
+      final BleMeshTransport t = BleMeshTransport(bridge: bridge);
+      await t.start(sessionId: 'SESSION1', peerId: 'MEMEMEME');
+      final List<List<PeerPresence>> seen = <List<PeerPresence>>[];
+      t.peerUpdates.listen(seen.add);
+      bridge
+        ..emitSighting('MEMEMEME', 1)
+        ..emitSighting('PEERAAAA', 12.5);
+      await _settle();
+      expect(seen.last.map((PeerPresence p) => p.id), <String>['PEERAAAA']);
+      expect(seen.last.single.distanceMeters, 12.5);
+      expect(t.reachablePeers, <String>{'PEERAAAA'});
+      expect(t.status.reachable, 1);
+      await t.stop();
+    });
+
+    test('bearing is stable per peer and across runs', () {
+      expect(
+        BleMeshTransport.stableBearing('PEERAAAA'),
+        BleMeshTransport.stableBearing('PEERAAAA'),
+      );
+      expect(
+        BleMeshTransport.stableBearing('PEERAAAA'),
+        inInclusiveRange(0, 359),
+      );
+    });
+
+    test('stale peers are pruned', () async {
+      final BleMeshTransport t = BleMeshTransport(
+        bridge: bridge,
+        staleTimeout: const Duration(milliseconds: 30),
+        pruneInterval: const Duration(milliseconds: 10),
+      );
+      await t.start(sessionId: 'SESSION1', peerId: 'MEMEMEME');
+      bridge.emitSighting('PEERAAAA', 5);
+      await _settle();
+      expect(t.reachablePeers, hasLength(1));
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(t.reachablePeers, isEmpty);
+      await t.stop();
+    });
+
+    test('turning Bluetooth off clears everyone seen over it', () async {
+      final BleMeshTransport t = BleMeshTransport(bridge: bridge);
+      await t.start(sessionId: 'SESSION1', peerId: 'MEMEMEME');
+      bridge.emitSighting('PEERAAAA', 5);
+      await _settle();
+      bridge.setAdapter(BleAdapterState.off);
+      await _settle();
+      expect(t.reachablePeers, isEmpty);
+      await t.stop();
+    });
+  });
+
+  group('BleMeshTransport messages', () {
+    test('frames pass through; sends carry the announce hint', () async {
+      final BleMeshTransport t = BleMeshTransport(bridge: bridge);
+      await t.start(sessionId: 'SESSION1', peerId: 'MEMEMEME');
+      final Completer<TransportFrame> got = Completer<TransportFrame>();
+      t.frames.listen(got.complete);
+      bridge.emitFrame(Uint8List.fromList(<int>[1, 2, 3]));
+      final TransportFrame f = await got.future;
+      expect(f.bytes, <int>[1, 2, 3]);
+      expect(f.link, PeerLink.ble);
+
+      await t.send(Uint8List(4), urgency: SendUrgency.announce);
+      await t.send(Uint8List(4), to: <String>{'PEERAAAA'});
+      expect(bridge.sent[0].announce, isTrue);
+      expect(bridge.sent[1].announce, isFalse);
+      expect(bridge.sent[1].to, <String>{'PEERAAAA'});
+      await t.stop();
+    });
+
+    test('nothing is sent while the radio is down', () async {
+      bridge.state = BleAdapterState.off;
+      final BleMeshTransport t = BleMeshTransport(bridge: bridge);
+      await t.start(sessionId: 'SESSION1', peerId: 'MEMEMEME');
+      expect(await t.send(Uint8List(4)), 0);
+      expect(bridge.sent, isEmpty);
+      await t.stop();
     });
   });
 }

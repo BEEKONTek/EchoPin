@@ -12,6 +12,14 @@ val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
+// storeFile is relative to android/ (where key.properties lives), not to
+// android/app, e.g. storeFile=keystore/release.jks -> android/keystore/.
+val releaseStoreFile = keystoreProperties.getProperty("storeFile")
+    ?.let { rootProject.file(it) }
+val hasReleaseKeystore = releaseStoreFile?.exists() == true
+if (keystorePropertiesFile.exists() && !hasReleaseKeystore) {
+    logger.warn("key.properties points at a missing keystore ($releaseStoreFile); release will use the debug key.")
+}
 
 android {
     namespace = "com.example.echo_pin"
@@ -34,15 +42,26 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String?
-            keyPassword = keystoreProperties["keyPassword"] as String?
-            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
-            storePassword = keystoreProperties["storePassword"] as String?
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String?
+                keyPassword = keystoreProperties["keyPassword"] as String?
+                storeFile = releaseStoreFile
+                storePassword = keystoreProperties["storePassword"] as String?
+            }
         }
     }
     buildTypes {
-        release { signingConfig = signingConfigs.getByName("release") }
+        release {
+            // Without a usable keystore (fresh clones, CI) fall back to the
+            // debug key so `flutter build apk --release` still works. Such
+            // APKs are installable for testing but not store-ready.
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+        }
     }
 }
 

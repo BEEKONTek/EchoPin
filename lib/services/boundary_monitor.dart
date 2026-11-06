@@ -11,6 +11,9 @@ import 'package:echo_pin/models/session.dart';
 ///     session_screen.dart).
 ///   - No filtering of "self" — the caller decides whether self is present in
 ///     the peer list. The current [PeerPresence] model has no isSelf marker.
+///   - Only authenticated peers with a measured distance count. An
+///     unconfirmed BLE sighting could be spoofed, and a Wi-Fi-only peer has
+///     no distance, so neither can "cross" anything.
 List<BoundaryAlert> computeCrossings({
   required List<PeerPresence> previous,
   required List<PeerPresence> current,
@@ -25,6 +28,8 @@ List<BoundaryAlert> computeCrossings({
   for (final PeerPresence peer in current) {
     final PeerPresence? prev = byId[peer.id];
     if (prev == null) continue;
+    if (!peer.authenticated || !peer.hasDistance) continue;
+    if (!prev.authenticated || !prev.hasDistance) continue;
 
     final bool prevInside = prev.distanceMeters <= boundaryRadiusMeters;
     final bool nowInside = peer.distanceMeters <= boundaryRadiusMeters;

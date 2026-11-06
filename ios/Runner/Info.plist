@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Echo Pin</string>
+	<string>EchoPin</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -30,6 +30,14 @@
 	<string>EchoPin uses Bluetooth to detect nearby peers in your session. Only relative distance is used; no absolute location is measured or transmitted.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>EchoPin broadcasts your presence to peers in your session.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>EchoPin uses the camera only to scan session invite QR codes.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>EchoPin finds people in your session on the same Wi-Fi or hotspot. Messages are end-to-end encrypted.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_echopin._tcp</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

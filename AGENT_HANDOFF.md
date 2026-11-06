@@ -1,75 +1,43 @@
-# EchoPin Agent Handoff Package
+# EchoPin handoff
 
-## Project status
-- Repository: `BEEKONTek/EchoPin`
-- Current repo state: minimal Flutter starter, with `lib/main.dart` as the only file under `lib/` at the checked snapshot.
-- The design docs and handoff notes describe a much larger app than the current codebase contains.
-- This handoff package is intended for a follow-up agent to continue from the current skeleton without re-deriving the requirements.
+## Where things stand
 
-## Token warning threshold
-- Trigger warning when model usage reaches approximately 70% of the available allocation.
-- At that point, the active agent should preserve work, summarize progress, and stop before the remaining context becomes unsafe for a full continuation.
-- The follow-on agent should continue from this package and the repo state instead of trying to re-infer missing work.
+EchoPin is a working Flutter app, past the demo stage: encrypted sessions
+over Bluetooth LE and Wi-Fi, pings and SOS, a PIN-protected admin system,
+and a minimal animated UI. The design brief is `README.md` together with
+`docs/ARCHITECTURE.md`, `docs/PROTOCOL.md` and `docs/THREAT_MODEL.md`. The
+`DESIGN_DIGEST.md`, `OPEN_ITEMS.md` and `TEST_SPEC.md` files referenced by
+older notes do not exist.
 
-## What is known to be true
-- App is a Flutter app named `echo_pin`.
-- The current code is a startup `Hello World` app in `lib/main.dart`.
-- The design specification is the authoritative product specification: `DESIGN_DIGEST.md`, `OPEN_ITEMS.md`, and `TEST_SPEC.md` are the source of functional requirements.
-- The repo is expected to grow toward:
-  - session creation/join flow
-  - geolocation + privacy-noise logic
-  - mesh networking and message validation
-  - BLE and QR flows
-  - UI for pinwheel + boundary + breach banner
-  - tests for the spec IDs described in `TEST_SPEC.md`
+## Ground rules
 
-## Immediate implementation priority
-1. Duplicate the current app skeleton into a proper architectural layout:
-   - `lib/main.dart`
-   - `lib/models/`
-   - `lib/services/`
-   - `lib/widgets/`
-   - `lib/providers/`
-2. Implement the minimum working session model and service layer that matches the design digest.
-3. Implement the location engine according to the privacy/noise requirements.
-4. Implement presence broadcasting and mesh validation.
-5. Implement the session screen and pinwheel UI.
-6. Add unit/widget coverage aligned to `UT-*` and `WT-*` IDs.
-7. Fix the repo-level itemization in `OPEN_ITEMS.md` as work closes out.
+- No coordinates anywhere. Distance comes only from local RSSI.
+- Native code moves opaque bytes; all crypto stays in Dart (`lib/security`).
+- Use standard primitives only (HKDF-SHA256, XChaCha20-Poly1305, Ed25519 via
+  `package:cryptography`). Change the wire format only together with
+  `docs/PROTOCOL.md` and a version bump.
+- Every failure is an `EchoError` with a human sentence (`lib/core`).
+- Real sessions never show simulated people; demo mode is explicit.
+- Don't `await` `cancel()`/`close()` of broadcast streams in teardown: their
+  futures complete in the root zone and hang widget tests (FakeAsync).
 
-## Minimum viable build target
-The next agent should aim for these outcomes before trying to chase broader polish:
-- `flutter pub get` succeeds
-- `flutter analyze` is clean or close to clean
-- app opens and shows a session creation flow
-- code generation and state model are consistent with the design digest
-- peer presence rules, radius logic, and stale peer handling are implemented
-- tests compile and a meaningful subset passes
+## Verify before claiming done
 
-## Concrete file candidates to create
-- `lib/models/session.dart`
-- `lib/services/location_engine.dart`
-- `lib/services/mesh_service.dart`
-- `lib/widgets/pinwheel_painter.dart`
-- `lib/screens/home_screen.dart`
-- `lib/screens/session_screen.dart`
+    flutter analyze
+    flutter test
+    flutter test integration_test -d linux    # needs avahi
+    flutter build apk --release && flutter build web && flutter build linux
 
-## Important constraints
-- Do not invent custom crypto or re-define the protocol outside the design docs.
-- Respect the stated security requirement: no plaintext location leaves the device.
-- Keep the session in-memory only unless a later requirement explicitly adds persistence.
-- The app should remain local/offline-first.
+## Open work
 
-## Suggested continuation prompt for the next agent
-"Continue the EchoPin Flutter app from the current repo skeleton. Use the design digest and test spec as the source of truth. Implement the missing model/service/UI layers required for a working MVP, keep the app offline-first, and prioritize a buildable state before additional feature polish. Preserve the `echo_pin` package name and follow the design constraints in `DESIGN_DIGEST.md` and `TEST_SPEC.md`."
-
-## Known gaps to resolve
-- Real QR implementation
-- Noise XX handshake implementation
-- BLE/Wi-Fi Direct transport decisions and implementations
-- State-provider refactoring per `OPEN_ITEMS.md`
-- CI job setup
-- Browser/desktop build verification
-
-## Ending instruction
-If the active agent reaches the 70% threshold before the project is complete, it should stop, summarize all remaining work, and pass this file forward with a brief changelog of what has been implemented and what remains.
+1. **Run Bluetooth on real phones**: Android↔Android, then Android↔iPhone.
+   The GATT code compiles for Android and follows CoreBluetooth's rules,
+   but has not met real radios. Watch MTU negotiation, chunk reassembly and
+   the 10 s job timeout.
+2. **Build iOS/macOS** on a Mac (`flutter build ios --no-codesign`); CI
+   does this on macOS runners.
+3. **Background operation**: foreground service on Android, service-UUID
+   advertising for iOS background.
+4. **Forward secrecy** within a session would need per-pair key exchange
+   (see `docs/PROTOCOL.md` §8).
+5. **OS deep links** so a camera-app scan of an invite opens EchoPin.

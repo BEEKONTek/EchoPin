@@ -1,6 +1,8 @@
 import 'package:echo_pin/models/boundary_alert.dart';
+import 'package:echo_pin/models/ping.dart';
 import 'package:echo_pin/providers/alert_provider.dart';
 import 'package:echo_pin/services/haptic_service.dart';
+import 'package:echo_pin/services/notification_backend.dart';
 import 'package:echo_pin/services/notification_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,6 +11,12 @@ class _CountingHaptics extends HapticService {
 
   int lightCount = 0;
   int mediumCount = 0;
+  int sosCount = 0;
+
+  @override
+  Future<void> sos() async {
+    sosCount++;
+  }
 
   @override
   Future<void> light() async {
@@ -20,6 +28,28 @@ class _CountingHaptics extends HapticService {
     mediumCount++;
   }
 }
+
+class _Notices implements NotificationBackend {
+  final List<LocalNotice> shown = <LocalNotice>[];
+  @override
+  String get name => 'test';
+  @override
+  Future<void> initialize() async {}
+  @override
+  Future<void> requestPermissions() async {}
+  @override
+  Future<void> showBoundaryAlert(BoundaryAlert alert) async {}
+  @override
+  Future<void> showNotice(LocalNotice notice) async => shown.add(notice);
+}
+
+IncomingPing _ping(PingKind kind) => IncomingPing(
+  id: 'PINGAAAA',
+  kind: kind,
+  fromId: 'PEERAAAA',
+  fromName: 'Amara',
+  receivedAt: DateTime(2026),
+);
 
 BoundaryAlert _alert({
   required String id,
@@ -111,6 +141,44 @@ void main() {
       provider.dismiss('a');
 
       expect(notificationsCount, greaterThanOrEqualTo(2));
+    });
+  });
+
+  group('AlertProvider pings', () {
+    test('OS switch off: check-ins stay in-app, SOS still notifies', () {
+      final _Notices backend = _Notices();
+      final _CountingHaptics haptics = _CountingHaptics();
+      final AlertProvider p = AlertProvider(
+        notifications: NotificationService(
+          alertsEnabled: () => false,
+          osNotificationsEnabled: () => false,
+          backend: backend,
+        ),
+        haptics: haptics,
+      );
+      p.handlePing(_ping(PingKind.checkIn));
+      expect(backend.shown, isEmpty);
+      expect(haptics.mediumCount, 1);
+
+      p.handlePing(_ping(PingKind.sos));
+      expect(backend.shown.single.urgency, NoticeUrgency.critical);
+      expect(backend.shown.single.title, 'SOS from Amara');
+      expect(haptics.sosCount, 1);
+      p.dispose();
+    });
+
+    test('OS switch on: check-ins notify at high urgency', () {
+      final _Notices backend = _Notices();
+      final AlertProvider p = AlertProvider(
+        notifications: NotificationService(
+          alertsEnabled: () => true,
+          backend: backend,
+        ),
+        haptics: _CountingHaptics(),
+      );
+      p.handlePing(_ping(PingKind.checkIn));
+      expect(backend.shown.single.urgency, NoticeUrgency.high);
+      p.dispose();
     });
   });
 }
