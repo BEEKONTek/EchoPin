@@ -165,7 +165,12 @@ class IncomingPing {
   /// The sender ended it (an SOS whose sender is now safe).
   final bool resolved;
 
-  bool get open => response == null && !dismissed && !resolved;
+  /// Still shown as an alert. Answering closes a check-in, but not an SOS:
+  /// the sender needs help until they say they are safe.
+  bool get open {
+    if (dismissed || resolved) return false;
+    return kind == PingKind.sos || response == null;
+  }
 
   IncomingPing copyWith({
     PingResponse? response,

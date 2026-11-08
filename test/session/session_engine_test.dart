@@ -141,6 +141,29 @@ void main() {
     );
   });
 
+  test('an answered SOS stays open until its sender is safe', () async {
+    final SessionEngine a = await join('Amara');
+    final SessionEngine b = await join('Ben');
+    await eventually(() => a.members.length == 1 && b.members.length == 1);
+    final OutgoingPing sos = await a.ping(kind: PingKind.sos);
+    await eventually(() => b.incomingPings.isNotEmpty, reason: 'B alerted');
+
+    await b.respond(a.peerId, sos.id, PingResponse.coming);
+    await eventually(
+      () =>
+          a.outgoingPings.first.recipients[b.peerId]!.response ==
+          PingResponse.coming,
+      reason: 'A hears "On my way"',
+    );
+    expect(b.incomingPings.single.open, isTrue, reason: 'A still needs help');
+
+    await a.cancelPing(sos.id);
+    await eventually(
+      () => !b.incomingPings.single.open,
+      reason: '"I\'m safe" closes the alert',
+    );
+  });
+
   test('retries push a ping through a lossy link', () async {
     // 50% loss each way: a round trip succeeds 25% of the time, so 40
     // attempts fail to get through with probability 0.75^40 ≈ 1e-5.
@@ -202,6 +225,23 @@ void main() {
           a.outgoingPings.first.recipients[b.peerId]!.response ==
           PingResponse.help,
       reason: 'reply retried',
+    );
+  });
+
+  test('"I\'m safe" sent while partitioned arrives after healing', () async {
+    final SessionEngine a = await join('Amara');
+    final SessionEngine b = await join('Ben');
+    await eventually(() => a.members.isNotEmpty && b.members.isNotEmpty);
+    final OutgoingPing sos = await a.ping(kind: PingKind.sos);
+    await eventually(() => b.incomingPings.isNotEmpty, reason: 'B alerted');
+    hub.partition(a.peerId, b.peerId);
+    await a.cancelPing(sos.id);
+    // Longer than the old fire-twice window (now + one retry interval).
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    hub.heal(a.peerId, b.peerId);
+    await eventually(
+      () => b.incomingPings.single.resolved,
+      reason: '"I\'m safe" retried until B confirms',
     );
   });
 

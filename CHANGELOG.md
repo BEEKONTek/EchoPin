@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **SOS stays up for responders.** Answering *On my way* used to close the
+  alert while the sender still needed help, and the sender's row kept
+  showing an older *OK*. The alert now stays (showing "You're on your
+  way") until the sender is safe, and their row shows **SOS**.
+- **"I'm safe" is confirmed.** It was sent twice with no receipt, so a
+  busy or briefly out-of-range phone could miss it and keep a stale SOS.
+  It is now retried until each recipient confirms (`safe` receipt).
+- **Linux: no false "Not on Wi-Fi".** Wi-Fi managed by iwd,
+  systemd-networkd or ConnMan is invisible to NetworkManager; the app now
+  also checks network interfaces (rechecked every 15 s).
+- **Window title** reads "EchoPin" on Linux and Windows.
+
 ## [0.3.0] — 2026-11-06
 
 Protocol v2. Breaking: v1 invite codes no longer work; old entries are

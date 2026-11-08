@@ -167,6 +167,9 @@ class SessionEngine {
   final Map<String, OutgoingPing> _outgoing = <String, OutgoingPing>{};
   final Map<String, IncomingPing> _incoming = <String, IncomingPing>{};
   final Map<String, _PendingReply> _pendingReplies = <String, _PendingReply>{};
+
+  /// "I'm safe" notices not yet confirmed, by SOS id.
+  final Map<String, _PendingSafe> _pendingSafe = <String, _PendingSafe>{};
   final Map<String, DateTime> _lastHelloTo = <String, DateTime>{};
   final List<StreamSubscription<Object?>> _subs =
       <StreamSubscription<Object?>>[];
@@ -343,25 +346,17 @@ class SessionEngine {
   }
 
   /// Stops retrying [pingId]. Ending an SOS also tells everyone the sender
-  /// is safe, so their alerts resolve by themselves.
+  /// is safe, so their alerts resolve by themselves; that notice is retried
+  /// like a ping until each recipient confirms it.
   Future<void> cancelPing(String pingId) async {
     final OutgoingPing? p = _outgoing[pingId];
-    if (p == null) return;
+    if (p == null || p.cancelled) return;
     _outgoing[pingId] = p.copyWith(cancelled: true);
     _notify();
-    if (p.kind == PingKind.sos && !_stopped) {
-      final Map<String, Object?> body = <String, Object?>{
-        'id': p.id,
-        'k': p.kind.wire,
-        'x': true,
-      };
-      // Twice, a moment apart: there is no receipt for "I'm safe".
-      await _send(MessageKind.ping, body, urgency: SendUrgency.urgent);
-      Timer(retryInterval, () {
-        if (!_stopped) {
-          unawaited(_send(MessageKind.ping, body, urgency: SendUrgency.urgent));
-        }
-      });
+    if (p.kind == PingKind.sos && !_stopped && p.recipients.isNotEmpty) {
+      final _PendingSafe safe = _PendingSafe(p.id, p.recipients.keys.toSet());
+      _pendingSafe[p.id] = safe;
+      await _sendSafe(safe);
     }
   }
 
@@ -474,6 +469,13 @@ class SessionEngine {
       if (existing != null && !existing.resolved) {
         _incoming[key] = existing.copyWith(resolved: true);
       }
+      // Confirm even if the SOS itself never arrived, so the sender stops.
+      await _send(
+        MessageKind.receipt,
+        <String, Object?>{'id': id, 'for': 'safe'},
+        to: <String>{m.senderId},
+        urgency: SendUrgency.urgent,
+      );
       return;
     }
     if (!_incoming.containsKey(key)) {
@@ -510,6 +512,13 @@ class SessionEngine {
     if (id == null) return;
     if (m.body['for'] == 'reply') {
       _pendingReplies.remove(_incomingKey(m.senderId, id));
+      return;
+    }
+    if (m.body['for'] == 'safe') {
+      final _PendingSafe? safe = _pendingSafe[id];
+      if (safe != null && safe.to.remove(m.senderId) && safe.to.isEmpty) {
+        _pendingSafe.remove(id);
+      }
       return;
     }
     final OutgoingPing? p = _outgoing[id];
@@ -602,6 +611,16 @@ class SessionEngine {
     );
   }
 
+  Future<void> _sendSafe(_PendingSafe s) async {
+    s.attempts++;
+    await _send(
+      MessageKind.ping,
+      <String, Object?>{'id': s.pingId, 'k': PingKind.sos.wire, 'x': true},
+      to: s.to,
+      urgency: SendUrgency.urgent,
+    );
+  }
+
   Future<void> _retry() async {
     if (_stopped) return;
     bool changed = false;
@@ -635,6 +654,13 @@ class SessionEngine {
         _pendingReplies.remove(e.key);
       } else {
         await _sendReply(e.value);
+      }
+    }
+    for (final _PendingSafe s in _pendingSafe.values.toList()) {
+      if (s.attempts >= sosAttempts) {
+        _pendingSafe.remove(s.pingId);
+      } else {
+        await _sendSafe(s);
       }
     }
     if (changed) _notify();
@@ -766,6 +792,15 @@ class SessionEngine {
   void _notify() {
     if (!_changes.isClosed) _changes.add(null);
   }
+}
+
+class _PendingSafe {
+  _PendingSafe(this.pingId, this.to);
+  final String pingId;
+
+  /// Recipients that have not confirmed yet.
+  final Set<String> to;
+  int attempts = 0;
 }
 
 class _PendingReply {

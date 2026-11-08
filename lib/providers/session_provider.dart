@@ -199,6 +199,12 @@ class SessionProvider extends ChangeNotifier {
     return open;
   }
 
+  /// Peer ids with a live SOS on this device (answered or not).
+  Set<String> get peersNeedingHelp => openPings
+      .where((IncomingPing p) => p.kind == PingKind.sos)
+      .map((IncomingPing p) => p.fromId)
+      .toSet();
+
   /// This device's live SOS, if any.
   OutgoingPing? get activeSos {
     for (final OutgoingPing p in outgoingPings) {

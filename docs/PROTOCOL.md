@@ -108,8 +108,8 @@ raise a "Security warning" tray; the rest appear in the admin diagnostics.
 | --- | --- | --- |
 | `hello` | `{n: name}` | On start, every 20 s, and directly to each newcomer |
 | `ping` | `{id, k: "checkin"\|"sos", m?: note}` | To selected recipients or everyone |
-| `ping` (resolve) | `{id, k: "sos", x: true}` | When an SOS sender is safe |
-| `receipt` | `{id, for: "ping"\|"reply"}` | Automatically, on every copy received |
+| `ping` (resolve) | `{id, k: "sos", x: true}` | When an SOS sender is safe, to everyone the SOS went to |
+| `receipt` | `{id, for: "ping"\|"reply"\|"safe"}` | Automatically, on every copy received |
 | `reply` | `{id, r: "ok"\|"coming"\|"help"}` | When a person answers |
 | `bye` | `{}` | On leave |
 
@@ -125,6 +125,10 @@ override characters are stripped, whitespace collapsed, and length capped
 - An SOS to everyone stays live until its sender ends it. People who join
   while it is live receive it. It can be sent when nobody is in range yet.
 - A reply is resent until its receipt arrives (8 attempts).
+- "I'm safe" (the resolve frame) is resent until each recipient sends a
+  `safe` receipt (30 attempts, like the SOS). Receivers confirm it even if
+  the SOS itself never reached them. Until then an SOS stays on screen,
+  even after the person has answered *On my way*.
 - Check-ins are limited to one every 10 seconds per device.
 
 ## 7. Transports

@@ -325,10 +325,7 @@ class _SessionScreenState extends State<SessionScreen> {
     Session session, {
     double reserve = 0,
   }) {
-    final Set<String> sos = provider.openPings
-        .where((IncomingPing p) => p.kind == PingKind.sos)
-        .map((IncomingPing p) => p.fromId)
-        .toSet();
+    final Set<String> sos = provider.peersNeedingHelp;
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints c) {
         return Column(
@@ -429,6 +426,7 @@ class _SessionScreenState extends State<SessionScreen> {
         )
         .length;
     final Map<String, RecipientStatus> pingStates = _pingStates(provider);
+    final Set<String> needHelp = provider.peersNeedingHelp;
     final List<OutgoingPing> outgoing = provider.outgoingPings
         .where(
           (OutgoingPing p) =>
@@ -584,6 +582,7 @@ class _SessionScreenState extends State<SessionScreen> {
           selectionMode: _selecting,
           selected: _selected.contains(p.id),
           pingState: pingStates[p.id],
+          needsHelp: needHelp.contains(p.id),
           onTap: () => _selecting ? _toggle(p) : _openPeer(p),
           onLongPress: () => _toggle(p),
         ),

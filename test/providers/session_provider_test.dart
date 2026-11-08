@@ -245,6 +245,15 @@ void main() {
       await eventually(() => ana.openPings.isEmpty, reason: 'resolved');
     });
 
+    test('an answered SOS flags its sender until they are safe', () async {
+      await ben.sendPing(PingKind.sos);
+      await eventually(() => ana.openPings.isNotEmpty, reason: 'SOS delivered');
+      await ana.respondToPing(ana.openPings.single, PingResponse.coming);
+      expect(ana.peersNeedingHelp, <String>{ben.selfPeerId!});
+      await ben.cancelPing(ben.activeSos!.id);
+      await eventually(() => ana.peersNeedingHelp.isEmpty, reason: 'resolved');
+    });
+
     test('an SOS with nobody around waits for the first arrival', () async {
       final SessionProvider solo = make('Solo');
       await solo.createSession(name: 'Alone');

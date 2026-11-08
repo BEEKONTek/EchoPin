@@ -18,6 +18,7 @@ class PeerTray extends StatelessWidget {
     this.selectionMode = false,
     this.selected = false,
     this.pingState,
+    this.needsHelp = false,
     this.onTap,
     this.onLongPress,
   });
@@ -30,6 +31,9 @@ class PeerTray extends StatelessWidget {
 
   /// This peer's status in the most recent ping sent to them, if any.
   final RecipientStatus? pingState;
+
+  /// This peer has a live SOS. Outranks [pingState].
+  final bool needsHelp;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
@@ -130,11 +134,13 @@ class PeerTray extends StatelessWidget {
                         )
                       : _Trailing(
                           key: ValueKey<String>(
-                            '${pingState?.state}-${pingState?.response}-$inside',
+                            '$needsHelp-${pingState?.state}-'
+                            '${pingState?.response}-$inside',
                           ),
                           peer: peer,
                           inside: inside,
                           ping: pingState,
+                          needsHelp: needsHelp,
                         ),
                 ),
               ],
@@ -213,27 +219,35 @@ class _Trailing extends StatelessWidget {
     required this.peer,
     required this.inside,
     required this.ping,
+    required this.needsHelp,
   });
 
   final PeerPresence peer;
   final bool inside;
   final RecipientStatus? ping;
+  final bool needsHelp;
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final RecipientStatus? p = ping;
-    if (p != null) {
-      final (String text, Color color) = switch (p.state) {
-        DeliveryState.sending => ('Pinging…', scheme.onSurfaceVariant),
-        DeliveryState.delivered => ('Delivered', scheme.primary),
-        DeliveryState.unreachable => ('No answer', scheme.error),
-        DeliveryState.answered => switch (p.response) {
-          PingResponse.help => ('Needs help', EchoTheme.sos),
-          PingResponse.coming => ('On the way', scheme.primary),
-          _ => ("OK", Colors.green.shade600),
-        },
-      };
+    // Their live SOS beats any answer they gave to an earlier ping.
+    final (String, Color)? chip = needsHelp
+        ? ('SOS', EchoTheme.sos)
+        : p == null
+        ? null
+        : switch (p.state) {
+            DeliveryState.sending => ('Pinging…', scheme.onSurfaceVariant),
+            DeliveryState.delivered => ('Delivered', scheme.primary),
+            DeliveryState.unreachable => ('No answer', scheme.error),
+            DeliveryState.answered => switch (p.response) {
+              PingResponse.help => ('Needs help', EchoTheme.sos),
+              PingResponse.coming => ('On the way', scheme.primary),
+              _ => ("OK", Colors.green.shade600),
+            },
+          };
+    if (chip != null) {
+      final (String text, Color color) = chip;
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(

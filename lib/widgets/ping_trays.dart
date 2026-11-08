@@ -93,43 +93,69 @@ class IncomingPingTray extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              Padding(
-                padding: const EdgeInsets.only(left: 30),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: <Widget>[
-                    for (int i = 0; i < answers.length; i++)
-                      i == 0
-                          ? FilledButton(
-                              key: Key('ping.answer.${answers[i].wire}'),
-                              style: FilledButton.styleFrom(
-                                minimumSize: const Size(0, 40),
-                                backgroundColor: sos ? Colors.white : color,
-                                foregroundColor: sos
-                                    ? EchoTheme.sos
-                                    : Colors.white,
-                              ),
-                              onPressed: () => onRespond(answers[i]),
-                              child: Text(answers[i].label),
-                            )
-                          : OutlinedButton(
-                              key: Key('ping.answer.${answers[i].wire}'),
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size(0, 40),
-                                foregroundColor: sos ? Colors.white : null,
-                                side: BorderSide(
-                                  color: sos
-                                      ? Colors.white.withValues(alpha: 0.7)
-                                      : color.withValues(alpha: 0.6),
+              // An answered SOS stays up until its sender is safe; show the
+              // answer instead of asking again.
+              if (ping.response != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 34, bottom: 4),
+                  child: Row(
+                    children: <Widget>[
+                      Icon(
+                        Icons.directions_walk,
+                        size: 18,
+                        color: sos ? Colors.white : color,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        ping.response == PingResponse.coming
+                            ? "You're on your way"
+                            : 'You answered “${ping.response!.label}”',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: sos ? Colors.white : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.only(left: 30),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: <Widget>[
+                      for (int i = 0; i < answers.length; i++)
+                        i == 0
+                            ? FilledButton(
+                                key: Key('ping.answer.${answers[i].wire}'),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size(0, 40),
+                                  backgroundColor: sos ? Colors.white : color,
+                                  foregroundColor: sos
+                                      ? EchoTheme.sos
+                                      : Colors.white,
                                 ),
+                                onPressed: () => onRespond(answers[i]),
+                                child: Text(answers[i].label),
+                              )
+                            : OutlinedButton(
+                                key: Key('ping.answer.${answers[i].wire}'),
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size(0, 40),
+                                  foregroundColor: sos ? Colors.white : null,
+                                  side: BorderSide(
+                                    color: sos
+                                        ? Colors.white.withValues(alpha: 0.7)
+                                        : color.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                onPressed: () => onRespond(answers[i]),
+                                child: Text(answers[i].label),
                               ),
-                              onPressed: () => onRespond(answers[i]),
-                              child: Text(answers[i].label),
-                            ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),
