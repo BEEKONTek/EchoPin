@@ -24,6 +24,44 @@ specified in `PROTOCOL.md`.
 | Hostile names / notes | Control and bidi-override characters stripped, lengths capped. Tested. |
 | Code leakage | Out of scope by design: whoever has the code is a member. No forward secrecy within a session (see `PROTOCOL.md` §8). |
 
+## Central server (optional, v0.4)
+
+When a deployment runs the EchoPin server (`docs/SERVER.md`), the
+"no servers, no accounts" statement above no longer holds for that
+deployment. Sessions still run phone to phone; the server adds accounts,
+sealed session records, reports, diagnostics and backups.
+
+| Threat | Mitigation | Residual risk |
+| --- | --- | --- |
+| Password guessing / stuffing | Argon2id (19 MiB, t=2); per-IP, per-email and per-device limits in PostgreSQL; lockout after 5 failures, doubling to 24 h; breached passwords refused; optional TOTP, required for staff | A stranger can pause *new-device* sign-ins for an email; the owner's own phones are unaffected |
+| Account enumeration | Same answers and timing (600 ms floor, background mail) for every address; unknown emails lock like real ones; one generic code error | "Email unverified" shows only after a correct password |
+| Stolen refresh token | Tokens bound to an Ed25519 device key; every refresh signed; rotation with family revocation on reuse (audited) | A fully compromised, unlocked phone can act as its owner until the device is removed |
+| Phone identity spoofing | No IMEI / serial / advertising ids; device keys live in the OS keystore and never leave it | Platforms without a keystore fall back to app preferences |
+| Database or backup leak | Only token hashes stored; TOTP secrets encrypted with a key outside the database; session records sealed to an escrow key outside the database; backups AES-256-GCM encrypted | Session metadata (names, times, counts, uploader accounts) is readable to anyone with database access |
+| Insider reading session records | Break-glass only: staff role with two-step, written reason, grant and audit row committed before decryption, every admin emailed; optional custodian second seal means the server alone can't decrypt | Without a custodian key configured, whoever controls the server and its keys can decrypt; with one, they also need a responder's device |
+| Fake uploads into a session | Session tag derived from the invite code; console flags non-members | A real member can upload junk under their own name |
+| Tampering with the audit trail | HMAC chain over every row, keyed from `ECHOPIN_KEYS` (never in the database); UPDATE/DELETE/TRUNCATE refused by triggers; chain check in console and CLI; chain tip logged with every backup | Someone with the database *and* the keys can rewrite it; rows cut off the end leave a valid shorter chain (compare with the logged tip) |
+| Account pre-hijacking | Confirming an email needs the code *and* the sign-up password, checked atomically | Someone can keep re-registering a pending address to annoy its owner (no access gained) |
+| Spoofed client IPs | IP taken from an edge-overwritten header (`CLIENT_IP_HEADER`) or counted from the right of X-Forwarded-For | Wrong `TRUSTED_PROXY_HOPS` for a custom proxy setup lumps users together or reopens spoofing |
+| Code guessing (email codes) | 8 digits, 5 guesses per code, at most 10 codes per account per day in the database | About 0.02 % a year against one account |
+| Data kept too long | Daily retention job (records 365 d, diagnostics 90 d, closed reports 730 d) | The audit log is kept forever by design |
+| Backup truncation / tampering | Per-frame authentication with index and final-frame flag; verify before restore; restore is CLI-only | Lost `keys/` means unrecoverable backups |
+| Malicious uploads | Auth required; size limits; sealed-box structure and escrow key id checked; idempotent ids; reports cannot be filed below "high" for safety | A signed-in member can upload junk under their own name (attributable) |
+
+Records never contain coordinates: the recorder stores events and each
+member's last noisy, RSSI-based distance from the recording phone.
+
+The full review of authentication and verification faults, with what was
+fixed and what is accepted, is in `SECURITY_REVIEW.md`.
+
+> **Note on the sections below.** They describe the original design
+> (Noise XX handshakes, planar Laplace noise with an ε guarantee). The
+> shipped protocol differs. Messages are XChaCha20-Poly1305 envelopes signed
+> with per-session Ed25519 keys (`PROTOCOL.md`), and displayed distances get
+> a bounded jitter that is fixed per person per minute. That jitter is a
+> display nicety, not a differential-privacy guarantee. The tables above
+> are authoritative.
+
 ## Threat Model Framework
 
 ### STRIDE Analysis

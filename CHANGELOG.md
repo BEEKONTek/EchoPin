@@ -7,9 +7,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [0.4.0] — 2026-11-08
+
+### Added
+- **EchoPin server** (`server/`, `docs/SERVER.md`): Dart + PostgreSQL,
+  Docker Compose, operator CLI. Optional: the app stays fully local unless
+  built with `--dart-define=ECHOPIN_SERVER_URL=…`.
+- **Accounts**: email verification, Argon2id passwords, two-step sign-in
+  (TOTP, QR setup), password reset, lockout and rate limits. Each install
+  signs in with its own Ed25519 device key instead of any hardware id;
+  token refresh is signed by it, and a replayed refresh token signs the
+  device out (theft detection).
+- **Sealed emergency records**: every live session is recorded on the
+  phone (joins, pings, SOS, answers, boundary crossings, security alarms,
+  last known distances; never coordinates), sealed to the server's escrow
+  key, and uploaded through a store-and-forward outbox. Checkpoints go up
+  seconds after an SOS. Responders open a record only by giving a reason,
+  recorded in a hash-chained, append-only audit log.
+- **Report a problem** with safety reports that can be marked urgent,
+  optional diagnostics and a linked session; follow status under Account.
+- **Central console** for responders and admins: cross-device overview
+  with 14-day trends, report triage, session index and break-glass, people
+  (roles, disable, unlock, sign out everywhere, devices), diagnostics,
+  audit chain check, backups.
+- **Encrypted backups**: daily `pg_dump`, AES-256-GCM framed format with
+  truncation detection, retention, `verify-backup` and CLI-only `restore`.
+- `packages/echopin_protocol`: wire formats shared by app and server.
+- CI job running protocol and server tests against PostgreSQL.
+- **Free hosted deployment** (`render.yaml`, `docs/DEPLOY_HOSTED.md`):
+  Render web service + Supabase Postgres and Storage + Brevo email, with a
+  keep-awake workflow. Keys travel as one `ECHOPIN_KEYS` secret; the server
+  refuses to start rather than generate keys on a throwaway disk.
+  Backups go to a private Supabase bucket in parts under the 50 MB limit,
+  dump only EchoPin's schema, and never drop the host's own schemas on
+  restore. Email codes via Brevo or Resend HTTP APIs (hosted platforms
+  block SMTP). TLS is required automatically for remote databases; one
+  backup at a time across instances; the app waits out a sleeping server.
+
+### Security
+- Reviewed every authentication and verification path; findings and
+  fixes are in `docs/SECURITY_REVIEW.md`.
+- **Client IPs can't be spoofed.** The server took the leftmost
+  `X-Forwarded-For` entry, which the client writes, so per-IP rate limits
+  could be dodged and audit-log addresses forged. It now uses
+  `CLIENT_IP_HEADER` (Render: `true-client-ip`) or the entry
+  `TRUSTED_PROXY_HOPS` from the right.
+- **No account pre-hijacking.** Confirming an email now needs the sign-up
+  password, so re-registering someone's pending address can't get the
+  attacker's password activated by the victim's code.
+- **Lockout can't be raced.** Failed sign-ins are counted atomically.
+- **Code guessing capped** at 10 codes per account per day, in the
+  database (5 guesses each).
+- **Audit chain is keyed** (HMAC with a key from `ECHOPIN_KEYS`), so full
+  database access is no longer enough to rewrite it undetected. Each
+  backup logs the chain tip. `create-admin` and `audit-verify` now need
+  the keys.
+- **Two-step:** turning it on needs the password; a code can't be used by
+  two racing sign-ins; admins can reset it for a lost phone.
+- **Stricter email addresses** (no commas, brackets or quotes).
+- **App:** release builds refuse plain-`http` servers; device proofs use
+  the server's clock (from the `Date` header), so a wrong phone clock no
+  longer blocks sign-in, and a refused proof no longer signs you out.
+- Fixed: signing in to an unconfirmed account now really sends a new code
+  and lets you confirm it (the pending email was cleared first).
+- **Custodian key (second seal).** With `CUSTODIAN_PUBLIC_KEYS` set
+  (`echopin_admin init-custodian`), phones seal records twice and the
+  server alone can no longer read them; responders open the inner seal in
+  the console with a key that never leaves their device. Phones never
+  downgrade, and the key can be built into the app
+  (`ECHOPIN_CUSTODIAN_KEY`).
+- **Lockout can't be used against the owner.** Locks are per email (with
+  or without an account) and skip the account's own registered devices.
+- **Rate limits in PostgreSQL**, shared and restart-proof.
+- **No account enumeration:** uniform answers and timing, background
+  mail, one generic code error, 8-digit codes.
+- **Breached passwords refused** (Have I Been Pwned, k-anonymity).
+- **Staff must use two-step** before the console answers them.
+- **Every admin is emailed** when a record is opened; responders no longer
+  see email addresses; person lookups and session views are audited.
+- **Session tag** flags uploads from people who weren't in the session.
+- **Retention:** old records, diagnostics and closed reports are deleted
+  daily (configurable).
+- **Audit anchors** stored with backups catch rows cut from the end.
+- Devices without a keystore get 7-day sessions and a warning; unsafe
+  `ECHOPIN_DEV` / `CORS_ORIGINS=*` settings are refused.
 
 ### Fixed
+- **Found by testing the real app against a live server:**
+  - The two-step setup dialog threw a layout error on every platform (the
+    QR code inside an AlertDialog had no fixed size).
+  - Opening a sealed record in the console crashed debug builds right after
+    the (already audited) opening, so the responder never saw the record.
+  - The console counted one SOS once per phone that saw it ("3 SOS" for one
+    event) and the SOS chart disagreed with its tile.
+  - With one real member and one outsider, the session-tag check guessed and
+    could brand the real member's record as "not proven". Votes now count
+    people, not uploads, and ties are shown as unknown.
 - **SOS stays up for responders.** Answering *On my way* used to close the
   alert while the sender still needed help, and the sender's row kept
   showing an older *OK*. The alert now stays (showing "You're on your

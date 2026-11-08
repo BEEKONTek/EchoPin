@@ -1,9 +1,15 @@
 # EchoPin
 
 Privacy-first group presence. See where your group is relative to you,
-check in on people, and call for help, over Bluetooth or Wi-Fi with no
-servers. Presence is relative, noisy, and boundary-scoped: no coordinates
-are ever measured, stored, or transmitted.
+check in on people, and call for help, over Bluetooth or Wi-Fi. Sessions
+run phone to phone with no server in the loop. Presence is relative, noisy,
+and boundary-scoped: no coordinates are ever measured, stored, or
+transmitted.
+
+Organisations can add the optional [EchoPin server](docs/SERVER.md):
+verified accounts, sealed emergency records of each session that only a
+responder can open (for a stated, audited reason), reports and diagnostics
+from every device, a central console, and encrypted backups.
 
 ## What it does
 
@@ -15,8 +21,9 @@ on selected people or everyone, and anyone can raise an **SOS** that every
 member receives, with delivery receipts and answers.
 
 Everything is end-to-end encrypted and signed. Possession of the invite code
-is what grants membership; nobody, including EchoPin, can read a session
-without it.
+is what grants membership; nobody, including EchoPin, can read session
+traffic without it. With a server configured, each phone also keeps a
+sealed record of what it saw (see below).
 
 ## Features
 
@@ -50,10 +57,18 @@ without it.
   encryption, signatures, pings and answers.
 - **Admin system** (PIN-protected): diagnostics, radio and alert settings,
   synthetic test peers, data tools, audit log.
+- **Accounts and central console** (with a server): email-verified
+  accounts, device-bound sign-in, two-step sign-in, *Report a problem*,
+  and for responders and admins a console with an overview across every
+  device, report triage, the session index with audited break-glass
+  access, people, diagnostics, the audit chain and backups.
 
 ## Architecture
 
     lib/
+      account/         server client, AccountProvider (tokens, device key),
+                       Outbox (store-and-forward), SessionRecorder (sealed
+                       emergency records)
       core/            EchoError: every failure as a typed, human sentence
       security/        codes → keys (HKDF), Ed25519 identity, envelope,
                        SecureMessenger (decrypt, verify, pin, replay, rate)
@@ -65,13 +80,18 @@ without it.
                        (MeshService), noise, boundary monitor, notifications,
                        connectivity, history, settings, admin auth, bootstrap
       providers/       ChangeNotifiers: Session, Alert, Settings, Admin
-      screens/         home, session, QR scanner, admin (gate + panel)
+      screens/         home, session, QR scanner, admin (gate + panel),
+                       account (sign-in, account), report, console
       widgets/         pinwheel, animated tray list, peer / ping / status trays,
                        hold-to-send SOS
       ui/              theme and motion constants, formatting
     android/           Kotlin BLE plugin (advertise, scan, GATT inbox/client)
     ios/               Swift BLE plugin (same protocol)
+    packages/echopin_protocol/  sealed boxes, device proofs, shared enums
+    server/            central server (Dart + PostgreSQL), see docs/SERVER.md
     docs/PROTOCOL.md   the wire protocol, normative
+    docs/CODE_MAP.md   guided tour: what every part of the code does
+    docs/SECURITY_REVIEW.md  auth/verification threat review and fixes
 
 Native code only moves opaque bytes. All cryptography is in Dart, so it is
 identical on every platform and tested on the desktop.
@@ -84,9 +104,9 @@ The session pipeline:
                     SessionProvider: merge → privacy noise → boundary crossings
                                      → Session.peers, trays, alerts → UI
 
-Four `InheritedNotifier` scopes (`SettingsScope`, `AlertScope`,
-`SessionScope`, `AdminScope`) expose providers without an external
-state-management dependency.
+Six `InheritedNotifier` scopes (`SettingsScope`, `AlertScope`,
+`SessionScope`, `AdminScope`, `AccountScope`, `OutboxScope`) expose
+providers without an external state-management dependency.
 
 ## Privacy and security model
 
@@ -106,6 +126,13 @@ state-management dependency.
   PIN hash live in the OS keystore (Keychain / EncryptedSharedPreferences),
   falling back to app preferences only where no keystore exists. Peers,
   distances and pings are never persisted.
+- **With a server.** Accounts use Argon2id passwords, verified email and
+  optional TOTP; each install signs in with its own Ed25519 device key (no
+  IMEI or hardware ids), and every token refresh must be signed by it.
+  Session records are sealed on the phone to the server's escrow key and
+  can only be opened by a responder who gives a reason, which goes into a
+  hash-chained audit log. Records never contain coordinates. Details in
+  `docs/SERVER.md`.
 - **Not provided:** forward secrecy within a session, hiding that a session
   exists nearby (its public id is advertised), or protection from a member
   who leaks the code. See `docs/PROTOCOL.md` §8 and `docs/THREAT_MODEL.md`.
@@ -130,6 +157,29 @@ offline.
   noise, crossing detection and alerts like real ones.
 - **Data & security.** Clear history, reset settings, change or remove PIN.
 - **Audit log.** In memory, this run only.
+
+## Accounts and central console (optional)
+
+Build with `--dart-define=ECHOPIN_SERVER_URL=https://your-server` to turn
+them on; without it the app is fully local, as above.
+
+- **Sign-in.** Live sessions need an account (the demo never does). Create
+  one in the app: name, email, password (10+ characters), then the 6-digit
+  code from the email. Sign-in persists offline; only the server can sign
+  you out, and the app says why.
+- **Account screen.** Two-step sign-in with any authenticator app (QR
+  code), change password, see and remove your devices, *Report a problem*,
+  follow your reports, and see what is still waiting to upload.
+- **Emergency records.** Live sessions are recorded on the phone and
+  uploaded sealed: a checkpoint within seconds of an SOS, then the final
+  record. Everything waits in an outbox when there is no signal.
+- **Console** (responders and admins): overview with 14-day trends,
+  reports sorted critical-first, session index with *Open* (reason
+  required, permanently logged), and for admins people, diagnostics, the
+  audit log with a chain check, and backups.
+
+Running the server: free hosted setup in `docs/DEPLOY_HOSTED.md`
+(Render + Supabase + Brevo), everything else in `docs/SERVER.md`.
 
 ## Backend fallbacks
 
@@ -164,6 +214,7 @@ until after the first frame.
     flutter test                        # unit + widget tests
     flutter test integration_test -d linux   # real Bonjour + TCP
     flutter run                         # or -d linux / -d chrome
+    (cd server && ./tool/test.sh)       # server: throwaway PostgreSQL + all tests
 
 `--dart-define=ECHOPIN_FORCE_SIM=true` skips the Bluetooth probe.
 
