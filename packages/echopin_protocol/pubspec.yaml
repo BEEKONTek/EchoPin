@@ -1,0 +1,15 @@
+name: echopin_protocol
+description: Wire formats shared by the EchoPin app and the EchoPin server.
+publish_to: 'none'
+version: 1.0.0
+
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+
+dependencies:
+  crypto: ^3.0.3
+  cryptography: ^2.9.0
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0

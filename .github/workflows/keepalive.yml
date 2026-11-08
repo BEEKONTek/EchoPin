@@ -1,0 +1,26 @@
+name: Keep server awake
+
+# Render's free plan sleeps a service after 15 minutes without traffic and
+# takes about a minute to wake. This ping keeps it (and the Supabase
+# database, which pauses after 7 idle days) awake, so the first sign-in or
+# SOS upload after a quiet spell is not slowed down.
+#
+# Set the repository variable ECHOPIN_SERVER_URL (Settings → Secrets and
+# variables → Actions → Variables), e.g. https://echopin-server.onrender.com.
+# GitHub may delay scheduled runs; the app retries uploads either way.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    if: ${{ vars.ECHOPIN_SERVER_URL != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Health check
+        run: |
+          curl --fail --silent --show-error --max-time 90 \
+            "${{ vars.ECHOPIN_SERVER_URL }}/v1/health"

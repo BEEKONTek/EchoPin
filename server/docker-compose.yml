@@ -1,0 +1,42 @@
+# Run from the repository root:
+#   cp server/.env.example server/.env   # then edit it
+#   docker compose -f server/docker-compose.yml up -d --build
+#   docker compose -f server/docker-compose.yml exec server \
+#     echopin_admin create-admin --email you@example.org --name "Your Name"
+services:
+  db:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: echopin
+      POSTGRES_DB: echopin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in server/.env}
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U echopin"]
+      interval: 5s
+      retries: 20
+
+  server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      KEYS_DIR: /data/keys
+      BACKUPS_DIR: /data/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"   # put a TLS reverse proxy in front
+    volumes:
+      - keys:/data/keys
+      - backups:/data/backups
+
+volumes:
+  db:
+  keys:
+  backups:
