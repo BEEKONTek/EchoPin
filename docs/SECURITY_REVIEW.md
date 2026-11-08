@@ -1,6 +1,6 @@
 # EchoPin security review: authentication, verification and the central server
 
-Reviewed 2026-11-08 against branch `deepseek-mvp` (uncommitted work included).
+Reviewed 2026-11-08 against the 0.4.0 work (branch `update`, then `deepseek-mvp`).
 It covers the optional central server (`server/`), the shared wire code
 (`packages/echopin_protocol`), the app's account, outbox and recorder code
 (`lib/account/`), the console, and the hosted deployment (`render.yaml`,

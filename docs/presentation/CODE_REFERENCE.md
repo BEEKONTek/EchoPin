@@ -2,7 +2,7 @@
 
 A quick-lookup book for questions after the talk. Every claim points to
 the function that does it, as `file:line`. Line numbers are as of
-8 November 2026 on branch `deepseek-mvp`. If they've drifted, search for
+8 November 2026 on branch `update`. If they've drifted, search for
 the function name.
 
 **How to use it under pressure.**

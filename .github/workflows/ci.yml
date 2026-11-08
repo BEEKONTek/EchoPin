@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, develop, deepseek-mvp]
+    branches: [main, develop, update]
   pull_request:
     branches: [main, develop]
 
