@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:echo_pin/models/boundary_alert.dart';
+import 'package:echo_pin/models/ping.dart';
 import 'package:echo_pin/services/haptic_service.dart';
+import 'package:echo_pin/services/notification_backend.dart';
 import 'package:echo_pin/services/notification_service.dart';
 import 'package:flutter/foundation.dart';
 
@@ -33,6 +35,35 @@ class AlertProvider extends ChangeNotifier {
 
     notifications.push(alert);
     unawaited(_fireHaptic(alert));
+  }
+
+  /// A ping arrived: OS notification (urgent for SOS) plus haptics. The
+  /// in-app tray is driven by the session's ping list, not by this queue.
+  ///
+  /// Pings bypass the boundary-alert switch: muting boundary chatter must
+  /// never silence an SOS.
+  void handlePing(IncomingPing ping) {
+    final bool sos = ping.kind == PingKind.sos;
+    final String note = ping.note == null ? '' : ' “${ping.note}”';
+    // Check-ins respect the OS-notification switch; an SOS always reaches
+    // the lock screen.
+    if (sos || notifications.osNotificationsEnabled()) {
+      unawaited(
+        notifications.backend.showNotice(
+          LocalNotice(
+            id: '${ping.fromId}:${ping.id}'.hashCode & 0x7FFFFFFF,
+            title: sos
+                ? 'SOS from ${ping.fromName}'
+                : '${ping.fromName} is checking in',
+            body: sos
+                ? '${ping.fromName} needs help.$note Open EchoPin to respond.'
+                : 'Are you OK?$note Tap to answer.',
+            urgency: sos ? NoticeUrgency.critical : NoticeUrgency.high,
+          ),
+        ),
+      );
+    }
+    unawaited(sos ? haptics.sos() : haptics.medium());
   }
 
   void dismiss(String id) => notifications.dismiss(id);

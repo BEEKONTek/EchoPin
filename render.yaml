@@ -1,0 +1,52 @@
+# Render Blueprint for the EchoPin server (free plan).
+# Render dashboard → New → Blueprint → pick this repository.
+# Secrets marked `sync: false` are asked for once when the Blueprint is
+# created. Full walkthrough: docs/DEPLOY_HOSTED.md
+services:
+  - type: web
+    name: echopin-server
+    runtime: docker
+    plan: free
+    region: frankfurt          # same region as the Supabase project
+    dockerContext: .
+    dockerfilePath: ./server/Dockerfile
+    healthCheckPath: /v1/health
+    autoDeploy: true
+    envVars:
+      # Supabase → Connect → Session pooler (IPv4). Keep ?sslmode=require.
+      - key: DATABASE_URL
+        sync: false
+      # From `echopin_admin init-keys --print-env`. Keep an offline copy.
+      - key: ECHOPIN_KEYS
+        sync: false
+      # Free Supabase allows few connections.
+      - key: DATABASE_POOL_SIZE
+        value: "4"
+      # Render's edge overwrites True-Client-IP with the real address on
+      # every request. Never trust the leftmost X-Forwarded-For entry: the
+      # client writes it.
+      - key: TRUST_PROXY
+        value: "true"
+      - key: CLIENT_IP_HEADER
+        value: true-client-ip
+      # Hardening defaults are on in the server (two-step for staff, breach
+      # check, unseal alerts, retention). Add CUSTODIAN_PUBLIC_KEYS under
+      # Environment after `echopin_admin init-custodian` (docs/DEPLOY_HOSTED.md 3b).
+      # Render's free plan blocks SMTP ports; send codes over Brevo's API.
+      - key: MAIL_PROVIDER
+        value: brevo
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      # Backups go to a private Supabase Storage bucket.
+      - key: BACKUP_STORE
+        value: supabase
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: BACKUP_HOUR_UTC
+        value: "1"
+      - key: BACKUP_RETENTION
+        value: "14"

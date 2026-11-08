@@ -1,0 +1,7 @@
+.dart_tool/
+build/
+.env
+keys/
+backups/
+*.epbk
+*.epbk.part

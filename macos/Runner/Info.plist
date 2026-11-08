@@ -28,5 +28,13 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>EchoPin uses the camera only to scan session invite QR codes.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>EchoPin finds people in your session on the same network. Messages are end-to-end encrypted.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_echopin._tcp</string>
+	</array>
 </dict>
 </plist>

@@ -5,8 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'key_value_store.dart';
 import 'prefs_kv_store.dart';
 
-/// Manages the per-install 32-byte (64 hex char) secret used as the HMAC key
-/// for [SessionCodec].
+/// Manages a per-install 32-byte (64 hex char) secret in the selected
+/// [KeyValueStore].
+///
+/// Session codes no longer use it (v2 codes are keyless and carry their own
+/// secret); it is kept as a device-bound secret for future local features
+/// and to preserve the secure-storage migration path.
 ///
 /// Default backend is [PrefsKvStore] so tests and Linux desktop work without
 /// native config. Production wiring (Bootstrap, later batch) passes a

@@ -1,27 +1,38 @@
 import 'dart:convert';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:echo_pin/models/session_summary.dart';
+import 'package:echo_pin/services/key_value_store.dart';
+import 'package:echo_pin/services/prefs_kv_store.dart';
 
-/// Persists the last [_maxEntries] sessions to disk for the "recent sessions"
-/// list on HomeScreen. Only session metadata is stored — never peers or
+/// Persists the last [_maxEntries] sessions for the "recent sessions" tray
+/// on the home screen. Only session metadata is stored, never peers or
 /// positions.
+///
+/// Entries include the invite code, which is the session secret, so the
+/// production wiring passes the OS-keystore-backed store chosen by
+/// `Bootstrap`. The default (plain prefs) is for tests and fallbacks.
 class SessionHistoryService {
+  SessionHistoryService({KeyValueStore? kv}) : _kv = kv ?? PrefsKvStore();
+
   static const String _kHistory = 'echo_pin.session_history';
   static const int _maxEntries = 20;
 
+  final KeyValueStore _kv;
+
   Future<List<SessionSummary>> load() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? raw = prefs.getString(_kHistory);
+    final String? raw = await _kv.read(_kHistory);
     if (raw == null || raw.isEmpty) return <SessionSummary>[];
     try {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
-      return list
-          .map(
-            (dynamic e) => SessionSummary.fromJson(e as Map<String, dynamic>),
-          )
-          .toList();
+      final List<SessionSummary> out = <SessionSummary>[];
+      for (final dynamic e in list) {
+        try {
+          out.add(SessionSummary.fromJson(e as Map<String, dynamic>));
+        } catch (_) {
+          // Skip one corrupt entry rather than losing the whole history.
+        }
+      }
+      return out;
     } catch (_) {
       return <SessionSummary>[];
     }
@@ -40,16 +51,18 @@ class SessionHistoryService {
     await _persist(existing);
   }
 
-  Future<void> clear() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kHistory);
+  Future<void> remove(String id) async {
+    final List<SessionSummary> existing = List<SessionSummary>.of(await load())
+      ..removeWhere((SessionSummary s) => s.id == id);
+    await _persist(existing);
   }
 
-  Future<void> _persist(List<SessionSummary> list) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String encoded = jsonEncode(
-      list.map((SessionSummary s) => s.toJson()).toList(),
+  Future<void> clear() => _kv.delete(_kHistory);
+
+  Future<void> _persist(List<SessionSummary> list) {
+    return _kv.write(
+      _kHistory,
+      jsonEncode(list.map((SessionSummary s) => s.toJson()).toList()),
     );
-    await prefs.setString(_kHistory, encoded);
   }
 }

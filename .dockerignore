@@ -1,0 +1,10 @@
+# The server image only needs the server and the shared protocol package.
+*
+!packages
+!server
+**/.dart_tool
+**/build
+server/keys
+server/backups
+server/.env
+**/*.epbk

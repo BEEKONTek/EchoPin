@@ -7,7 +7,16 @@ class _RecordingBackend implements NotificationBackend {
   final List<BoundaryAlert> shown = <BoundaryAlert>[];
 
   @override
+  String get name => 'recording';
+
+  @override
   Future<void> initialize() async {}
+
+  @override
+  Future<void> requestPermissions() async {}
+
+  @override
+  Future<void> showNotice(LocalNotice notice) async {}
 
   @override
   Future<void> showBoundaryAlert(BoundaryAlert alert) async {

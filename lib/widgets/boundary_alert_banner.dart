@@ -1,6 +1,7 @@
 import 'package:echo_pin/models/boundary_alert.dart';
 import 'package:echo_pin/providers/alert_provider.dart';
 import 'package:echo_pin/providers/alert_scope.dart';
+import 'package:echo_pin/ui/theme.dart';
 import 'package:flutter/material.dart';
 
 /// Animates the current boundary alert in/out at the top of its parent.
@@ -40,35 +41,49 @@ class _AlertCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     final bool entering = alert.direction == CrossingDirection.entered;
-    final Color color = entering
-        ? Colors.teal.shade700
-        : Colors.orange.shade800;
+    // Leaving the boundary is the one worth noticing; entering is calm.
+    final Color bg = entering
+        ? scheme.secondaryContainer
+        : scheme.errorContainer;
+    final Color fg = entering
+        ? scheme.onSecondaryContainer
+        : scheme.onErrorContainer;
     final IconData icon = entering
         ? Icons.person_add_alt_1
         : Icons.person_remove_alt_1;
 
-    return Material(
-      color: color,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: <Widget>[
-              Icon(icon, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  alert.message,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: EchoTheme.trayGap),
+      child: Semantics(
+        liveRegion: true,
+        child: Material(
+          color: bg,
+          borderRadius: BorderRadius.circular(EchoTheme.radius),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 6, 6),
+            child: Row(
+              children: <Widget>[
+                Icon(icon, color: fg),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    alert.message,
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: onDismiss,
-              ),
-            ],
+                IconButton(
+                  tooltip: 'Dismiss',
+                  icon: Icon(Icons.close, size: 18, color: fg),
+                  onPressed: onDismiss,
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -1,3 +1,9 @@
+// SESSION SCOPE: makes the app's SessionProvider reachable from any widget.
+//
+// An InheritedNotifier: `SessionScope.of(context)` returns the provider and
+// rebuilds the caller when it changes; `SessionScope.read(context)` returns it
+// without subscribing (for button handlers).
+
 import 'package:echo_pin/providers/session_provider.dart';
 import 'package:flutter/widgets.dart';
 
