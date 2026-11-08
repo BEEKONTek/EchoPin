@@ -197,16 +197,41 @@ class ServerKeys {
 
   static String _encodeBundle(Map<String, Object?> j) => base64.encode(utf8.encode(jsonEncode(j)));
 
+  /// Undoes the usual copy-paste slips when the bundle is pasted into a
+  /// host's secret field: the whole `ECHOPIN_KEYS=…` line instead of just
+  /// the value, surrounding quotes, or line breaks from a wrapped terminal.
+  /// None of these change the key material, so accepting them is safe.
+  static String normalizeBundle(String raw) {
+    String s = raw.trim();
+    if (s.startsWith('export ')) s = s.substring(7).trimLeft();
+    if (s.startsWith('ECHOPIN_KEYS=')) s = s.substring('ECHOPIN_KEYS='.length);
+    s = s.trim();
+    if (s.length >= 2 &&
+        ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")))) {
+      s = s.substring(1, s.length - 1);
+    }
+    return s.replaceAll(RegExp(r'\s+'), '');
+  }
+
   static Map<String, dynamic> _decodeBundle(String bundle) {
+    final String s = normalizeBundle(bundle);
     try {
       final Map<String, dynamic> j =
-          jsonDecode(utf8.decode(base64.decode(bundle.trim()))) as Map<String, dynamic>;
+          jsonDecode(utf8.decode(base64.decode(base64.normalize(s)))) as Map<String, dynamic>;
       if (j['v'] != 1 || j['escrow'] is! List) throw const FormatException();
       return j;
     } catch (_) {
-      throw const KeysException(
-        'ECHOPIN_KEYS is not a valid key bundle. Generate one with '
-        '`echopin_admin init-keys --print-env`',
+      // Say what looks wrong, never echo the value: it is the master secret.
+      final String hint = s.isEmpty
+          ? 'it is empty'
+          : s.length < 280
+              ? 'it is only ${s.length} characters long; a real bundle is about 300, '
+                  'so it was probably cut off when copied'
+              : 'it is ${s.length} characters long but does not decode, so part of it '
+                  'was probably lost or changed when copied';
+      throw KeysException(
+        'ECHOPIN_KEYS is not a valid key bundle ($hint). Paste only the text after '
+        '"ECHOPIN_KEYS=" from `echopin_admin init-keys --print-env`, on one line.',
       );
     }
   }

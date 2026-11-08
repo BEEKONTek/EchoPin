@@ -31,6 +31,35 @@ void main() {
       await d.delete(recursive: true);
     });
 
+    test('common copy-paste slips still load the same keys', () async {
+      final String bundle = await ServerKeys.newBundle();
+      final List<int> want = await (await ServerKeys.fromBundle(bundle)).dataKey.extractBytes();
+      final String wrapped = [
+        for (int i = 0; i < bundle.length; i += 60) bundle.substring(i, (i + 60).clamp(0, bundle.length))
+      ].join('\n');
+      for (final String pasted in <String>[
+        'ECHOPIN_KEYS=$bundle',
+        'export ECHOPIN_KEYS="$bundle"',
+        "'$bundle'",
+        '  $wrapped\n',
+        bundle.replaceAll('=', ''),
+      ]) {
+        final ServerKeys k = await ServerKeys.fromBundle(pasted);
+        expect(await k.dataKey.extractBytes(), want, reason: pasted.substring(0, 20));
+      }
+    });
+
+    test('a truncated bundle is refused without echoing it', () async {
+      final String bundle = await ServerKeys.newBundle();
+      final String cut = bundle.substring(0, 80);
+      await expectLater(
+        ServerKeys.fromBundle(cut),
+        throwsA(isA<KeysException>()
+            .having((KeysException e) => e.message, 'm', contains('cut off'))
+            .having((KeysException e) => e.message, 'm', isNot(contains(cut.substring(0, 20))))),
+      );
+    });
+
     test('garbage is refused with instructions', () async {
       await expectLater(ServerKeys.fromBundle('not-a-bundle'),
           throwsA(isA<KeysException>().having((KeysException e) => e.message, 'm', contains('init-keys --print-env'))));
