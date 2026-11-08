@@ -1,3 +1,12 @@
+// TRANSPORT INTERFACE: what every radio looks like to the session engine.
+//
+// Bluetooth LE, Wi-Fi/LAN and the in-memory loopback all implement
+// MessageTransport: start, stop, send bytes to a peer or everyone, and a
+// stream of received bytes. They carry only already-encrypted envelopes;
+// security lives in the engine, not in any radio. TransportStatus reports
+// health (running / waiting for a radio / unsupported / failed) for the
+// status trays.
+
 import 'package:echo_pin/core/echo_error.dart';
 import 'package:echo_pin/models/peer_link.dart';
 import 'package:flutter/foundation.dart';

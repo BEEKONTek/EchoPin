@@ -1,3 +1,11 @@
+// ADMIN PIN: guards the on-device admin panel (diagnostics, radio and alert
+// settings, synthetic test peers). This is local-only and separate from
+// server accounts and console roles.
+//
+// The PIN is stretched with PBKDF2-HMAC-SHA256 and a random salt, and
+// compared in constant time. Wrong attempts lock the panel with growing
+// delays, and the panel locks itself again after a period of inactivity.
+
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';

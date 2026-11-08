@@ -1,7 +1,7 @@
 name: echo_pin
 description: "Privacy-first peer presence for local sessions."
 publish_to: 'none'
-version: 0.3.0+3
+version: 0.4.0+4
 
 environment:
   sdk: ">=3.10.0 <4.0.0"
@@ -20,6 +20,9 @@ dependencies:
   connectivity_plus: ^7.3.1
   mobile_scanner: ^7.5.0
   bonsoir: ^7.1.5
+  http: ^1.6.0
+  echopin_protocol:
+    path: packages/echopin_protocol
 
 dev_dependencies:
   flutter_lints: ^5.0.0

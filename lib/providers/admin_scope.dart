@@ -1,3 +1,9 @@
+// ADMIN SCOPE: makes the app's AdminProvider reachable from any widget.
+//
+// An InheritedNotifier: `AdminScope.of(context)` returns the provider and
+// rebuilds the caller when it changes; `AdminScope.read(context)` returns it
+// without subscribing (for button handlers).
+
 import 'package:echo_pin/providers/admin_provider.dart';
 import 'package:flutter/widgets.dart';
 

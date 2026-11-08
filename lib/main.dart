@@ -1,9 +1,25 @@
+// APP ENTRY POINT and composition root.
+//
+// main() probes the platform (Bootstrap: secure storage, notifications,
+// Bluetooth), loads settings, and starts the widget tree. EchoPinApp
+// creates every long-lived object once (settings, alerts, sessions, admin,
+// and, when a server URL is built in, accounts, the outbox and the session
+// recorder) and hands them down the tree with *Scope widgets, so any screen
+// can reach them without globals. Tests pass fakes through the same
+// constructor parameters.
+
 import 'dart:async';
 
+import 'package:echo_pin/account/account_provider.dart';
+import 'package:echo_pin/account/outbox.dart';
+import 'package:echo_pin/account/session_recorder.dart';
+import 'package:echo_pin/app_info.dart';
+import 'package:echo_pin/providers/account_scope.dart';
 import 'package:echo_pin/providers/admin_provider.dart';
 import 'package:echo_pin/providers/admin_scope.dart';
 import 'package:echo_pin/providers/alert_provider.dart';
 import 'package:echo_pin/providers/alert_scope.dart';
+import 'package:echo_pin/providers/outbox_scope.dart';
 import 'package:echo_pin/providers/session_provider.dart';
 import 'package:echo_pin/providers/session_scope.dart';
 import 'package:echo_pin/providers/settings_provider.dart';
@@ -45,6 +61,7 @@ class EchoPinApp extends StatefulWidget {
     this.adminAuth,
     this.transportFactory,
     this.connectivity,
+    this.account,
   });
 
   final Bootstrap bootstrap;
@@ -66,6 +83,10 @@ class EchoPinApp extends StatefulWidget {
   /// Overrides admin authentication (tests).
   final AdminAuthService? adminAuth;
 
+  /// Overrides the account provider (tests). By default accounts are on
+  /// only when the build sets `ECHOPIN_SERVER_URL`.
+  final AccountProvider? account;
+
   @override
   State<EchoPinApp> createState() => _EchoPinAppState();
 }
@@ -76,6 +97,9 @@ class _EchoPinAppState extends State<EchoPinApp> {
   late final SessionProvider _sessionProvider;
   late final AdminProvider _adminProvider;
   late final ConnectivityService _connectivity;
+  late final AccountProvider _account;
+  late final Outbox _outbox;
+  late final SessionRecorder _recorder;
 
   @override
   void initState() {
@@ -125,10 +149,43 @@ class _EchoPinAppState extends State<EchoPinApp> {
       ),
     );
     unawaited(_adminProvider.refresh());
+
+    // Accounts, the upload queue and the sealed session recorder all keep
+    // their secrets in the store Bootstrap chose (the OS keystore where
+    // available).
+    _account =
+        widget.account ??
+        AccountProvider(
+          kv: bootstrap.kv,
+          platform: Bootstrap.platformLabel,
+          appVersion: kAppVersion,
+          secureKeyStorage: bootstrap.usingSecureStorage,
+        );
+    _outbox = Outbox(kv: bootstrap.kv, account: _account);
+    _recorder = SessionRecorder(
+      sessions: _sessionProvider,
+      account: _account,
+      outbox: _outbox,
+      kv: bootstrap.kv,
+      platform: Bootstrap.platformLabel,
+    );
+    unawaited(_startAccounts());
+  }
+
+  Future<void> _startAccounts() async {
+    await _account.load();
+    if (!_account.enabled) return;
+    await _outbox.load();
+    _outbox.start();
+    await _recorder.start();
+    unawaited(_outbox.flush());
   }
 
   @override
   void dispose() {
+    _recorder.dispose();
+    _outbox.dispose();
+    if (widget.account == null) _account.dispose();
     _adminProvider.dispose();
     _sessionProvider.dispose();
     _alertProvider.dispose();
@@ -147,12 +204,18 @@ class _EchoPinAppState extends State<EchoPinApp> {
           notifier: _sessionProvider,
           child: AdminScope(
             notifier: _adminProvider,
-            child: MaterialApp(
-              title: 'EchoPin',
-              debugShowCheckedModeBanner: false,
-              theme: EchoTheme.light(),
-              darkTheme: EchoTheme.dark(),
-              home: const HomeScreen(),
+            child: AccountScope(
+              notifier: _account,
+              child: OutboxScope(
+                notifier: _outbox,
+                child: MaterialApp(
+                  title: 'EchoPin',
+                  debugShowCheckedModeBanner: false,
+                  theme: EchoTheme.light(),
+                  darkTheme: EchoTheme.dark(),
+                  home: const HomeScreen(),
+                ),
+              ),
             ),
           ),
         ),

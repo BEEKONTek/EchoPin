@@ -1,3 +1,9 @@
+// SETTINGS SCOPE: makes the app's SettingsProvider reachable from any widget.
+//
+// An InheritedNotifier: `SettingsScope.of(context)` returns the provider and
+// rebuilds the caller when it changes; `SettingsScope.read(context)` returns it
+// without subscribing (for button handlers).
+
 import 'package:echo_pin/providers/settings_provider.dart';
 import 'package:flutter/widgets.dart';
 

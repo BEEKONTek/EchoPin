@@ -1,3 +1,11 @@
+// LOCATION ENGINE: bearing maths and privacy noise for distances.
+//
+// Distances come from Bluetooth signal strength, not GPS. EchoPin never
+// records coordinates. Before any distance reaches the screen, noise is
+// added so a precise position can't be read off the display. The noise for
+// a given person is stable within each minute, so labels don't jitter
+// every frame.
+
 import 'dart:math';
 
 import 'package:echo_pin/models/session.dart';

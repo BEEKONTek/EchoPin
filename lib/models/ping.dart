@@ -1,3 +1,10 @@
+// PINGS: check-ins ("Are you OK?") and SOS ("I need help"), as data.
+//
+// An OutgoingPing tracks who it was sent to and each person's answer
+// (delivered, OK, need help). An IncomingPing is one you must answer. The
+// wire names here are part of the encrypted protocol in docs/PROTOCOL.md,
+// so they must not change casually.
+
 import 'package:flutter/foundation.dart';
 
 enum PingKind {

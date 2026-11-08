@@ -1,3 +1,19 @@
+// SESSION PROVIDER: the heart of the app's session state.
+//
+// The UI never talks to radios or crypto directly; it talks to this. It
+// owns one SessionEngine (keys, encrypted messages, members, pings) plus
+// the transports (Bluetooth LE, Wi-Fi/LAN, or in-memory for demo mode),
+// and turns everything into one Session object the screens draw.
+//
+// Data flow on every update (_rebuild):
+//   radio sightings + engine members  ->  merge by peer id
+//   -> privacy noise on distances (_obfuscate)
+//   -> boundary-crossing detection (alerts)
+//   -> Session.peers  ->  notifyListeners()  ->  widgets rebuild
+//
+// Also: status trays ("Bluetooth is off" with a fix button), session
+// history for quick rejoin, and admin test tools (synthetic peers).
+
 import 'dart:async';
 
 import 'package:echo_pin/core/echo_error.dart';

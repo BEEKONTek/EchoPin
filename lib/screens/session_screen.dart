@@ -1,3 +1,15 @@
+// SESSION SCREEN: the live view while you are in a session.
+//
+// Layout: an app bar (session name, radio status, menu), the pinwheel of
+// people around you, and a draggable sheet listing everyone with their
+// status. From here you check in on selected people or everyone, hold the
+// SOS button, answer incoming pings, verify someone's safety code in
+// person, open the invite (QR + code) and leave.
+//
+// All state comes from SessionProvider via SessionScope; this file only
+// draws it and turns taps into provider calls. A 1-second timer refreshes
+// "seen 5 s ago" style labels without touching the provider.
+
 import 'dart:async';
 
 import 'package:echo_pin/core/echo_error.dart';

@@ -1,3 +1,9 @@
+// ALERT SCOPE: makes the app's AlertProvider reachable from any widget.
+//
+// An InheritedNotifier: `AlertScope.of(context)` returns the provider and
+// rebuilds the caller when it changes; `AlertScope.read(context)` returns it
+// without subscribing (for button handlers).
+
 import 'package:echo_pin/providers/alert_provider.dart';
 import 'package:flutter/widgets.dart';
 

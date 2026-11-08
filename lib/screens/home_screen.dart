@@ -1,12 +1,27 @@
+// HOME SCREEN: where everything starts.
+//
+// Type your name, then create a session, join one with an invite code
+// (typed, pasted or scanned from a QR), rejoin a recent one, or start the
+// demo. When a server is configured and you are not signed in, starting a
+// real session first asks you to sign in (the demo never does). The
+// account icon opens sign-in / your account.
+//
+// _run() is the single place that starts a session: it shows progress,
+// turns errors into friendly messages and opens SessionScreen on success.
+
 import 'dart:async';
 
+import 'package:echo_pin/account/account_provider.dart';
 import 'package:echo_pin/core/echo_error.dart';
 import 'package:echo_pin/models/app_settings.dart';
 import 'package:echo_pin/models/session_summary.dart';
+import 'package:echo_pin/providers/account_scope.dart';
 import 'package:echo_pin/providers/session_provider.dart';
 import 'package:echo_pin/providers/session_scope.dart';
 import 'package:echo_pin/providers/settings_provider.dart';
 import 'package:echo_pin/providers/settings_scope.dart';
+import 'package:echo_pin/screens/account/account_screen.dart';
+import 'package:echo_pin/screens/account/sign_in_screen.dart';
 import 'package:echo_pin/screens/admin/admin_gate_screen.dart';
 import 'package:echo_pin/screens/qr_scan_screen.dart';
 import 'package:echo_pin/screens/session_screen.dart';
@@ -89,8 +104,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _run(
     Future<Object?> Function(SessionProvider) start, {
     bool fromCode = false,
+    bool live = true,
   }) async {
     if (_busy || _nameError != null) return;
+    // With a server configured, live sessions need an account so the
+    // emergency record has an owner. The demo never does.
+    final AccountProvider account = AccountScope.read(context);
+    if (live && account.enabled && !account.signedIn) {
+      final bool ok = await SignInScreen.open(context);
+      if (!ok || !mounted) return;
+    }
+    if (!mounted) return;
     final SessionProvider provider = SessionScope.read(context);
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     setState(() {
@@ -148,6 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _run(
         (SessionProvider p) =>
             p.createSession(name: name, forceSimulation: demo),
+        live: !demo,
       ),
     );
   }
@@ -192,11 +217,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<SessionSummary> history = provider.history;
     final bool live = provider.canRunLiveSessions;
     final String? ended = provider.endedReason;
+    final AccountProvider account = AccountScope.of(context);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('EchoPin'),
         actions: <Widget>[
+          if (account.enabled)
+            IconButton(
+              key: const Key('home.account'),
+              tooltip: account.signedIn ? 'Account' : 'Sign in',
+              icon: Icon(
+                account.signedIn
+                    ? Icons.account_circle
+                    : Icons.account_circle_outlined,
+              ),
+              onPressed: () => unawaited(openAccount(context)),
+            ),
           IconButton(
             tooltip: 'Admin',
             icon: const Icon(Icons.admin_panel_settings_outlined),
@@ -213,6 +250,22 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: <Widget>[
                 const _Hero(),
+                AnimatedSize(
+                  duration: EchoTheme.medium,
+                  curve: EchoTheme.enter,
+                  child: !account.enabled || account.signedIn || !account.loaded
+                      ? const SizedBox(width: double.infinity)
+                      : Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _InfoTray(
+                            icon: Icons.account_circle_outlined,
+                            text:
+                                account.signedOutReason ??
+                                'Sign in to start or join live sessions. '
+                                    'The demo works without an account.',
+                          ),
+                        ),
+                ),
                 AnimatedSize(
                   duration: EchoTheme.medium,
                   curve: EchoTheme.enter,
