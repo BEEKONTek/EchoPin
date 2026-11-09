@@ -312,7 +312,7 @@ class ServerConfig {
     final BackupStoreConfig store = switch (storeName) {
       'local' => const BackupStoreConfig.local(),
       'supabase' => BackupStoreConfig.supabase(
-        supabaseUrl: need('SUPABASE_URL', 'for BACKUP_STORE=supabase'),
+        supabaseUrl: supabaseApiUrl(need('SUPABASE_URL', 'for BACKUP_STORE=supabase')),
         supabaseKey: need('SUPABASE_SERVICE_KEY', 'for BACKUP_STORE=supabase (service role or secret key)'),
         bucket: get('SUPABASE_BACKUP_BUCKET') ?? 'echopin-backups',
       ),
@@ -378,4 +378,27 @@ class ConfigException implements Exception {
     );
   }
   return (s, name);
+}
+
+/// The project API address (`https://<ref>.supabase.co`) from whatever was
+/// pasted into `SUPABASE_URL`. Common slips: the dashboard address from the
+/// browser bar (Supabase answers that with an empty 405), or an API URL
+/// with a service path such as `/rest/v1` or `/storage/v1` on the end.
+String supabaseApiUrl(String raw) {
+  String s = raw.trim().replaceAll(RegExp(r'^["\x27]|["\x27]$'), '');
+  final RegExpMatch? dash =
+      RegExp(r'^https?://(?:app\.)?supabase\.com/dashboard/project/([a-z0-9]{20})').firstMatch(s);
+  if (dash != null) return 'https://${dash.group(1)}.supabase.co';
+  final Uri? u = Uri.tryParse(s);
+  if (u == null || !u.hasScheme || u.host.isEmpty || !(u.scheme == 'https' || u.scheme == 'http')) {
+    throw ConfigException(
+      'SUPABASE_URL must be the project API address, e.g. https://abcdefghijklmnopqrst.supabase.co '
+      '(Project Settings → Data API), got "$raw"',
+    );
+  }
+  if (u.host.endsWith('.supabase.co') && u.host.startsWith('db.')) {
+    // The database host, not the API: db.<ref>.supabase.co → <ref>.supabase.co
+    return 'https://${u.host.substring(3)}';
+  }
+  return '${u.scheme}://${u.host}${u.hasPort ? ':${u.port}' : ''}';
 }

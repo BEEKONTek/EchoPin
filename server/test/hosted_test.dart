@@ -322,4 +322,24 @@ void main() {
       expect(providerReason('not json'), '');
     });
   });
+
+  group('supabase url', () {
+    test('dashboard, database host and service paths all become the API address', () {
+      const String api = 'https://jvfnaqgybvtlgzbkdwho.supabase.co';
+      for (final String pasted in <String>[
+        api,
+        '$api/',
+        '$api/rest/v1',
+        '$api/storage/v1/s3',
+        'https://supabase.com/dashboard/project/jvfnaqgybvtlgzbkdwho',
+        'https://supabase.com/dashboard/project/jvfnaqgybvtlgzbkdwho/settings/api',
+        'https://db.jvfnaqgybvtlgzbkdwho.supabase.co',
+        ' "$api" ',
+      ]) {
+        expect(supabaseApiUrl(pasted), api, reason: pasted);
+      }
+      expect(supabaseApiUrl('http://localhost:54321/storage/v1'), 'http://localhost:54321');
+      expect(() => supabaseApiUrl('jvfnaqgybvtlgzbkdwho'), throwsA(isA<ConfigException>()));
+    });
+  });
 }
