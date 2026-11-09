@@ -227,6 +227,11 @@ CI still build:
 
     flutter build apk --release
 
+To install it on phones by QR code, run `scripts/share_apk.sh`. It serves
+the newest APK over your Wi-Fi and prints a QR code; phones on the same
+network scan it and install. With a cable instead:
+`adb install -r build/app/outputs/flutter-apk/app-release.apk`.
+
 Others:
 
     flutter build linux      # clang cmake ninja-build libgtk-3-dev libsecret-1-dev
