@@ -403,9 +403,12 @@ class AccountProvider extends ChangeNotifier {
   }
 
   static List<int>? _decodeKey(String b64) {
-    if (b64.isEmpty) return null;
+    // Tolerate a dropped "=" pad or URL-safe alphabet: a key passed through
+    // --dart-define or a host's settings page often loses one or the other.
+    final String s = b64.trim();
+    if (s.isEmpty) return null;
     try {
-      final List<int> k = base64.decode(b64);
+      final List<int> k = base64.decode(base64.normalize(s));
       return k.length == 32 ? k : null;
     } catch (_) {
       return null;

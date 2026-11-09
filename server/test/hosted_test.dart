@@ -259,5 +259,35 @@ void main() {
         throwsA(isA<ConfigException>()),
       );
     });
+
+    test('custodian keys survive lost padding, quotes, prefix and URL-safe alphabet', () {
+      // A key with "/" and "+" in it, so the URL-safe form really differs.
+      final List<int> raw = List<int>.generate(32, (int i) => i == 0 ? 0xfb : (i == 1 ? 0xff : i * 7));
+      final String canonical = base64.encode(raw);
+      expect(canonical, endsWith('='));
+      for (final String pasted in <String>[
+        canonical,
+        canonical.replaceAll('=', ''),
+        '"$canonical"',
+        'CUSTODIAN_PUBLIC_KEYS=$canonical',
+        base64Url.encode(raw).replaceAll('=', ''),
+      ]) {
+        final ServerConfig c = ServerConfig.fromEnvironment(
+            <String, String>{'DATABASE_URL': 'postgresql://u@h/db', 'CUSTODIAN_PUBLIC_KEYS': pasted});
+        expect(c.custodianPublicKeys, <String>[canonical], reason: pasted);
+      }
+      final ServerConfig two = ServerConfig.fromEnvironment(<String, String>{
+        'DATABASE_URL': 'postgresql://u@h/db',
+        'CUSTODIAN_PUBLIC_KEYS': ' ${canonical.replaceAll('=', '')} , $canonical ',
+      });
+      expect(two.custodianPublicKeys, <String>[canonical, canonical]);
+      expect(
+        () => ServerConfig.fromEnvironment(<String, String>{
+          'DATABASE_URL': 'postgresql://u@h/db',
+          'CUSTODIAN_PUBLIC_KEYS': canonical.substring(0, 30),
+        }),
+        throwsA(isA<ConfigException>()),
+      );
+    });
   });
 }

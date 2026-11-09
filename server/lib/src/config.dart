@@ -235,19 +235,30 @@ class ServerConfig {
         'List the web console origin instead, e.g. https://console.example.org',
       );
     }
-    final List<String> custodian = (get('CUSTODIAN_PUBLIC_KEYS') ?? '')
-        .split(',')
-        .map((String s) => s.trim())
-        .where((String s) => s.isNotEmpty)
-        .toList();
-    for (final String k in custodian) {
+    // Public keys, so echoing a bad one in the error is fine. Each entry is
+    // re-encoded canonically: hosts and copy-paste often drop the trailing
+    // "=" padding, add quotes or the "CUSTODIAN_PUBLIC_KEYS=" prefix, or a
+    // key may arrive in the URL-safe alphabet. None of that changes the key.
+    String rawCustodian = (get('CUSTODIAN_PUBLIC_KEYS') ?? '').trim();
+    if (rawCustodian.startsWith('CUSTODIAN_PUBLIC_KEYS=')) {
+      rawCustodian = rawCustodian.substring('CUSTODIAN_PUBLIC_KEYS='.length);
+    }
+    final List<String> custodian = <String>[];
+    for (final String entry in rawCustodian.split(',')) {
+      final String k = entry.trim().replaceAll(RegExp('^["\']+|["\']+\$'), '').replaceAll(RegExp(r'\s+'), '');
+      if (k.isEmpty) continue;
       List<int> bytes = const <int>[];
       try {
-        bytes = base64.decode(k);
+        bytes = base64.decode(base64.normalize(k));
       } catch (_) {}
       if (bytes.length != 32) {
-        throw ConfigException('CUSTODIAN_PUBLIC_KEYS has an entry that is not a 32-byte base64 key: "$k"');
+        throw ConfigException(
+          'CUSTODIAN_PUBLIC_KEYS has an entry that is not a 32-byte base64 key: "$k" '
+          '(${bytes.isEmpty ? 'not base64' : '${bytes.length} bytes'}). Paste the value printed '
+          'by `echopin_admin init-custodian` after "CUSTODIAN_PUBLIC_KEYS=".',
+        );
       }
+      custodian.add(base64.encode(bytes));
     }
 
     // Mail: explicit MAIL_PROVIDER, else SMTP when SMTP_HOST is set, else
