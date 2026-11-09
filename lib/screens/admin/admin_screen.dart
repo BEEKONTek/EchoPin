@@ -189,7 +189,7 @@ class _SettingsCard extends StatelessWidget {
           value: s.defaultBoundaryRadiusMeters,
           min: AppSettings.minRadius,
           max: AppSettings.maxRadius,
-          divisions: 45,
+          divisions: 18,
           label: '${s.defaultBoundaryRadiusMeters.round()} m',
           onChanged: (double v) =>
               save(s.copyWith(defaultBoundaryRadiusMeters: v)),
@@ -269,7 +269,7 @@ class _SyntheticPeersCard extends StatefulWidget {
 class _SyntheticPeersCardState extends State<_SyntheticPeersCard> {
   final TextEditingController _label = TextEditingController();
   double _bearing = 45;
-  double _distance = 120;
+  double _distance = 40;
 
   @override
   void dispose() {

@@ -15,7 +15,9 @@ from every device, a central console, and encrypted backups.
 
 A small group creates or joins a temporary **session** with an invite code
 or QR. Each phone shows the others on a pinwheel around "you", as distance
-from Bluetooth signal strength, inside a boundary circle you drag to size.
+from Bluetooth signal strength (up to 100 m), inside a boundary circle you
+drag to size. Bluetooth gives distance but not direction, so the pinwheel
+says so rather than guess (see *Pinwheel* below).
 When someone crosses the boundary you get an alert. Anyone can **check in**
 on selected people or everyone, and anyone can raise an **SOS** that every
 member receives, with delivery receipts and answers.
@@ -31,9 +33,18 @@ sealed record of what it saw (see below).
   (~78 bits) plus a typo-catching checksum that works on any device. Share as
   QR, code or `echopin://join` link; join by scanning, pasting or typing.
   Every mistake gets a precise message ("Codes never contain 0, 1").
-- **Pinwheel.** Live distances, drag-to-set boundary, privacy noise, SOS
-  halos. Unconfirmed signals draw hollow; Wi-Fi-only peers are listed but
-  not drawn, because no distance is known.
+- **Pinwheel.** A 100 m radar with rings every 25 m, a drag-to-set
+  boundary (10–100 m, default 50 m), privacy noise and SOS halos. People
+  past 100 m sit on the edge as hollow dots; unconfirmed signals draw
+  hollow; Wi-Fi-only peers are listed but not drawn, because no distance is
+  known.
+  - **Direction.** Bluetooth signal strength measures how far someone is,
+    not which way. For real phones the pinwheel places people at their
+    distance, spaced evenly round the circle, with no direction line and no
+    "N" marker, and the caption reads *Distance only · direction unknown*.
+    Only the demo and admin test people have (simulated) directions. True
+    direction would need ultra-wideband radios (iPhone 11 and later, some
+    recent Android flagships); that is not built yet.
 - **Peer tray.** A draggable bottom sheet of animated cards ("trays") that
   slide in and out as people appear and leave, with live distance, radio,
   verification badge and ping status. Long-press to select people.
@@ -240,6 +251,26 @@ Others:
     flutter build macos               # macOS host
     flutter build windows             # Windows host
 
+Point a build at your server, and build in the custodian key, with
+`--dart-define=ECHOPIN_SERVER_URL=https://…` and
+`--dart-define=ECHOPIN_CUSTODIAN_KEY=…` (see `docs/DEPLOY_HOSTED.md`).
+
+### iOS (needs a Mac)
+
+An iPhone app can't be built on Linux. Apple's compiler and signing tools
+(Xcode) only run on macOS, and an iPhone only installs apps signed with an
+Apple certificate. What is possible:
+
+| Route | Cost | Gives you |
+| --- | --- | --- |
+| CI (`.github/workflows/build.yml`, `ios` job) | Free (public repo) | Proves the iOS code compiles. Unsigned, so it can't be installed |
+| A Mac + free Apple ID, Xcode → *Run* | Free | Installs on your own iPhone over a cable; the app expires after 7 days |
+| A Mac or a cloud Mac (Codemagic, GitHub macOS runner) + Apple Developer Program | US$99/year | TestFlight links for up to 10,000 testers, then the App Store |
+
+Before the first signed build, change `PRODUCT_BUNDLE_IDENTIFIER` in
+`ios/Runner.xcodeproj` from `com.example.echoPin` to an id you own (Apple
+rejects `com.example`), and set your team in Xcode → Signing & Capabilities.
+
 Requirements: Flutter 3.38 or newer (CI uses 3.44), JDK 17 or newer, and
 about 3 GB of free RAM for Gradle (`android/gradle.properties` sets
 `-Xmx2G`).
@@ -275,7 +306,8 @@ Not yet verified (needs hardware or another host OS):
 - **Bluetooth between real phones.** The GATT code compiles for Android and
   follows CoreBluetooth's rules on iOS, but has not run on devices. Test two
   phones in one session, then an Android with an iPhone.
-- **iOS and macOS builds** (CI builds them on macOS runners).
+- **iOS and macOS builds** (CI builds them on macOS runners, unsigned; see
+  *iOS (needs a Mac)* above).
 - **Background operation.** Bluetooth discovery runs while the app is open.
   iOS does not advertise local names in the background, and Android may
   pause scans with the screen off.

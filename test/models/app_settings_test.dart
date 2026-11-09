@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   test('JSON round-trip', () {
     const AppSettings s = AppSettings(
-      defaultBoundaryRadiusMeters: 220,
+      defaultBoundaryRadiusMeters: 70,
       noiseSigmaMeters: 12,
       alertsEnabled: false,
       osNotificationsEnabled: false,
@@ -23,9 +23,18 @@ void main() {
       'noiseSigmaMeters': 'loud',
       'alertsEnabled': 'yes',
     });
-    expect(s.defaultBoundaryRadiusMeters, AppSettings.maxRadius);
+    // Past the 100 m radar: a value from the old 500 m scale, so the
+    // default comes back rather than the very edge.
+    expect(s.defaultBoundaryRadiusMeters, const AppSettings().defaultBoundaryRadiusMeters);
     expect(s.noiseSigmaMeters, const AppSettings().noiseSigmaMeters);
     expect(s.alertsEnabled, isTrue);
+  });
+
+  test('a boundary saved on the old 500 m radar moves onto the 100 m one', () {
+    expect(AppSettings.fromJson(<String, dynamic>{'defaultBoundaryRadiusMeters': 150}).defaultBoundaryRadiusMeters, 50);
+    expect(AppSettings.fromJson(<String, dynamic>{'defaultBoundaryRadiusMeters': 80}).defaultBoundaryRadiusMeters, 80);
+    expect(AppSettings.fromJson(<String, dynamic>{'defaultBoundaryRadiusMeters': 2}).defaultBoundaryRadiusMeters, AppSettings.minRadius);
+    expect(AppSettings.maxRadius, 100);
   });
 
   group('SettingsProvider', () {

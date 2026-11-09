@@ -107,25 +107,25 @@ class LocationEngine {
         id: 'peer-a',
         label: 'Peer A',
         bearingDegrees: 30,
-        distanceMeters: 68,
+        distanceMeters: 22,
       ),
       PeerPresence(
         id: 'peer-b',
         label: 'Peer B',
         bearingDegrees: 120,
-        distanceMeters: 142,
+        distanceMeters: 41,
       ),
       PeerPresence(
         id: 'peer-c',
         label: 'Peer C',
         bearingDegrees: 200,
-        distanceMeters: 254,
+        distanceMeters: 78,
       ),
       PeerPresence(
         id: 'peer-d',
         label: 'Peer D',
         bearingDegrees: 320,
-        distanceMeters: 90,
+        distanceMeters: 33,
       ),
     ];
   }

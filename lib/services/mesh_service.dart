@@ -125,9 +125,9 @@ class MeshService {
     if (_currentPeers.isEmpty && _synthetic.isEmpty) return;
     _currentPeers = _currentPeers.map((PeerPresence p) {
       final double newDistance =
-          (p.distanceMeters + (_random.nextDouble() - 0.5) * 50).clamp(
-            0.0,
-            500.0,
+          (p.distanceMeters + (_random.nextDouble() - 0.5) * 8).clamp(
+            2.0,
+            120.0, // may drift just past the 100 m radar edge
           );
       final double rawBearing =
           p.bearingDegrees + (_random.nextDouble() - 0.5) * 20;
@@ -171,25 +171,25 @@ class MeshService {
         id: 'peer-a',
         label: 'Peer A',
         bearingDegrees: 30,
-        distanceMeters: 68,
+        distanceMeters: 22,
       ),
       PeerPresence(
         id: 'peer-b',
         label: 'Peer B',
         bearingDegrees: 120,
-        distanceMeters: 142,
+        distanceMeters: 41,
       ),
       PeerPresence(
         id: 'peer-c',
         label: 'Peer C',
         bearingDegrees: 200,
-        distanceMeters: 254,
+        distanceMeters: 78,
       ),
       PeerPresence(
         id: 'peer-d',
         label: 'Peer D',
         bearingDegrees: 320,
-        distanceMeters: 90,
+        distanceMeters: 33,
       ),
     ];
   }

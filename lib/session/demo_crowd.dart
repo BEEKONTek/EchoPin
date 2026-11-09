@@ -17,10 +17,10 @@ class DemoCrowd {
   DemoCrowd._(this._engines, this._seats, this._random);
 
   static const List<_Seat> _defaultSeats = <_Seat>[
-    _Seat('Amara', 30, 68),
-    _Seat('Ben', 120, 142),
-    _Seat('Chloe', 200, 254),
-    _Seat('Dev', 320, 90),
+    _Seat('Amara', 30, 22),
+    _Seat('Ben', 120, 41),
+    _Seat('Chloe', 200, 78), // starts outside the default 50 m boundary
+    _Seat('Dev', 320, 33),
   ];
 
   final List<SessionEngine> _engines;

@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 @immutable
 class AppSettings {
   const AppSettings({
-    this.defaultBoundaryRadiusMeters = 150,
+    this.defaultBoundaryRadiusMeters = 50,
     this.noiseSigmaMeters = 7,
     this.alertsEnabled = true,
     this.osNotificationsEnabled = true,
@@ -16,10 +16,13 @@ class AppSettings {
     this.wifiEnabled = true,
   });
 
-  static const double minRadius = 50;
-  static const double maxRadius = 500;
+  /// Boundary range. Bluetooth distance estimates are only useful at short
+  /// range (they get very rough past a few tens of metres), so the radar
+  /// tops out at 100 m.
+  static const double minRadius = 10;
+  static const double maxRadius = 100;
   static const double minNoise = 0;
-  static const double maxNoise = 50;
+  static const double maxNoise = 20;
 
   /// Boundary radius applied to newly created / joined sessions.
   final double defaultBoundaryRadiusMeters;
@@ -114,10 +117,15 @@ class AppSettings {
     }
 
     return AppSettings(
-      defaultBoundaryRadiusMeters: num0(
-        'defaultBoundaryRadiusMeters',
-        d.defaultBoundaryRadiusMeters,
-      ),
+      // Saved before the radar shrank to 100 m (0.4.0 used 50–500 m):
+      // a value past the new range means "the old default", not "the edge".
+      defaultBoundaryRadiusMeters: () {
+        final double v = num0(
+          'defaultBoundaryRadiusMeters',
+          d.defaultBoundaryRadiusMeters,
+        );
+        return v > maxRadius ? d.defaultBoundaryRadiusMeters : v;
+      }(),
       noiseSigmaMeters: num0('noiseSigmaMeters', d.noiseSigmaMeters),
       alertsEnabled: bool0('alertsEnabled', d.alertsEnabled),
       osNotificationsEnabled: bool0(

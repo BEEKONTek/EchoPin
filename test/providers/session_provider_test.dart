@@ -176,14 +176,14 @@ void main() {
       final SessionProvider ana = make('Ana', history: history);
       final Session first = await ana.createSession(
         name: 'Hike',
-        boundaryRadiusMeters: 320,
+        boundaryRadiusMeters: 80,
       );
       await ana.leaveSession();
       await ana.loadHistory();
       expect(ana.history.map((SessionSummary s) => s.name), <String>['Hike']);
       final Session again = await ana.rejoin(ana.history.single);
       expect(again.id, first.id);
-      expect(again.boundaryRadiusMeters, 320);
+      expect(again.boundaryRadiusMeters, 80);
     });
 
     test('boundary radius is clamped', () async {

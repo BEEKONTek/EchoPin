@@ -11,6 +11,7 @@ class PeerPresence {
     this.lastSeen,
     this.authenticated = true,
     this.hasDistance = true,
+    this.hasBearing = true,
     this.links = const <PeerLink>{},
     this.safetyCode,
     this.verified = false,
@@ -31,6 +32,12 @@ class PeerPresence {
   /// estimate their distance. Such peers are listed but not drawn.
   final bool hasDistance;
 
+  /// False when [bearingDegrees] was not measured. Bluetooth signal
+  /// strength gives a distance but no direction, so a Bluetooth sighting's
+  /// angle is only a stable placeholder for laying out the radar. Only the
+  /// demo crowd and admin test peers carry a real (simulated) direction.
+  final bool hasBearing;
+
   final Set<PeerLink> links;
 
   /// 12-digit code to compare in person; null until authenticated.
@@ -47,6 +54,7 @@ class PeerPresence {
     DateTime? lastSeen,
     bool? authenticated,
     bool? hasDistance,
+    bool? hasBearing,
     Set<PeerLink>? links,
     String? safetyCode,
     bool? verified,
@@ -59,6 +67,7 @@ class PeerPresence {
       lastSeen: lastSeen ?? this.lastSeen,
       authenticated: authenticated ?? this.authenticated,
       hasDistance: hasDistance ?? this.hasDistance,
+      hasBearing: hasBearing ?? this.hasBearing,
       links: links ?? this.links,
       safetyCode: safetyCode ?? this.safetyCode,
       verified: verified ?? this.verified,

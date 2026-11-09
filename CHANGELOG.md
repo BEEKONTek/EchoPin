@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **Pinwheel range is now 100 m** (was 500 m), with rings every 25 m. The
+  boundary goes from 10 to 100 m in 5 m steps, default 50 m; a default saved
+  on the old scale (over 100 m) resets to 50 m. Demo people start closer.
+  Privacy noise maximum is now 20 m.
+
+### Fixed
+- **Pinwheel no longer shows a made-up direction.** Bluetooth measures
+  distance only, but people were drawn at an angle derived from their id,
+  with a direction line and an "N" marker, so it looked like a compass
+  reading. Bluetooth people are now spaced evenly at their distance, with
+  no line and no "N", under the caption *Distance only · direction
+  unknown*. New `PeerPresence.hasBearing` marks which angles are real.
+
 ## [0.4.0] — 2026-11-08
 
 ### Added

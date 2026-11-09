@@ -157,10 +157,7 @@ class PeerTray extends StatelessWidget {
     if (peer.hasDistance) {
       parts.add(Fmt.distance(peer.distanceMeters));
       // BLE gives no direction; only simulated/test peers have a real one.
-      if (peer.links.contains(PeerLink.loopback) ||
-          peer.links.contains(PeerLink.synthetic)) {
-        parts.add('${peer.bearingDegrees.round()}°');
-      }
+      if (peer.hasBearing) parts.add('${peer.bearingDegrees.round()}°');
     } else {
       parts.add('Distance unknown');
     }

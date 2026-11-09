@@ -221,14 +221,16 @@ class BleMeshTransport implements MessageTransport {
       id: event.peerId,
       label: event.displayName,
       bearingDegrees: stableBearing(event.peerId),
+      hasBearing: false, // RSSI has no direction; see PeerPresence.hasBearing
       distanceMeters: event.distanceMeters,
       lastSeen: event.lastSeen,
     );
     _emit();
   }
 
-  /// BLE gives distance only; derive a stable angle from the peer id so the
-  /// dot does not jump between observations. Stable across runs.
+  /// BLE gives distance only. This is a placeholder angle derived from the
+  /// peer id so a value always exists; it is NOT a direction, and the radar
+  /// ignores it for peers with `hasBearing == false`.
   static double stableBearing(String id) {
     int h = 0;
     for (final int c in id.codeUnits) {

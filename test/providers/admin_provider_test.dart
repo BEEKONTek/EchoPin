@@ -107,11 +107,11 @@ void main() {
   test('settings changes are applied and diffed in the log', () async {
     await admin.createPin('1234');
     await admin.updateSettings(
-      admin.settings.copyWith(defaultBoundaryRadiusMeters: 300),
+      admin.settings.copyWith(defaultBoundaryRadiusMeters: 90),
     );
-    expect(settings.value.defaultBoundaryRadiusMeters, 300);
+    expect(settings.value.defaultBoundaryRadiusMeters, 90);
     expect(admin.log.first.type, AdminEventType.settingsChanged);
-    expect(admin.log.first.detail, contains('radius: 150 → 300'));
+    expect(admin.log.first.detail, contains('radius: 50 → 90'));
   });
 
   test('injected peer appears in session and can drive a crossing', () async {

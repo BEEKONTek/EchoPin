@@ -61,18 +61,24 @@ class PinwheelColors {
   );
 }
 
-/// Draws peers as spokes ("blades") radiating from the user at the centre.
+/// Draws peers around the user at the centre.
 ///
 /// Distances are in metres and mapped linearly so that [rangeMeters] lands
 /// on the outer edge. The boundary circle therefore sits exactly where a
 /// peer at [boundaryRadius] metres is drawn. Peers beyond the range are
 /// pinned to the edge with a hollow marker.
+///
+/// Direction: only peers with [PeerPresence.hasBearing] are drawn at their
+/// angle, with a spoke and a north marker. Bluetooth measures distance
+/// only, so those peers are spread evenly around their distance with no
+/// spoke and a caption saying direction is unknown: the radar never shows
+/// a direction nobody measured.
 class PinwheelPainter extends CustomPainter {
   const PinwheelPainter({
     required this.peers,
     required this.boundaryRadius,
     required this.centerRadius,
-    this.rangeMeters = 500,
+    this.rangeMeters = 100,
     this.colors,
     this.syntheticIds = const <String>{},
     this.highlightIds = const <String>{},
@@ -113,12 +119,13 @@ class PinwheelPainter extends CustomPainter {
     // Backdrop disc.
     canvas.drawCircle(center, outer, Paint()..color = c.background);
 
-    // Range rings every 100 m with labels.
+    // Range rings (every 25 m on the 100 m radar) with labels.
     final Paint gridPaint = Paint()
       ..color = c.grid
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    for (double m = 100; m <= rangeMeters; m += 100) {
+    final double ringStep = ringStepFor(rangeMeters);
+    for (double m = ringStep; m <= rangeMeters + 0.001; m += ringStep) {
       canvas.drawCircle(center, m * pxPerMeter, gridPaint);
       _text(
         canvas,
@@ -128,15 +135,30 @@ class PinwheelPainter extends CustomPainter {
         10,
       );
     }
-    // North marker.
-    _text(
-      canvas,
-      'N',
-      center + Offset(-4, -outer - 16),
-      c.label.withValues(alpha: 0.7),
-      12,
-      bold: true,
-    );
+    final List<PeerPresence> placed = peers
+        .where((PeerPresence p) => p.hasDistance)
+        .toList();
+    final Map<String, double> angles = angleLayout(placed);
+    // North only means something when at least one direction is real.
+    if (placed.any((PeerPresence p) => p.hasBearing)) {
+      _text(
+        canvas,
+        'N',
+        center + Offset(-4, -outer - 16),
+        c.label.withValues(alpha: 0.7),
+        12,
+        bold: true,
+      );
+    }
+    if (placed.any((PeerPresence p) => !p.hasBearing)) {
+      _textCentered(
+        canvas,
+        'Distance only · direction unknown',
+        center + Offset(0, outer + 3),
+        c.label.withValues(alpha: 0.6),
+        11,
+      );
+    }
 
     // Boundary.
     final double boundaryPx = boundaryRadius.clamp(0, rangeMeters) * pxPerMeter;
@@ -156,8 +178,7 @@ class PinwheelPainter extends CustomPainter {
 
     // Peers: spoke + dot + label. Peers without a measured distance
     // (Wi-Fi only) cannot be placed honestly, so they are not drawn.
-    for (final PeerPresence peer in peers) {
-      if (!peer.hasDistance) continue;
+    for (final PeerPresence peer in placed) {
       final bool inside = peer.distanceMeters <= boundaryRadius;
       final bool beyond = peer.distanceMeters > rangeMeters;
       final bool synthetic = syntheticIds.contains(peer.id);
@@ -167,11 +188,12 @@ class PinwheelPainter extends CustomPainter {
           : synthetic
           ? c.synthetic
           : (inside ? c.inside : c.outside);
-      final double angle = (peer.bearingDegrees - 90) * (pi / 180);
+      final double angle = (angles[peer.id]! - 90) * (pi / 180);
       final double r = min(peer.distanceMeters, rangeMeters) * pxPerMeter;
       final Offset point = center + Offset(cos(angle) * r, sin(angle) * r);
 
-      if (!unconfirmed) {
+      // A spoke says "they are that way"; only draw it when that is known.
+      if (!unconfirmed && peer.hasBearing) {
         canvas.drawLine(
           center,
           point,
@@ -217,6 +239,46 @@ class PinwheelPainter extends CustomPainter {
     canvas.drawCircle(center, you * 0.45, Paint()..color = c.background);
   }
 
+  /// Ring spacing: 25 m up to 100 m, 50 m up to 250 m, else 100 m.
+  static double ringStepFor(double range) =>
+      range <= 100 ? 25 : (range <= 250 ? 50 : 100);
+
+  /// Screen angle (degrees clockwise from the top) for each placed peer.
+  ///
+  /// Measured bearings are used as they are. Peers without a bearing are
+  /// spread evenly round the circle in a stable order (by id), so dots
+  /// don't pile up on one another and the layout never suggests a
+  /// direction: the angle carries no meaning, only the distance does.
+  static Map<String, double> angleLayout(List<PeerPresence> placed) {
+    final List<PeerPresence> unknown =
+        placed.where((PeerPresence p) => !p.hasBearing).toList()
+          ..sort((PeerPresence a, PeerPresence b) => a.id.compareTo(b.id));
+    return <String, double>{
+      for (final PeerPresence p in placed)
+        if (p.hasBearing) p.id: p.bearingDegrees % 360,
+      for (int i = 0; i < unknown.length; i++)
+        // Offset by half a step so a lone peer isn't drawn straight "up".
+        unknown[i].id: (360 / unknown.length) * (i + 0.5),
+    };
+  }
+
+  static void _textCentered(
+    Canvas canvas,
+    String text,
+    Offset topCenter,
+    Color color,
+    double size,
+  ) {
+    final TextPainter tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(color: color, fontSize: size),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, topCenter - Offset(tp.width / 2, 0));
+  }
+
   static void _text(
     Canvas canvas,
     String text,
@@ -259,8 +321,8 @@ class PinwheelView extends StatefulWidget {
     required this.peers,
     required this.boundaryRadius,
     this.onBoundaryChanged,
-    this.rangeMeters = 500,
-    this.minBoundary = 50,
+    this.rangeMeters = 100,
+    this.minBoundary = 10,
     this.syntheticIds = const <String>{},
     this.highlightIds = const <String>{},
   });
@@ -322,6 +384,9 @@ class _PinwheelViewState extends State<PinwheelView>
     final int placed = widget.peers
         .where((PeerPresence p) => p.hasDistance)
         .length;
+    final bool directionUnknown = widget.peers.any(
+      (PeerPresence p) => p.hasDistance && !p.hasBearing,
+    );
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final Size size = constraints.biggest;
@@ -342,7 +407,8 @@ class _PinwheelViewState extends State<PinwheelView>
         return Semantics(
           label:
               'Pinwheel: $placed people placed, boundary '
-              '${widget.boundaryRadius.round()} metres',
+              '${widget.boundaryRadius.round()} metres'
+              '${directionUnknown ? ', distance only, direction unknown' : ''}',
           hint: widget.onBoundaryChanged == null
               ? null
               : 'Drag to set the boundary',

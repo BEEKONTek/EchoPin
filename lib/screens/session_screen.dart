@@ -541,7 +541,7 @@ class _SessionScreenState extends State<SessionScreen> {
                           .toDouble(),
                       min: AppSettings.minRadius,
                       max: AppSettings.maxRadius,
-                      divisions: 45,
+                      divisions: 18,
                       label: '${session.boundaryRadiusMeters.round()} m',
                       onChanged: provider.updateBoundaryRadius,
                     ),

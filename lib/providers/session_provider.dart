@@ -641,6 +641,7 @@ class SessionProvider extends ChangeNotifier {
           bearingDegrees:
               p?.bearingDegrees ?? BleMeshTransport.stableBearing(m.peerId),
           distanceMeters: p?.distanceMeters ?? 0,
+          hasBearing: p?.hasBearing ?? false,
           lastSeen: seen != null && seen.isAfter(m.lastHeard)
               ? seen
               : m.lastHeard,
