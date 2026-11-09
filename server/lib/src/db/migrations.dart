@@ -244,6 +244,12 @@ alter table session_logs add column session_tag bytea;
 -- refresh tokens; the console shows which ones.
 alter table devices add column secure_storage boolean not null default true;
 '''),
+  Migration(7, 'pin_function_search_path', r'''
+-- A function with a caller-controlled search_path could be tricked into
+-- resolving names to objects someone else created. This one references
+-- nothing, but pinning it costs nothing and clears Supabase's linter.
+alter function audit_log_immutable() set search_path = '';
+'''),
 ];
 
 /// Applies pending [migrations] under an advisory lock, so two server
