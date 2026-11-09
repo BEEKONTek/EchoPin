@@ -133,7 +133,7 @@ class HttpMailer implements Mailer {
       // The body may echo configuration; log it, never return it.
       _log.severe('${_config.provider.name} refused mail to ${mail.to}: '
           '${res.statusCode} ${res.body}');
-      throw StateError('Mail provider answered ${res.statusCode}');
+      throw StateError('Mail provider answered ${res.statusCode}${providerReason(res.body)}');
     }
   }
 }
@@ -144,3 +144,21 @@ Mailer mailerFor(MailConfig config) => switch (config.provider) {
   MailProvider.smtp => SmtpMailer(config.smtp!),
   MailProvider.brevo || MailProvider.resend => HttpMailer(config),
 };
+
+/// The provider's own error code and message (Brevo: `{code, message}`,
+/// Resend: `{name, message}`), shortened, for the audit log: enough to
+/// tell "sender not verified" from "bad key" without opening host logs.
+/// Neither provider echoes the API key in these fields.
+String providerReason(String body) {
+  try {
+    final Object? j = jsonDecode(body);
+    if (j is! Map) return '';
+    final String code = '${j['code'] ?? j['name'] ?? ''}'.trim();
+    String msg = '${j['message'] ?? ''}'.trim();
+    if (msg.length > 160) msg = '${msg.substring(0, 160)}…';
+    final String both = <String>[code, msg].where((String x) => x.isNotEmpty).join(': ');
+    return both.isEmpty ? '' : ' ($both)';
+  } catch (_) {
+    return '';
+  }
+}

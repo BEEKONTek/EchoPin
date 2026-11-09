@@ -284,18 +284,28 @@ class ServerConfig {
           ssl: boolOf('SMTP_SSL'),
         ),
       ),
-      MailProvider.brevo => MailConfig(
-        provider: provider,
-        apiKey: need('BREVO_API_KEY', 'for MAIL_PROVIDER=brevo'),
-        from: need('MAIL_FROM', 'for MAIL_PROVIDER=brevo (a sender verified in Brevo)'),
-        fromName: get('MAIL_FROM_NAME') ?? 'EchoPin',
-      ),
-      MailProvider.resend => MailConfig(
-        provider: provider,
-        apiKey: need('RESEND_API_KEY', 'for MAIL_PROVIDER=resend'),
-        from: need('MAIL_FROM', 'for MAIL_PROVIDER=resend (an address on a verified domain)'),
-        fromName: get('MAIL_FROM_NAME') ?? 'EchoPin',
-      ),
+      MailProvider.brevo => () {
+        final String apiKey = need('BREVO_API_KEY', 'for MAIL_PROVIDER=brevo').trim();
+        final (String email, String? name) =
+            parseSender(need('MAIL_FROM', 'for MAIL_PROVIDER=brevo (a sender verified in Brevo)'));
+        return MailConfig(
+          provider: provider,
+          apiKey: apiKey,
+          from: email,
+          fromName: get('MAIL_FROM_NAME') ?? name ?? 'EchoPin',
+        );
+      }(),
+      MailProvider.resend => () {
+        final String apiKey = need('RESEND_API_KEY', 'for MAIL_PROVIDER=resend').trim();
+        final (String email, String? name) =
+            parseSender(need('MAIL_FROM', 'for MAIL_PROVIDER=resend (an address on a verified domain)'));
+        return MailConfig(
+          provider: provider,
+          apiKey: apiKey,
+          from: email,
+          fromName: get('MAIL_FROM_NAME') ?? name ?? 'EchoPin',
+        );
+      }(),
     };
 
     final String storeName = (get('BACKUP_STORE') ?? 'local').toLowerCase();
@@ -346,4 +356,26 @@ class ConfigException implements Exception {
   final String message;
   @override
   String toString() => message;
+}
+
+/// Splits `MAIL_FROM` into address and optional display name. Accepts a
+/// bare address or the common `EchoPin <alerts@example.org>` form (Brevo
+/// and Resend want the address on its own, and answer 400 otherwise).
+(String, String?) parseSender(String raw) {
+  String s = raw.trim();
+  if (s.length >= 2 && s.startsWith('"') && s.endsWith('"')) s = s.substring(1, s.length - 1).trim();
+  String? name;
+  final RegExpMatch? m = RegExp(r'^(.*?)\s*<([^<>]+)>$').firstMatch(s);
+  if (m != null) {
+    final String n = m.group(1)!.trim().replaceAll(RegExp(r'^"|"$'), '');
+    name = n.isEmpty ? null : n;
+    s = m.group(2)!.trim();
+  }
+  if (!RegExp(r'^[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+$').hasMatch(s)) {
+    throw ConfigException(
+      'MAIL_FROM must be an email address, e.g. alerts@example.org or '
+      '"EchoPin <alerts@example.org>" (got "$raw")',
+    );
+  }
+  return (s, name);
 }

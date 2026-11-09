@@ -89,7 +89,7 @@ Router buildRouter({
     );
     return json(const <String, Object?>{
       'status': 'verification_sent',
-      'message': 'Check your email for a 6-digit code',
+      'message': 'Check your email for an 8-digit code',
     }, status: 202);
   });
 

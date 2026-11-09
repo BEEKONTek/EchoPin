@@ -1132,7 +1132,7 @@ class AuthService {
   /// Most codes one account can be sent per purpose in 24 hours.
   static const int maxCodesPerDay = 10;
 
-  /// Emails a fresh 6-digit code, replacing any unused one.
+  /// Emails a fresh 8-digit code, replacing any unused one.
   ///
   /// SECURITY: each code allows [maxCodeAttempts] guesses. Without a cap on
   /// how many codes can be issued, an attacker could ask for code after

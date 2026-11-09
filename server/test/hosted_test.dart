@@ -290,4 +290,36 @@ void main() {
       );
     });
   });
+
+  group('mail settings', () {
+    test('MAIL_FROM accepts a bare address or a "Name <address>" form', () {
+      expect(parseSender('alerts@example.org'), ('alerts@example.org', null));
+      expect(parseSender(' EchoPin <alerts@example.org> '), ('alerts@example.org', 'EchoPin'));
+      expect(parseSender('"Echo Pin" <alerts@example.org>'), ('alerts@example.org', 'Echo Pin'));
+      expect(parseSender('<alerts@example.org>'), ('alerts@example.org', null));
+      expect(() => parseSender('EchoPin'), throwsA(isA<ConfigException>()));
+      final ServerConfig c = ServerConfig.fromEnvironment(<String, String>{
+        'DATABASE_URL': 'postgresql://u@h/db',
+        'MAIL_PROVIDER': 'brevo',
+        'BREVO_API_KEY': ' xkeysib-1\n',
+        'MAIL_FROM': 'Alerts <alerts@example.org>',
+      });
+      expect(c.mail.from, 'alerts@example.org');
+      expect(c.mail.fromName, 'Alerts');
+      expect(c.mail.apiKey, 'xkeysib-1');
+    });
+
+    test('a refused mail names the provider\'s reason', () async {
+      final HttpMailer m = HttpMailer(
+        const MailConfig(provider: MailProvider.brevo, apiKey: 'k', from: 'a@example.org'),
+        client: MockClient((http.Request r) async => http.Response(
+            '{"code":"invalid_parameter","message":"sender is not valid. Validate your sender"}', 400)),
+      );
+      await expectLater(
+        m.send(const OutgoingMail(to: 'b@example.org', subject: 's', text: 't')),
+        throwsA(predicate((Object e) => '$e'.contains('400 (invalid_parameter: sender is not valid'))),
+      );
+      expect(providerReason('not json'), '');
+    });
+  });
 }
