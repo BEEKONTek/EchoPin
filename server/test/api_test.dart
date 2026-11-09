@@ -822,6 +822,32 @@ void main() {
       );
       await env.db.execute("update backups set status = 'failed' where status = 'running'");
     });
+
+    test('a wrong storage key is recorded on the backup, not only in host logs', () async {
+      final FakeSupabaseStorage storage = FakeSupabaseStorage(key: 'sb_secret_right');
+      final BackupService wrong = BackupService(
+        db: env.db,
+        keys: env.server.keys,
+        config: ServerConfig(databaseUrl: env.url, backupsDir: Directory.systemTemp.path),
+        audit: AuditLog(macKey: env.server.keys.auditMacKey),
+        store: SupabaseBackupStore(
+          url: 'https://abc.supabase.co',
+          key: 'sb_publishable_oops', // the classic mix-up
+          bucket: 'echopin-backups',
+          client: storage.client,
+        ),
+      );
+      await expectLater(
+        wrong.run(kind: 'manual', actor: const AuditActor.system('test')),
+        throwsA(isA<ApiException>().having((ApiException e) => e.code, 'code', 'backup_failed')),
+      );
+      // (Other tests run on a simulated clock, so match on the reason
+      // rather than on "latest".)
+      final Row? recorded = await env.db.one(
+        "select count(*)::int as n from backups where status = 'failed' and error like '%401%Invalid API key%'",
+      );
+      expect(recorded!['n'], 1);
+    });
   });
 }
 

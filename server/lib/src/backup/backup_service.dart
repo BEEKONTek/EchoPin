@@ -93,10 +93,10 @@ class BackupService {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(minutes: 15), (_) => unawaited(_tick()));
     unawaited(() async {
+      // A backup that was running when its server died never finishes;
+      // free the slot so the next one can start. This must not depend on
+      // the store being reachable, or one bad setting blocks backups forever.
       try {
-        await _store.ensureReady();
-        // A backup that was running when its server died never finishes;
-        // free the slot so the next one can start.
         await _db.execute(
           '''update backups set status = 'failed', error = 'interrupted (server restarted)',
                finished_at = @now
@@ -106,8 +106,15 @@ class BackupService {
             'cutoff': _clock().toUtc().subtract(const Duration(hours: 2)),
           },
         );
+      } catch (e) {
+        _log.severe('Could not clear interrupted backups: $e');
+      }
+      try {
+        await _store.ensureReady();
         _log.info('Backups go to ${_store.description}');
       } catch (e) {
+        // Logged here; the backup run below repeats the check and records
+        // the reason in the backups list, where the console shows it.
         _log.severe('Backup store is not ready: $e');
       }
       await _tick();
@@ -176,6 +183,10 @@ class BackupService {
     final String name = 'echopin-$stamp.epbk';
     final File part = File('${dir.path}/$name.part');
     try {
+      // Checked on every run (one cheap request a day) so a store problem
+      // lands in this backup's error, visible in Console → Backups, rather
+      // than only in the host's log.
+      await _store.ensureReady();
       final (String dbArg, Map<String, String> env) = libpqTarget(_config.databaseUrl);
       final Process p = await Process.start(
         _config.pgDump,
