@@ -703,6 +703,35 @@ void main() {
     });
   });
 
+  group('supabase data API lock-down', skip: skipWithoutDb, () {
+    test('anon/authenticated lose every grant and RLS is on, server still works', () async {
+      // Recreate Supabase's setup: the roles exist and hold full grants.
+      for (final String role in <String>['anon', 'authenticated']) {
+        await env.db.execute(
+          "do \$\$ begin create role $role nologin; exception when duplicate_object then null; end \$\$");
+        await env.db.execute('grant all on all tables in schema public to $role');
+        await env.db.execute('grant all on all sequences in schema public to $role');
+      }
+      await env.db.execute('alter table accounts disable row level security');
+      expect((await env.db.one("select has_table_privilege('anon', 'accounts', 'select') as p"))!['p'], isTrue);
+
+      await migrate(env.db); // the lock-down runs after every migration pass
+
+      for (final String role in <String>['anon', 'authenticated']) {
+        final Row? open = await env.db.one('''
+          select count(*)::int as n from pg_class c
+            join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public' and c.relkind = 'r'
+             and (has_table_privilege(@r, c.oid, 'select,insert,update,delete,truncate')
+                  or not c.relrowsecurity)''', <String, Object?>{'r': role});
+        expect(open!['n'], 0, reason: '$role still reaches a table');
+      }
+      // The owner bypasses RLS: the API keeps working.
+      final TestUser u = await env.signUp('rls-check@example.org');
+      expect(u.accessToken, isNotEmpty);
+    });
+  });
+
   group('backups', skip: skipWithoutDb, () {
     test('backup → verify → restore into a fresh database', () async {
       final TestUser a = await env.signUp('backup-admin@example.com', name: 'Backup Admin');

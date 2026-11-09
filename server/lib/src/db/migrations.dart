@@ -273,8 +273,46 @@ Future<List<int>> migrate(Db db) {
       );
       ran.add(m.version);
     }
+    await lockDownPublicApi(tx);
     return ran;
   });
+}
+
+/// Closes Supabase's auto-generated REST/GraphQL API over our tables.
+///
+/// Supabase grants its `anon` and `authenticated` roles full rights on
+/// every table in `public`, and only Row Level Security stands between
+/// those grants and the public anon key. EchoPin never uses that API (the
+/// server talks to Postgres directly as the table owner), so the safe
+/// setting is: no grants for those roles, and RLS on with no policies as
+/// a second lock. The owner bypasses RLS, so the server is unaffected.
+///
+/// Runs after every migration pass (so tables added later and databases
+/// restored from a backup are covered) and is a no-op on plain Postgres,
+/// where those roles don't exist.
+Future<void> lockDownPublicApi(DbSession tx) async {
+  final List<String> roles = (await tx.query(
+    "select rolname from pg_roles where rolname in ('anon', 'authenticated') order by 1",
+  )).map((Row r) => r['rolname'] as String).toList();
+  if (roles.isEmpty) return;
+
+  final List<String> open = (await tx.query(
+    "select tablename from pg_tables where schemaname = 'public' "
+    'and tableowner = current_user and not rowsecurity order by 1',
+  )).map((Row r) => r['tablename'] as String).toList();
+  for (final String t in open) {
+    await tx.execute('alter table public."${t.replaceAll('"', '""')}" enable row level security');
+  }
+
+  final String who = roles.join(', ');
+  for (final String kind in <String>['tables', 'sequences', 'functions']) {
+    await tx.execute('revoke all on all $kind in schema public from $who');
+    // Objects this role creates later (future migrations) start closed too.
+    await tx.execute('alter default privileges in schema public revoke all on $kind from $who');
+  }
+  if (open.isNotEmpty) {
+    _log.warning('Closed the Supabase data API on ${open.length} table(s): ${open.join(', ')}');
+  }
 }
 
 /// True when the database has never been migrated (a fresh install).

@@ -13,6 +13,12 @@ RUN mkdir -p /out && cd server && dart pub get --offline \
 # The PostgreSQL image gives us pg_dump / pg_restore that match the
 # database major version, which backups require.
 FROM postgres:17-bookworm
+# The postgres image ships no CA bundle. Without it every outbound HTTPS
+# call (Brevo/Resend mail, Supabase Storage backups, the breached-password
+# check) fails with CERTIFICATE_VERIFY_FAILED.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 10001 --home /data echopin \
  && mkdir -p /data/keys /data/backups && chown -R echopin /data
 COPY --from=build /out/echopin-server /out/echopin_admin /usr/local/bin/
