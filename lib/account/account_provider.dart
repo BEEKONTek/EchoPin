@@ -255,7 +255,9 @@ class AccountProvider extends ChangeNotifier {
     unawaited(_quietly(ensureEscrow));
   }
 
-  Future<void> signOut() async {
+  /// Signs out here and on the server. [reason], when given, is shown on
+  /// the sign-in screen (e.g. after too many wrong account PINs).
+  Future<void> signOut({String? reason}) async {
     final AuthTokens? t = _tokens;
     if (t != null) {
       try {
@@ -264,7 +266,7 @@ class AccountProvider extends ChangeNotifier {
         // Offline or already invalid: signing out locally is what matters.
       }
     }
-    await _clearSession(null);
+    await _clearSession(reason);
   }
 
   Future<void> forgotPassword(String email) =>

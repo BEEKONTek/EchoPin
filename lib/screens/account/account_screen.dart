@@ -3,27 +3,30 @@ import 'dart:async';
 import 'package:echo_pin/account/account_models.dart';
 import 'package:echo_pin/account/account_provider.dart';
 import 'package:echo_pin/account/outbox.dart';
+import 'package:echo_pin/providers/account_lock_scope.dart';
 import 'package:echo_pin/providers/account_scope.dart';
 import 'package:echo_pin/providers/outbox_scope.dart';
+import 'package:echo_pin/screens/account/account_lock_gate.dart';
 import 'package:echo_pin/screens/account/sign_in_screen.dart';
+import 'package:echo_pin/services/admin_auth_service.dart';
 import 'package:echo_pin/screens/console/console_screen.dart';
 import 'package:echo_pin/screens/report_screen.dart';
 import 'package:echo_pin/ui/format.dart';
+import 'package:echo_pin/widgets/pin_field.dart';
 import 'package:echo_pin/widgets/ui_bits.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-/// Opens the account screen, or sign-in first when signed out.
+/// Opens the account screen: sign-in first when signed out, then the
+/// account PIN (created right after signing in, asked for after that).
 Future<void> openAccount(BuildContext context) async {
   final AccountProvider a = AccountScope.read(context);
   if (!a.signedIn) {
     final bool ok = await SignInScreen.open(context);
     if (!ok || !context.mounted) return;
   }
-  await Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => const AccountScreen()),
-  );
+  await pushLocked<void>(context, const AccountScreen());
 }
 
 class AccountScreen extends StatefulWidget {
@@ -69,7 +72,20 @@ class _AccountScreenState extends State<AccountScreen> {
       return const Scaffold();
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
+      appBar: AppBar(
+        title: const Text('Account'),
+        actions: <Widget>[
+          IconButton(
+            key: const Key('account.lock'),
+            tooltip: 'Lock',
+            icon: const Icon(Icons.lock),
+            onPressed: () {
+              AccountLockScope.read(context).lock();
+              Navigator.of(context).maybePop();
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -139,6 +155,18 @@ class _AccountScreenState extends State<AccountScreen> {
                           title: const Text('Change password'),
                           subtitle: const Text('Signs out your other devices'),
                           onTap: () => unawaited(_changePassword()),
+                        ),
+                        const Divider(),
+                        ListTile(
+                          key: const Key('account.changePin'),
+                          leading: const Icon(Icons.pin_outlined),
+                          title: const Text('Account PIN'),
+                          subtitle: const Text(
+                            'Asked on this phone when you open your account. '
+                            'Locks again after 5 minutes without use',
+                          ),
+                          trailing: const Text('Change'),
+                          onTap: () => unawaited(_changePin()),
                         ),
                       ],
                     ),
@@ -249,6 +277,14 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   // ── Actions ────────────────────────────────────────────────────────────
+
+  Future<void> _changePin() async {
+    final bool? done = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _ChangePinDialog(),
+    );
+    if (done == true && mounted) _snack('Account PIN changed');
+  }
 
   Future<void> _revoke(Map<String, dynamic> d) async {
     final bool ok = await _confirm(
@@ -501,6 +537,97 @@ class _Loader<T> extends StatelessWidget {
         }
         return builder(snap.data as T);
       },
+    );
+  }
+}
+
+/// Current PIN, new PIN, confirm. A widget of its own so the text
+/// controllers are disposed only once the dialog has finished closing.
+class _ChangePinDialog extends StatefulWidget {
+  const _ChangePinDialog();
+
+  @override
+  State<_ChangePinDialog> createState() => _ChangePinDialogState();
+}
+
+class _ChangePinDialogState extends State<_ChangePinDialog> {
+  final TextEditingController _current = TextEditingController();
+  final TextEditingController _next = TextEditingController();
+  final TextEditingController _again = TextEditingController();
+  String? _error;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _next.dispose();
+    _again.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final String? problem = AdminAuthService.validatePin(_next.text);
+    if (problem != null || _next.text != _again.text) {
+      setState(() => _error = problem ?? 'New PINs do not match');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final AdminAuthResult r = await AccountLockScope.read(context).changePin(_current.text, _next.text);
+      if (!mounted) return;
+      switch (r.status) {
+        case AdminAuthStatus.success:
+          Navigator.pop(context, true);
+        case AdminAuthStatus.wrongPin:
+          _current.clear();
+          setState(() => _error = 'Current PIN is wrong. ${r.attemptsRemaining} attempt(s) left.');
+        case AdminAuthStatus.lockedOut:
+        case AdminAuthStatus.noPin:
+          // The account is locked now; its lock screen takes over.
+          Navigator.pop(context, false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = errorText(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Change account PIN'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          PinField(key: const Key('changePin.current'), controller: _current, label: 'Current PIN', enabled: !_busy),
+          const SizedBox(height: 12),
+          PinField(key: const Key('changePin.new'), controller: _next, label: 'New PIN', enabled: !_busy),
+          const SizedBox(height: 12),
+          PinField(
+            key: const Key('changePin.confirm'),
+            controller: _again,
+            label: 'Confirm new PIN',
+            enabled: !_busy,
+            onSubmitted: () => unawaited(_submit()),
+          ),
+          if (_error != null) ...<Widget>[
+            const SizedBox(height: 12),
+            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ],
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(onPressed: _busy ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(
+          key: const Key('changePin.submit'),
+          onPressed: _busy ? null : () => unawaited(_submit()),
+          child: const Text('Change PIN'),
+        ),
+      ],
     );
   }
 }

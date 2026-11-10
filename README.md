@@ -175,12 +175,21 @@ Build with `--dart-define=ECHOPIN_SERVER_URL=https://your-server` to turn
 them on; without it the app is fully local, as above.
 
 - **Sign-in.** Live sessions need an account (the demo never does). Create
-  one in the app: name, email, password (10+ characters), then the 6-digit
+  one in the app: name, email, password (10+ characters), then the 8-digit
   code from the email. Sign-in persists offline; only the server can sign
   you out, and the app says why.
 - **Account screen.** Two-step sign-in with any authenticator app (QR
   code), change password, see and remove your devices, *Report a problem*,
   follow your reports, and see what is still waiting to upload.
+- **Account PIN.** Like the admin panel, the signed-in account is behind a
+  local 4–12 digit PIN (a separate PIN from the admin one), chosen right
+  after signing in. It guards Account, reports and the console; sessions,
+  check-ins and SOS never ask for it. Lock it with the padlock on the
+  Account screen; it also locks itself after 5 minutes without use,
+  including time the app spent in the background. Five wrong PINs lock it
+  for 60 s, and the third lockout in a row signs the account out (so 15
+  guesses in all). Forgot it? *Forgot your PIN?* signs out; sign in with
+  your password and choose a new one. Signing out always wipes the PIN.
 - **Emergency records.** Live sessions are recorded on the phone and
   uploaded sealed: a checkpoint within seconds of an SOS, then the final
   record. Everything waits in an outbox when there is no signal.

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:echo_pin/account/account_models.dart';
 import 'package:echo_pin/providers/account_scope.dart';
+import 'package:echo_pin/screens/account/account_lock_gate.dart';
 import 'package:echo_pin/screens/console/console_admin.dart';
 import 'package:echo_pin/screens/console/console_reports.dart';
 import 'package:echo_pin/screens/console/console_sessions.dart';
@@ -43,9 +44,9 @@ class _Tab {
 class ConsoleScreen extends StatefulWidget {
   const ConsoleScreen({super.key});
 
-  static Future<void> open(BuildContext context) => Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => const ConsoleScreen()),
-  );
+  /// Opens behind the account lock (see AccountLockGuard).
+  static Future<void> open(BuildContext context) =>
+      pushLocked<void>(context, const ConsoleScreen());
 
   @override
   State<ConsoleScreen> createState() => _ConsoleScreenState();

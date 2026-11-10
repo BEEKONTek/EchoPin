@@ -14,6 +14,8 @@ import 'package:echo_pin/account/account_provider.dart';
 import 'package:echo_pin/account/outbox.dart';
 import 'package:echo_pin/account/session_recorder.dart';
 import 'package:echo_pin/app_info.dart';
+import 'package:echo_pin/providers/account_lock_provider.dart';
+import 'package:echo_pin/providers/account_lock_scope.dart';
 import 'package:echo_pin/providers/account_scope.dart';
 import 'package:echo_pin/providers/admin_provider.dart';
 import 'package:echo_pin/providers/admin_scope.dart';
@@ -59,6 +61,7 @@ class EchoPinApp extends StatefulWidget {
     this.bleBridge,
     this.permissionService,
     this.adminAuth,
+    this.accountLockAuth,
     this.transportFactory,
     this.connectivity,
     this.account,
@@ -83,6 +86,9 @@ class EchoPinApp extends StatefulWidget {
   /// Overrides admin authentication (tests).
   final AdminAuthService? adminAuth;
 
+  /// Overrides the account PIN service (tests).
+  final AdminAuthService? accountLockAuth;
+
   /// Overrides the account provider (tests). By default accounts are on
   /// only when the build sets `ECHOPIN_SERVER_URL`.
   final AccountProvider? account;
@@ -98,6 +104,8 @@ class _EchoPinAppState extends State<EchoPinApp> {
   late final AdminProvider _adminProvider;
   late final ConnectivityService _connectivity;
   late final AccountProvider _account;
+  late final AccountLockProvider _accountLock;
+  late final AppLifecycleListener _lifecycle;
   late final Outbox _outbox;
   late final SessionRecorder _recorder;
 
@@ -161,6 +169,14 @@ class _EchoPinAppState extends State<EchoPinApp> {
           appVersion: kAppVersion,
           secureKeyStorage: bootstrap.usingSecureStorage,
         );
+    // A PIN in front of the signed-in account on this device, like the
+    // admin panel's. Its hash sits in the same store as the admin PIN.
+    _accountLock = AccountLockProvider(
+      auth: widget.accountLockAuth ?? AdminAuthService.account(kv: bootstrap.kv),
+      account: _account,
+    );
+    // Phones suspend timers in the background: re-check idle time on return.
+    _lifecycle = AppLifecycleListener(onResume: _accountLock.checkIdle);
     _outbox = Outbox(kv: bootstrap.kv, account: _account);
     _recorder = SessionRecorder(
       sessions: _sessionProvider,
@@ -185,6 +201,8 @@ class _EchoPinAppState extends State<EchoPinApp> {
   void dispose() {
     _recorder.dispose();
     _outbox.dispose();
+    _lifecycle.dispose();
+    _accountLock.dispose();
     if (widget.account == null) _account.dispose();
     _adminProvider.dispose();
     _sessionProvider.dispose();
@@ -206,14 +224,17 @@ class _EchoPinAppState extends State<EchoPinApp> {
             notifier: _adminProvider,
             child: AccountScope(
               notifier: _account,
-              child: OutboxScope(
-                notifier: _outbox,
-                child: MaterialApp(
-                  title: 'EchoPin',
-                  debugShowCheckedModeBanner: false,
-                  theme: EchoTheme.light(),
-                  darkTheme: EchoTheme.dark(),
-                  home: const HomeScreen(),
+              child: AccountLockScope(
+                notifier: _accountLock,
+                child: OutboxScope(
+                  notifier: _outbox,
+                  child: MaterialApp(
+                    title: 'EchoPin',
+                    debugShowCheckedModeBanner: false,
+                    theme: EchoTheme.light(),
+                    darkTheme: EchoTheme.dark(),
+                    home: const HomeScreen(),
+                  ),
                 ),
               ),
             ),

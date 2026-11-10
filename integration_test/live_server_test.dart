@@ -77,7 +77,12 @@ void main() {
     await t.enterText(find.byKey(const Key('signin.code')), code!);
     await shot('01-confirm-code');
     await t.tap(find.byKey(const Key('signin.submit')));
-    // Signing in returns to the Account screen it was opened from.
+    // Signing in asks for a new account PIN, then shows the Account screen.
+    await until(find.byKey(const Key('accountLock.confirm')));
+    await shot('01b-choose-account-pin');
+    await t.enterText(find.byKey(const Key('accountLock.pin')), '2468');
+    await t.enterText(find.byKey(const Key('accountLock.confirm')), '2468');
+    await t.tap(find.byKey(const Key('accountLock.submit')));
     await until(find.text('Two-step sign-in'));
     await t.pump(const Duration(seconds: 1));
     await shot('02-account-plain-storage-warning');

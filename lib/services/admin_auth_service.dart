@@ -1,10 +1,13 @@
-// ADMIN PIN: guards the on-device admin panel (diagnostics, radio and alert
-// settings, synthetic test peers). This is local-only and separate from
-// server accounts and console roles.
+// PIN LOCK: one local PIN, used twice with separate storage:
+// - the admin PIN guards the on-device admin panel (diagnostics, radio and
+//   alert settings, synthetic test peers), and
+// - the account PIN (`AdminAuthService.account`) guards the signed-in
+//   account on this device: the Account screen, console and reports.
+// Both are local-only and separate from the server password.
 //
 // The PIN is stretched with PBKDF2-HMAC-SHA256 and a random salt, and
-// compared in constant time. Wrong attempts lock the panel with growing
-// delays, and the panel locks itself again after a period of inactivity.
+// compared in constant time. Too many wrong attempts lock it for a while;
+// the providers also lock it again after a period of inactivity.
 
 import 'dart:convert';
 import 'dart:math' as math;
@@ -22,11 +25,16 @@ class AdminAuthResult {
     this.status, {
     this.attemptsRemaining,
     this.lockedUntil,
+    this.lockouts = 0,
   });
 
   final AdminAuthStatus status;
   final int? attemptsRemaining;
   final DateTime? lockedUntil;
+
+  /// Lockouts in a row since the last correct PIN, this one included. The
+  /// account lock signs out after a few (see `AccountLockProvider`).
+  final int lockouts;
 
   bool get ok => status == AdminAuthStatus.success;
 }
@@ -73,6 +81,7 @@ Uint8List pbkdf2Sha256({
 ///   [lockoutDuration]. The counter and deadline are persisted so restarting
 ///   the app does not reset them.
 class AdminAuthService {
+  /// The admin panel's PIN.
   AdminAuthService({
     required KeyValueStore kv,
     this.iterations = 20000,
@@ -81,10 +90,26 @@ class AdminAuthService {
     this.useIsolate = true,
     DateTime Function()? clock,
   }) : _kv = kv,
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now,
+       _kPin = 'echo_pin.admin_pin_v1',
+       _kLock = 'echo_pin.admin_lock_v1';
 
-  static const String _kPin = 'echo_pin.admin_pin_v1';
-  static const String _kLock = 'echo_pin.admin_lock_v1';
+  /// The account PIN: same rules, its own storage, so the two PINs (and
+  /// their lockouts) never affect each other.
+  AdminAuthService.account({
+    required KeyValueStore kv,
+    this.iterations = 20000,
+    this.maxAttempts = 5,
+    this.lockoutDuration = const Duration(seconds: 60),
+    this.useIsolate = true,
+    DateTime Function()? clock,
+  }) : _kv = kv,
+       _clock = clock ?? DateTime.now,
+       _kPin = 'echo_pin.account_pin_v1',
+       _kLock = 'echo_pin.account_lock_v1';
+
+  final String _kPin;
+  final String _kLock;
   static const String _scheme = 'pbkdf2-sha256';
   static const String _sep = r'$';
   static const int minPinLength = 4;
@@ -125,7 +150,7 @@ class AdminAuthService {
   }
 
   Future<DateTime?> lockedUntil() async {
-    final (int _, DateTime? until) = await _readLock();
+    final (int _, DateTime? until, int _) = await _readLock();
     if (until == null || !until.isAfter(_clock())) return null;
     return until;
   }
@@ -134,10 +159,14 @@ class AdminAuthService {
     final String? stored = await _kv.read(_kPin);
     if (stored == null) return const AdminAuthResult(AdminAuthStatus.noPin);
 
-    final (int failures, DateTime? until) = await _readLock();
+    final (int failures, DateTime? until, int lockouts) = await _readLock();
     final DateTime now = _clock();
     if (until != null && until.isAfter(now)) {
-      return AdminAuthResult(AdminAuthStatus.lockedOut, lockedUntil: until);
+      return AdminAuthResult(
+        AdminAuthStatus.lockedOut,
+        lockedUntil: until,
+        lockouts: lockouts,
+      );
     }
     // A lockout that has expired starts a fresh window.
     final int priorFailures = until != null ? 0 : failures;
@@ -150,13 +179,18 @@ class AdminAuthService {
     final int nextFailures = priorFailures + 1;
     if (nextFailures >= maxAttempts) {
       final DateTime lockUntil = now.add(lockoutDuration);
-      await _writeLock(0, lockUntil);
-      return AdminAuthResult(AdminAuthStatus.lockedOut, lockedUntil: lockUntil);
+      await _writeLock(0, lockUntil, lockouts + 1);
+      return AdminAuthResult(
+        AdminAuthStatus.lockedOut,
+        lockedUntil: lockUntil,
+        lockouts: lockouts + 1,
+      );
     }
-    await _writeLock(nextFailures, null);
+    await _writeLock(nextFailures, null, lockouts);
     return AdminAuthResult(
       AdminAuthStatus.wrongPin,
       attemptsRemaining: maxAttempts - nextFailures,
+      lockouts: lockouts,
     );
   }
 
@@ -193,20 +227,26 @@ class AdminAuthService {
     return compute(_deriveEntry, args);
   }
 
-  Future<(int, DateTime?)> _readLock() async {
+  /// `failures|lockedUntilMs|lockouts`. Records written before lockouts
+  /// were counted have two fields; the count then starts at 0.
+  Future<(int, DateTime?, int)> _readLock() async {
     final String? raw = await _kv.read(_kLock);
-    if (raw == null) return (0, null);
+    if (raw == null) return (0, null, 0);
     final List<String> parts = raw.split('|');
     final int failures = int.tryParse(parts[0]) ?? 0;
     final int? untilMs = parts.length > 1 ? int.tryParse(parts[1]) : null;
     final DateTime? until = untilMs == null || untilMs == 0
         ? null
         : DateTime.fromMillisecondsSinceEpoch(untilMs);
-    return (failures, until);
+    final int lockouts = parts.length > 2 ? int.tryParse(parts[2]) ?? 0 : 0;
+    return (failures, until, lockouts);
   }
 
-  Future<void> _writeLock(int failures, DateTime? until) {
-    return _kv.write(_kLock, '$failures|${until?.millisecondsSinceEpoch ?? 0}');
+  Future<void> _writeLock(int failures, DateTime? until, [int lockouts = 0]) {
+    return _kv.write(
+      _kLock,
+      '$failures|${until?.millisecondsSinceEpoch ?? 0}|$lockouts',
+    );
   }
 
   static bool _constantTimeEquals(List<int> a, List<int> b) {

@@ -272,6 +272,7 @@ this review, ⚠️ accepted (see below).
 | Revoked or role-changed user keeps access | ✅ every request reads session, device, account status and role from the database; revocation is immediate |
 | Access token leaks (logs, proxies) | ✅ never logged (one line per request: method, path, status); 30 min lifetime |
 | Logout incomplete | ✅ revokes this session; *Sign out everywhere* for all |
+| Someone picks up a signed-in phone | ✅ account PIN guards Account, reports and the console; idle auto-lock; sign-out after 3 lockouts in a row; never blocks sessions or SOS (`providers/account_lock_provider.dart`) |
 | Password change leaves other devices in | ✅ other sessions revoked; reset revokes all |
 
 ### Two-step (TOTP)

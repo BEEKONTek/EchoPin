@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Account PIN.** The signed-in account is now behind a local PIN, like
+  the admin panel (same PBKDF2 PIN code, separate storage). Chosen right
+  after sign-in; guards Account, reports and the console, never sessions,
+  check-ins or SOS. Padlock button to lock, auto-lock after 5 minutes idle
+  (wall clock, so background time counts), 5 wrong PINs lock it for 60 s,
+  and the 3rd lockout in a row signs the account out. *Forgot your PIN?*
+  signs out; signing out or in always wipes the PIN. Locking keeps the
+  screen underneath alive, so a half-written report survives. Change PIN
+  under Account → Security.
+
 ### Changed
 - **Pinwheel range is now 100 m** (was 500 m), with rings every 25 m. The
   boundary goes from 10 to 100 m in 5 m steps, default 50 m; a default saved

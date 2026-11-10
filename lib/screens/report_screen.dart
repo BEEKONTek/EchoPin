@@ -6,6 +6,7 @@ import 'package:echo_pin/providers/admin_scope.dart';
 import 'package:echo_pin/providers/outbox_scope.dart';
 import 'package:echo_pin/providers/session_provider.dart';
 import 'package:echo_pin/providers/session_scope.dart';
+import 'package:echo_pin/screens/account/account_lock_gate.dart';
 import 'package:echo_pin/ui/theme.dart';
 import 'package:echo_pin/widgets/ui_bits.dart';
 import 'package:echopin_protocol/echopin_protocol.dart';
@@ -20,10 +21,9 @@ class ReportScreen extends StatefulWidget {
 
   final ReportCategory? initialCategory;
 
+  /// Opens behind the account lock (see AccountLockGuard).
   static Future<void> open(BuildContext context, {ReportCategory? category}) =>
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => ReportScreen(initialCategory: category)),
-      );
+      pushLocked<void>(context, ReportScreen(initialCategory: category));
 
   @override
   State<ReportScreen> createState() => _ReportScreenState();

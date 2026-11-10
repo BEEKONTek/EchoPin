@@ -4,8 +4,8 @@ import 'package:echo_pin/providers/admin_provider.dart';
 import 'package:echo_pin/providers/admin_scope.dart';
 import 'package:echo_pin/screens/admin/admin_screen.dart';
 import 'package:echo_pin/services/admin_auth_service.dart';
+import 'package:echo_pin/widgets/pin_field.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 /// Opens the admin panel, going through the PIN gate unless already
 /// unlocked.
@@ -165,7 +165,7 @@ class _AdminGateScreenState extends State<AdminGateScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
-                    _PinField(
+                    PinField(
                       key: const Key('admin.pin'),
                       controller: _pin,
                       label: setup ? 'New PIN' : 'PIN',
@@ -174,7 +174,7 @@ class _AdminGateScreenState extends State<AdminGateScreen> {
                     ),
                     if (setup) ...<Widget>[
                       const SizedBox(height: 12),
-                      _PinField(
+                      PinField(
                         key: const Key('admin.confirm'),
                         controller: _confirm,
                         label: 'Confirm PIN',
@@ -220,40 +220,6 @@ class _AdminGateScreenState extends State<AdminGateScreen> {
                 ),
               ),
             ),
-    );
-  }
-}
-
-class _PinField extends StatelessWidget {
-  const _PinField({
-    super.key,
-    required this.controller,
-    required this.label,
-    required this.enabled,
-    this.onSubmitted,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final bool enabled;
-  final VoidCallback? onSubmitted;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      enabled: enabled,
-      obscureText: true,
-      keyboardType: TextInputType.number,
-      inputFormatters: <TextInputFormatter>[
-        FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(AdminAuthService.maxPinLength),
-      ],
-      onSubmitted: onSubmitted == null ? null : (_) => onSubmitted!(),
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-      ),
     );
   }
 }

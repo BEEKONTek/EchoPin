@@ -112,9 +112,10 @@ The normative description is `docs/PROTOCOL.md`; the threat analysis is
 | `screens/session_screen.dart` | The live session: pinwheel, people sheet, check-in, SOS, invite, safety codes |
 | `screens/qr_scan_screen.dart` | Scan an invite QR |
 | `screens/report_screen.dart` | File a report (optionally with diagnostics) |
-| `screens/account/` | Sign-in / sign-up / confirm / reset, and the account page (devices, two-step, my reports, uploads) |
+| `screens/account/` | Sign-in / sign-up / confirm / reset, and the account page (devices, two-step, my reports, uploads, account PIN) |
+| `screens/account/account_lock_gate.dart` | The account PIN screen and `AccountLockGuard`, which wraps Account, reports and the console: hidden behind the PIN while locked, kept alive so an auto-lock loses nothing. Rules are in `providers/account_lock_provider.dart` (PIN per sign-in, 5-minute idle lock, sign-out after 3 lockouts); the PIN itself uses `AdminAuthService.account` |
 | `screens/console/` | The central console, tabs by role: overview, reports, sessions (with break-glass), and for admins people, diagnostics, audit, backups |
-| `screens/admin/` | The *on-device* admin panel behind a PIN (`services/admin_auth_service.dart`, `providers/admin_provider.dart`). Unrelated to server roles |
+| `screens/admin/` | The *on-device* admin panel behind a PIN (`services/admin_auth_service.dart`, `providers/admin_provider.dart`). Unrelated to server roles. Its PIN code is shared with the account lock, with separate storage |
 | `widgets/` | Reusable pieces: trays, pinwheel painter, SOS button, ping trays, status trays, alert banner, `ui_bits.dart` (small shared bits) |
 | `ui/theme.dart`, `ui/format.dart` | Visual system and display formatting |
 | `models/` | Plain data: session, peers, pings, alerts, trays, summaries |
@@ -171,6 +172,7 @@ flowchart TB
 | Question | Look at |
 | --- | --- |
 | "Why can't I sign in?" | `auth_service.dart` `login`, then the app's `AccountProvider.signIn` |
+| "Why is my account asking for a PIN?" | `providers/account_lock_provider.dart` (when it locks, why it signs out) |
 | "How is a session encrypted?" | `docs/PROTOCOL.md`, `security/secure_messenger.dart` |
 | "Who opened this record?" | Console → Sessions → a session → Access history; `admin_service.dart` `unseal` |
 | "What's in a session record?" | `account/session_recorder.dart` (the app builds it, then seals it) |
