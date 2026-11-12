@@ -18,11 +18,17 @@ void main() {
     });
 
     test('accepts one step of drift and refuses replays', () {
-      final DateTime t = DateTime.fromMillisecondsSinceEpoch(1111111109 * 1000, isUtc: true);
+      final DateTime t = DateTime.fromMillisecondsSinceEpoch(
+        1111111109 * 1000,
+        isUtc: true,
+      );
       final int step = Totp.stepAt(t);
       expect(Totp.verify(secret, Totp.codeAt(secret, step - 1), t), step - 1);
       expect(Totp.verify(secret, Totp.codeAt(secret, step - 2), t), isNull);
-      expect(Totp.verify(secret, Totp.codeAt(secret, step), t, lastUsedStep: step), isNull);
+      expect(
+        Totp.verify(secret, Totp.codeAt(secret, step), t, lastUsedStep: step),
+        isNull,
+      );
       expect(Totp.verify(secret, 'abc123', t), isNull);
     });
 
@@ -45,7 +51,10 @@ void main() {
       expect(passwordProblem('short'), contains('at least'));
       expect(passwordProblem('aaaaaaaaaaaa'), contains('repetitive'));
       expect(passwordProblem('password1234'), contains('easy to guess'));
-      expect(passwordProblem('thandi-rocks-99', email: 'thandi@example.com'), contains('email'));
+      expect(
+        passwordProblem('thandi-rocks-99', email: 'thandi@example.com'),
+        contains('email'),
+      );
       expect(passwordProblem('correct horse battery'), isNull);
     });
   });
@@ -65,8 +74,9 @@ create trigger t before update on a for each row execute function f();
   });
 
   test('libpq target moves the password into the environment', () {
-    final (String url, Map<String, String> env) =
-        libpqTarget('postgresql://echopin:s3cr%3At@db:5432/echopin?sslmode=require');
+    final (String url, Map<String, String> env) = libpqTarget(
+      'postgresql://echopin:s3cr%3At@db:5432/echopin?sslmode=require',
+    );
     expect(url, 'postgresql://echopin@db:5432/echopin?sslmode=require');
     expect(env, <String, String>{'PGPASSWORD': 's3cr:t'});
   });
@@ -78,7 +88,11 @@ create trigger t before update on a for each row execute function f();
       final Directory d = await Directory.systemTemp.createTemp('epbk');
       final File f = File('${d.path}/b');
       final IOSink s = f.openWrite();
-      await BackupService.encryptStream(Stream<List<int>>.fromIterable(<List<int>>[data]), s, key);
+      await BackupService.encryptStream(
+        Stream<List<int>>.fromIterable(<List<int>>[data]),
+        s,
+        key,
+      );
       await s.close();
       final Uint8List bytes = await f.readAsBytes();
       await d.delete(recursive: true);
@@ -90,7 +104,11 @@ create trigger t before update on a for each row execute function f();
       final File f = File('${d.path}/out');
       final IOSink s = f.openWrite();
       try {
-        await BackupService.decryptStream(Stream<List<int>>.value(data), s, k ?? key);
+        await BackupService.decryptStream(
+          Stream<List<int>>.value(data),
+          s,
+          k ?? key,
+        );
       } finally {
         await s.close();
       }
@@ -100,7 +118,10 @@ create trigger t before update on a for each row execute function f();
     }
 
     test('round-trips across several frames', () async {
-      final List<int> data = List<int>.generate(BackupService.frameSize * 2 + 1234, (int i) => i % 251);
+      final List<int> data = List<int>.generate(
+        BackupService.frameSize * 2 + 1234,
+        (int i) => i % 251,
+      );
       final Uint8List enc = await encrypt(data);
       expect(enc.sublist(0, 5), BackupService.magic);
       expect(await decrypt(enc), data);
@@ -111,22 +132,44 @@ create trigger t before update on a for each row execute function f();
     });
 
     test('detects truncation, tampering and the wrong key', () async {
-      final List<int> data = List<int>.generate(BackupService.frameSize + 10, (int i) => i % 7);
+      final List<int> data = List<int>.generate(
+        BackupService.frameSize + 10,
+        (int i) => i % 7,
+      );
       final Uint8List enc = await encrypt(data);
       // Drop the final frame entirely: everything left still authenticates,
       // so only the missing final flag can catch it.
       final int firstFrameEnd = 5 + 1 + 4 + 12 + BackupService.frameSize + 16;
-      await expectLater(decrypt(enc.sublist(0, firstFrameEnd)),
-          throwsA(isA<BackupException>().having((BackupException e) => e.message, 'm', contains('truncated'))));
+      await expectLater(
+        decrypt(enc.sublist(0, firstFrameEnd)),
+        throwsA(
+          isA<BackupException>().having(
+            (BackupException e) => e.message,
+            'm',
+            contains('truncated'),
+          ),
+        ),
+      );
       final Uint8List flipped = Uint8List.fromList(enc)..[100] ^= 1;
       await expectLater(decrypt(flipped), throwsA(isA<BackupException>()));
-      await expectLater(decrypt(enc, SecretKey(List<int>.filled(32, 9))), throwsA(isA<BackupException>()));
-      await expectLater(decrypt(utf8.encode('PGDMP...')), throwsA(isA<BackupException>()));
+      await expectLater(
+        decrypt(enc, SecretKey(List<int>.filled(32, 9))),
+        throwsA(isA<BackupException>()),
+      );
+      await expectLater(
+        decrypt(utf8.encode('PGDMP...')),
+        throwsA(isA<BackupException>()),
+      );
     });
   });
 
   test('canonical JSON sorts keys recursively', () {
-    expect(canonicalJson(<String, Object?>{'b': 1, 'a': <String, Object?>{'d': 2, 'c': 3}}),
-        '{"a":{"c":3,"d":2},"b":1}');
+    expect(
+      canonicalJson(<String, Object?>{
+        'b': 1,
+        'a': <String, Object?>{'d': 2, 'c': 3},
+      }),
+      '{"a":{"c":3,"d":2},"b":1}',
+    );
   });
 }

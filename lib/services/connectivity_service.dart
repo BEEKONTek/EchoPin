@@ -101,7 +101,7 @@ class ConnectivityService extends ChangeNotifier {
         (List<ConnectivityResult> r) => unawaited(_refresh(r)),
         onError: (Object _) {},
       );
-    } catch (_) {}
+    } catch (_) {} // best effort: no connectivity channel on this platform
     if (_interfaces != null && recheckEvery > Duration.zero) {
       _recheck = Timer.periodic(
         recheckEvery,

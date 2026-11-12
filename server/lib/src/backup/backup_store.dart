@@ -48,7 +48,8 @@ class LocalBackupStore implements BackupStore {
   String get description => 'local disk ($dir)';
 
   @override
-  Future<void> ensureReady() async => Directory(dir).createSync(recursive: true);
+  Future<void> ensureReady() async =>
+      Directory(dir).createSync(recursive: true);
 
   @override
   Future<void> put(String name, File file) async {
@@ -111,7 +112,11 @@ class SupabaseBackupStore implements BackupStore {
     final http.Response r = await _client.post(
       Uri.parse('$base/storage/v1/bucket'),
       headers: <String, String>{..._auth, 'content-type': 'application/json'},
-      body: jsonEncode(<String, Object?>{'id': bucket, 'name': bucket, 'public': false}),
+      body: jsonEncode(<String, Object?>{
+        'id': bucket,
+        'name': bucket,
+        'public': false,
+      }),
     );
     if (r.statusCode == 200 || r.statusCode == 201) return;
     // Already there is fine (Supabase answers 400/409 "already exists").
@@ -119,7 +124,9 @@ class SupabaseBackupStore implements BackupStore {
         r.body.toLowerCase().contains('duplicate')) {
       return;
     }
-    throw StoreException('Could not create bucket $bucket: ${r.statusCode} ${r.body}');
+    throw StoreException(
+      'Could not create bucket $bucket: ${r.statusCode} ${r.body}',
+    );
   }
 
   @override
@@ -140,7 +147,9 @@ class SupabaseBackupStore implements BackupStore {
           body: chunk,
         );
         if (r.statusCode != 200 && r.statusCode != 201) {
-          throw StoreException('Upload of part $index failed: ${r.statusCode} ${r.body}');
+          throw StoreException(
+            'Upload of part $index failed: ${r.statusCode} ${r.body}',
+          );
         }
         index++;
         if (chunk.length < partSize) break;
@@ -153,7 +162,9 @@ class SupabaseBackupStore implements BackupStore {
   @override
   Future<void> fetch(String name, File into) async {
     final List<String> parts = await _parts(name);
-    if (parts.isEmpty) throw StoreException('No backup called $name in bucket $bucket');
+    if (parts.isEmpty) {
+      throw StoreException('No backup called $name in bucket $bucket');
+    }
     final IOSink sink = into.openWrite();
     try {
       for (final String part in parts) {
@@ -175,13 +186,21 @@ class SupabaseBackupStore implements BackupStore {
   Future<void> delete(String name) async {
     final List<String> parts = await _parts(name);
     if (parts.isEmpty) return;
-    final http.Request req = http.Request('DELETE', Uri.parse('$base/storage/v1/object/$bucket'))
-      ..headers.addAll(<String, String>{..._auth, 'content-type': 'application/json'})
-      ..body = jsonEncode(<String, Object?>{
-        'prefixes': <String>[for (final String p in parts) '$name/$p'],
-      });
-    final http.Response r = await http.Response.fromStream(await _client.send(req));
-    if (r.statusCode != 200) throw StoreException('Delete of $name failed: ${r.statusCode} ${r.body}');
+    final http.Request req =
+        http.Request('DELETE', Uri.parse('$base/storage/v1/object/$bucket'))
+          ..headers.addAll(<String, String>{
+            ..._auth,
+            'content-type': 'application/json',
+          })
+          ..body = jsonEncode(<String, Object?>{
+            'prefixes': <String>[for (final String p in parts) '$name/$p'],
+          });
+    final http.Response r = await http.Response.fromStream(
+      await _client.send(req),
+    );
+    if (r.statusCode != 200) {
+      throw StoreException('Delete of $name failed: ${r.statusCode} ${r.body}');
+    }
   }
 
   @override
@@ -198,16 +217,20 @@ class SupabaseBackupStore implements BackupStore {
         'sortBy': <String, String>{'column': 'name', 'order': 'asc'},
       }),
     );
-    if (r.statusCode != 200) throw StoreException('Listing $name failed: ${r.statusCode} ${r.body}');
-    final List<String> names = (jsonDecode(r.body) as List<dynamic>)
-        .map((dynamic e) => (e as Map<String, dynamic>)['name'] as String)
-        .where((String n) => n.startsWith('part-'))
-        .toList()
-      ..sort();
+    if (r.statusCode != 200) {
+      throw StoreException('Listing $name failed: ${r.statusCode} ${r.body}');
+    }
+    final List<String> names =
+        (jsonDecode(r.body) as List<dynamic>)
+            .map((dynamic e) => (e as Map<String, dynamic>)['name'] as String)
+            .where((String n) => n.startsWith('part-'))
+            .toList()
+          ..sort();
     return names;
   }
 
-  static String _part(String name, int i) => '$name/part-${i.toString().padLeft(4, '0')}';
+  static String _part(String name, int i) =>
+      '$name/part-${i.toString().padLeft(4, '0')}';
 }
 
 class StoreException implements Exception {

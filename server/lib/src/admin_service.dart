@@ -104,7 +104,10 @@ class AdminService {
            (select count(*) from reports
              where created_at >= days.d and created_at < days.d + interval '1 day')::int as reports
          from days order by days.d''',
-      <String, Object?>{'from': now.subtract(const Duration(days: 13)), 'now': now},
+      <String, Object?>{
+        'from': now.subtract(const Duration(days: 13)),
+        'now': now,
+      },
     );
     final Row? lastBackup = await _db.one(
       '''select status, file_name, size_bytes, started_at, error from backups
@@ -256,11 +259,15 @@ class AdminService {
     final AccountRole? role = body['role'] == null
         ? null
         : (AccountRole.fromWire(body['role']) ??
-              (throw ApiException.badRequest('role must be member, responder or admin')));
+              (throw ApiException.badRequest(
+                'role must be member, responder or admin',
+              )));
     final AccountStatus? status = body['status'] == null
         ? null
         : (AccountStatus.fromWire(body['status']) ??
-              (throw ApiException.badRequest('status must be active or disabled')));
+              (throw ApiException.badRequest(
+                'status must be active or disabled',
+              )));
     if (status == AccountStatus.pending) {
       throw ApiException.badRequest('An account cannot be set back to pending');
     }
@@ -288,7 +295,8 @@ class AdminService {
       if (before == null) throw ApiException.notFound('That account');
       final bool losingAdmin =
           before['role'] == 'admin' &&
-          ((role != null && role != AccountRole.admin) || status == AccountStatus.disabled);
+          ((role != null && role != AccountRole.admin) ||
+              status == AccountStatus.disabled);
       if (losingAdmin) {
         final Row n = (await tx.one(
           '''select count(*)::int as n from accounts
@@ -334,7 +342,9 @@ class AdminService {
           <String, Object?>{
             'now': _now,
             'id': id,
-            'why': status == AccountStatus.disabled ? 'account_disabled' : 'two_step_reset',
+            'why': status == AccountStatus.disabled
+                ? 'account_disabled'
+                : 'two_step_reset',
           },
         );
       }
@@ -357,11 +367,20 @@ class AdminService {
   Future<void> signOutEverywhere(AuthContext ctx, String id) async {
     ctx.require(AccountRole.admin);
     final int n = await _auth.revokeAllSessions(id, 'admin_signout');
-    await _audit.record(_db, ctx.actor, 'account.signed_out_everywhere', target: id,
-        detail: <String, Object?>{'sessions': n});
+    await _audit.record(
+      _db,
+      ctx.actor,
+      'account.signed_out_everywhere',
+      target: id,
+      detail: <String, Object?>{'sessions': n},
+    );
   }
 
-  Future<void> revokeDevice(AuthContext ctx, String accountId, String deviceId) {
+  Future<void> revokeDevice(
+    AuthContext ctx,
+    String accountId,
+    String deviceId,
+  ) {
     ctx.require(AccountRole.admin);
     return _auth.revokeDevice(accountId, deviceId, ctx.actor);
   }
@@ -468,7 +487,8 @@ class AdminService {
             'updatedAt': r['updated_at'],
             // Data minimisation: responders work from the name; only admins
             // (who manage accounts) see contact details.
-            if (ctx.role.atLeast(AccountRole.admin)) 'reporterEmail': r['email'],
+            if (ctx.role.atLeast(AccountRole.admin))
+              'reporterEmail': r['email'],
             'reporterName': r['display_name'],
             'assignee': r['assignee'],
             'notes': r['notes'],
@@ -543,9 +563,14 @@ class AdminService {
               (throw ApiException.badRequest('Unknown severity')));
     final bool assignSelf = body['assignToMe'] == true;
     final bool unassign = body['unassign'] == true;
-    final String? resolution = body.optStr('resolution', max: 2000);
+    final String? resolution = body.optStr(
+      'resolution',
+      max: ProtocolLimits.maxResolution,
+    );
     if (status != null && status.isClosed && resolution == null) {
-      throw ApiException.badRequest('Say how it was resolved before closing it');
+      throw ApiException.badRequest(
+        'Say how it was resolved before closing it',
+      );
     }
     await _db.tx((DbSession tx) async {
       final int n = await tx.execute(
@@ -569,18 +594,27 @@ class AdminService {
         },
       );
       if (n == 0) throw ApiException.notFound('That report');
-      await _audit.recordIn(tx, ctx.actor, 'report.updated', target: id,
-          detail: <String, Object?>{
-            if (status != null) 'status': status.wire,
-            if (severity != null) 'severity': severity.wire,
-            if (assignSelf) 'assignee': ctx.email,
-            if (unassign) 'assignee': null,
-          });
+      await _audit.recordIn(
+        tx,
+        ctx.actor,
+        'report.updated',
+        target: id,
+        detail: <String, Object?>{
+          if (status != null) 'status': status.wire,
+          if (severity != null) 'severity': severity.wire,
+          if (assignSelf) 'assignee': ctx.email,
+          if (unassign) 'assignee': null,
+        },
+      );
     });
     return report(ctx, id);
   }
 
-  Future<Map<String, Object?>> addReportNote(AuthContext ctx, String id, String body) async {
+  Future<Map<String, Object?>> addReportNote(
+    AuthContext ctx,
+    String id,
+    String body,
+  ) async {
     ctx.require(AccountRole.responder);
     final Row? exists = await _db.one(
       'select 1 as x from reports where id = @id::uuid',
@@ -618,8 +652,13 @@ class AdminService {
     // Looking a *person* up is recorded: browsing the list is routine, but
     // "show me everything this account took part in" should leave a trace.
     if (accountId != null || query != null) {
-      await _audit.record(_db, ctx.actor, 'sessions.searched',
-          target: accountId, detail: <String, Object?>{'query': ?query});
+      await _audit.record(
+        _db,
+        ctx.actor,
+        'sessions.searched',
+        target: accountId,
+        detail: <String, Object?>{'query': ?query},
+      );
     }
     final List<Row> rows = await _db.query(
       '''with latest as (
@@ -684,14 +723,19 @@ class AdminService {
             'timesOpened': r['times_opened'],
             // Uploads that disagree on the session tag: at least one came
             // from someone who did not know the session key (see session()).
-            'unproven': (r['tags'] as int) > 1 || ((r['tags'] as int) == 1 && r['untagged'] == true),
+            'unproven':
+                (r['tags'] as int) > 1 ||
+                ((r['tags'] as int) == 1 && r['untagged'] == true),
           },
         )
         .toList();
   }
 
   /// Every member's upload for one session, plus who has opened which.
-  Future<Map<String, Object?>> session(AuthContext ctx, String sessionId) async {
+  Future<Map<String, Object?>> session(
+    AuthContext ctx,
+    String sessionId,
+  ) async {
     ctx.require(AccountRole.responder);
     final List<Row> logs = await _db.query(
       '''select l.id, l.session_id, l.session_name, l.started_at, l.ended_at,
@@ -727,7 +771,10 @@ class AdminService {
           .add(r['account_id'] as String? ?? 'deleted:${r['id']}');
     }
     String? majority;
-    final int voters = tagPeople.values.fold(0, (int n, Set<String> p) => n + p.length);
+    final int voters = tagPeople.values.fold(
+      0,
+      (int n, Set<String> p) => n + p.length,
+    );
     for (final MapEntry<String, Set<String>> e in tagPeople.entries) {
       if (e.value.length * 2 > voters) majority = e.key;
     }
@@ -761,7 +808,9 @@ class AdminService {
               // no tag while others do); null: no tags, or a tie.
               'memberProven': majority == null
                   ? null
-                  : (r['session_tag'] != null && base64.encode(r['session_tag'] as List<int>) == majority),
+                  : (r['session_tag'] != null &&
+                        base64.encode(r['session_tag'] as List<int>) ==
+                            majority),
               'tagsDisagree': tagsDisagree,
               'doubleSealed': r['custodian_key_id'] != null,
             },
@@ -824,12 +873,17 @@ class AdminService {
           'now': _now,
         },
       );
-      await _audit.recordIn(tx, ctx.actor, 'session_log.unsealed', target: logId,
-          detail: <String, Object?>{
-            'sessionId': l['session_id'],
-            'reason': reason.trim(),
-            'caseRef': caseRef,
-          });
+      await _audit.recordIn(
+        tx,
+        ctx.actor,
+        'session_log.unsealed',
+        target: logId,
+        detail: <String, Object?>{
+          'sessionId': l['session_id'],
+          'reason': reason.trim(),
+          'caseRef': caseRef,
+        },
+      );
       return l;
     });
     _alertAdmins(ctx, log, reason.trim(), caseRef);
@@ -889,17 +943,20 @@ class AdminService {
           "select email from accounts where role = 'admin' and status = 'active'",
         );
         for (final Row a in admins) {
-          await mailer.send(OutgoingMail(
-            to: a['email'] as String,
-            subject: 'EchoPin: ${ctx.displayName} opened a session record',
-            text: '${ctx.displayName} (${ctx.email}) opened a sealed session record.\n\n'
-                'Session: ${log['session_name']} (${log['session_id']})\n'
-                'Reason given: $reason\n'
-                '${caseRef == null ? '' : 'Case reference: $caseRef\n'}'
-                'Time: ${_now.toIso8601String()}\n\n'
-                'Every opening is in Console → Audit. If this was not expected, '
-                'check with them and consider removing their responder role.',
-          ));
+          await mailer.send(
+            OutgoingMail(
+              to: a['email'] as String,
+              subject: 'EchoPin: ${ctx.displayName} opened a session record',
+              text:
+                  '${ctx.displayName} (${ctx.email}) opened a sealed session record.\n\n'
+                  'Session: ${log['session_name']} (${log['session_id']})\n'
+                  'Reason given: $reason\n'
+                  '${caseRef == null ? '' : 'Case reference: $caseRef\n'}'
+                  'Time: ${_now.toIso8601String()}\n\n'
+                  'Every opening is in Console → Audit. If this was not expected, '
+                  'check with them and consider removing their responder role.',
+            ),
+          );
         }
       } catch (e) {
         _log.severe('Unseal alert email failed', e);

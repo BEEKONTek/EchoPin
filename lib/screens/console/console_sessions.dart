@@ -43,10 +43,12 @@ class _SessionsTabState extends State<SessionsTab> {
               Expanded(
                 child: TextField(
                   controller: _search,
+                  maxLength: ProtocolLimits.maxSearchQuery,
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search),
                     hintText: 'Session name, person or email',
                     isDense: true,
+                    counterText: '',
                   ),
                   onSubmitted: (String v) => setState(() => _query = v.trim()),
                 ),
@@ -64,76 +66,117 @@ class _SessionsTabState extends State<SessionsTab> {
         Expanded(
           child: ConsoleLoader(
             key: ValueKey<String>(qs),
-            load: (BuildContext c) => consoleApi(c, 'GET', '/v1/admin/sessions?$qs'),
-            builder: (BuildContext context, Map<String, dynamic> data, VoidCallback reload) {
-              final List<Map<String, dynamic>> sessions =
-                  (data['sessions'] as List<dynamic>).cast<Map<String, dynamic>>();
-              final ThemeData t = Theme.of(context);
-              return ConsoleList(
-                children: <Widget>[
-                  if (sessions.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(child: Text('No sessions match.')),
-                    ),
-                  for (final Map<String, dynamic> s in sessions)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Tray(
-                        onTap: () => unawaited(Navigator.of(context).push(MaterialPageRoute<void>(
-                          builder: (_) => SessionDetailScreen(sessionId: s['sessionId'] as String),
-                        ))),
-                        child: Row(
-                          children: <Widget>[
-                            Icon(
-                              (s['sos'] as int) > 0 ? Icons.sos : Icons.hub_outlined,
-                              color: (s['sos'] as int) > 0 ? EchoTheme.sos : null,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Row(
-                                    children: <Widget>[
-                                      Flexible(child: Text(s['name'] as String, style: t.textTheme.titleSmall)),
-                                      if (s['finished'] == false) ...<Widget>[
-                                        const SizedBox(width: 8),
-                                        const Pill('live', color: EchoTheme.checkIn),
-                                      ],
-                                    ],
+            load: (BuildContext c) =>
+                consoleApi(c, 'GET', '/v1/admin/sessions?$qs'),
+            builder:
+                (
+                  BuildContext context,
+                  Map<String, dynamic> data,
+                  VoidCallback reload,
+                ) {
+                  final List<Map<String, dynamic>> sessions =
+                      (data['sessions'] as List<dynamic>)
+                          .cast<Map<String, dynamic>>();
+                  final ThemeData t = Theme.of(context);
+                  return ConsoleList(
+                    children: <Widget>[
+                      if (sessions.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(child: Text('No sessions match.')),
+                        ),
+                      for (final Map<String, dynamic> s in sessions)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Tray(
+                            onTap: () => unawaited(
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => SessionDetailScreen(
+                                    sessionId: s['sessionId'] as String,
                                   ),
-                                  Text(
-                                    '${consoleDate(s['startedAt'])} · ${s['members']} people · '
-                                    '${(s['people'] as List<dynamic>).join(', ')}',
-                                    style: t.textTheme.bodySmall,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                            child: Row(
                               children: <Widget>[
-                                if ((s['sos'] as int) > 0) Pill('${s['sos']} SOS', color: EchoTheme.sos),
-                                if ((s['help'] as int) > 0) Pill('${s['help']} need help', color: EchoTheme.checkIn),
-                                if (s['unproven'] == true)
-                                  const Pill('Upload from a non-member?', color: EchoTheme.sos),
-                                if ((s['timesOpened'] as int) > 0)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text('opened ${s['timesOpened']}×', style: t.textTheme.labelSmall),
+                                Icon(
+                                  (s['sos'] as int) > 0
+                                      ? Icons.sos
+                                      : Icons.hub_outlined,
+                                  color: (s['sos'] as int) > 0
+                                      ? EchoTheme.sos
+                                      : null,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Row(
+                                        children: <Widget>[
+                                          Flexible(
+                                            child: Text(
+                                              s['name'] as String,
+                                              style: t.textTheme.titleSmall,
+                                            ),
+                                          ),
+                                          if (s['finished'] ==
+                                              false) ...<Widget>[
+                                            const SizedBox(width: 8),
+                                            const Pill(
+                                              'live',
+                                              color: EchoTheme.checkIn,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      Text(
+                                        '${consoleDate(s['startedAt'])} · ${s['members']} people · '
+                                        '${(s['people'] as List<dynamic>).join(', ')}',
+                                        style: t.textTheme.bodySmall,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
                                   ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: <Widget>[
+                                    if ((s['sos'] as int) > 0)
+                                      Pill(
+                                        '${s['sos']} SOS',
+                                        color: EchoTheme.sos,
+                                      ),
+                                    if ((s['help'] as int) > 0)
+                                      Pill(
+                                        '${s['help']} need help',
+                                        color: EchoTheme.checkIn,
+                                      ),
+                                    if (s['unproven'] == true)
+                                      const Pill(
+                                        'Upload from a non-member?',
+                                        color: EchoTheme.sos,
+                                      ),
+                                    if ((s['timesOpened'] as int) > 0)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          'opened ${s['timesOpened']}×',
+                                          style: t.textTheme.labelSmall,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                ],
-              );
-            },
+                    ],
+                  );
+                },
           ),
         ),
       ],
@@ -150,12 +193,18 @@ class SessionDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('Session $sessionId')),
       body: ConsoleLoader(
-        load: (BuildContext c) => consoleApi(c, 'GET', '/v1/admin/sessions/${Uri.encodeComponent(sessionId)}'),
+        load: (BuildContext c) => consoleApi(
+          c,
+          'GET',
+          '/v1/admin/sessions/${Uri.encodeComponent(sessionId)}',
+        ),
         builder: (BuildContext context, Map<String, dynamic> d, VoidCallback reload) {
           final ThemeData t = Theme.of(context);
-          final List<Map<String, dynamic>> logs = (d['logs'] as List<dynamic>).cast<Map<String, dynamic>>();
+          final List<Map<String, dynamic>> logs = (d['logs'] as List<dynamic>)
+              .cast<Map<String, dynamic>>();
           final List<Map<String, dynamic>> access =
-              (d['accessHistory'] as List<dynamic>).cast<Map<String, dynamic>>();
+              (d['accessHistory'] as List<dynamic>)
+                  .cast<Map<String, dynamic>>();
           return ConsoleList(
             maxWidth: 760,
             children: <Widget>[
@@ -163,16 +212,20 @@ class SessionDetailScreen extends StatelessWidget {
               const SizedBox(height: 12),
               const NoticeTray(
                 icon: Icons.lock_outline,
-                text: 'Each member’s phone sends its own sealed record. Opening one '
+                text:
+                    'Each member’s phone sends its own sealed record. Opening one '
                     'needs a reason and is recorded permanently in the audit log, '
                     'visible to every admin.',
               ),
-              if (logs.any((Map<String, dynamic> l) => l['tagsDisagree'] == true))
+              if (logs.any(
+                (Map<String, dynamic> l) => l['tagsDisagree'] == true,
+              ))
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
                   child: NoticeTray(
                     icon: Icons.help_outline,
-                    text: 'Uploads disagree about who was in this session. Records marked '
+                    text:
+                        'Uploads disagree about who was in this session. Records marked '
                         '“Not proven a member” came from someone without the invite code. '
                         'Where too few people uploaded to tell, check with them directly.',
                   ),
@@ -188,8 +241,10 @@ class SessionDetailScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              Text('${l['displayName'] ?? 'Deleted account'} · ${l['device'] ?? '?'}',
-                                  style: t.textTheme.titleSmall),
+                              Text(
+                                '${l['displayName'] ?? 'Deleted account'} · ${l['device'] ?? '?'}',
+                                style: t.textTheme.titleSmall,
+                              ),
                               Text(
                                 '${l['final'] == true ? 'Final record' : 'Checkpoint ${l['sequence']}'} · '
                                 'sent ${consoleAgo(l['receivedAt'])}'
@@ -201,16 +256,30 @@ class SessionDetailScreen extends StatelessWidget {
                                 spacing: 6,
                                 runSpacing: 4,
                                 children: <Widget>[
-                                  if ((l['sos'] as int) > 0) Pill('${l['sos']} SOS', color: EchoTheme.sos),
-                                  if ((l['help'] as int) > 0) Pill('${l['help']} need help', color: EchoTheme.checkIn),
-                                  Pill('${l['crossings'] ?? 0} boundary crossings'),
+                                  if ((l['sos'] as int) > 0)
+                                    Pill(
+                                      '${l['sos']} SOS',
+                                      color: EchoTheme.sos,
+                                    ),
+                                  if ((l['help'] as int) > 0)
+                                    Pill(
+                                      '${l['help']} need help',
+                                      color: EchoTheme.checkIn,
+                                    ),
+                                  Pill(
+                                    '${l['crossings'] ?? 0} boundary crossings',
+                                  ),
                                   Pill('${l['members']} people'),
-                                  if (l['doubleSealed'] == true) const Pill('Double-sealed'),
+                                  if (l['doubleSealed'] == true)
+                                    const Pill('Double-sealed'),
                                   // The upload's session tag doesn't match the
                                   // other members': whoever sent it may never
                                   // have been in this session.
                                   if (l['memberProven'] == false)
-                                    const Pill('Not proven a member', color: EchoTheme.sos),
+                                    const Pill(
+                                      'Not proven a member',
+                                      color: EchoTheme.sos,
+                                    ),
                                 ],
                               ),
                             ],
@@ -218,7 +287,8 @@ class SessionDetailScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         FilledButton.tonalIcon(
-                          onPressed: () => unawaited(_unseal(context, l, reload)),
+                          onPressed: () =>
+                              unawaited(_unseal(context, l, reload)),
                           icon: const Icon(Icons.lock_open, size: 18),
                           label: const Text('Open'),
                         ),
@@ -235,8 +305,13 @@ class SessionDetailScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text('${a['by']} · ${consoleDate(a['at'])}', style: t.textTheme.titleSmall),
-                        Text('“${a['reason']}”${a['caseRef'] == null ? '' : ' · case ${a['caseRef']}'}'),
+                        Text(
+                          '${a['by']} · ${consoleDate(a['at'])}',
+                          style: t.textTheme.titleSmall,
+                        ),
+                        Text(
+                          '“${a['reason']}”${a['caseRef'] == null ? '' : ' · case ${a['caseRef']}'}',
+                        ),
                       ],
                     ),
                   ),
@@ -248,18 +323,26 @@ class SessionDetailScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _unseal(BuildContext context, Map<String, dynamic> log, VoidCallback reload) async {
-    final ({String reason, String? caseRef})? why = await showDialog<({String reason, String? caseRef})>(
-      context: context,
-      builder: (_) => const _ReasonDialog(),
-    );
+  Future<void> _unseal(
+    BuildContext context,
+    Map<String, dynamic> log,
+    VoidCallback reload,
+  ) async {
+    final ({String reason, String? caseRef})? why =
+        await showDialog<({String reason, String? caseRef})>(
+          context: context,
+          builder: (_) => const _ReasonDialog(),
+        );
     if (why == null || !context.mounted) return;
     try {
       final Map<String, dynamic> r = await consoleApi(
         context,
         'POST',
         '/v1/admin/session-logs/${log['id']}/unseal',
-        body: <String, Object?>{'reason': why.reason, if (why.caseRef != null) 'caseRef': why.caseRef},
+        body: <String, Object?>{
+          'reason': why.reason,
+          if (why.caseRef != null) 'caseRef': why.caseRef,
+        },
       );
       reload();
       if (!context.mounted) return;
@@ -285,7 +368,10 @@ class SessionDetailScreen extends StatelessWidget {
                 'the console, or ask a responder who has it.',
               ),
               actions: <Widget>[
-                FilledButton(onPressed: () => Navigator.pop(c), child: const Text('OK')),
+                FilledButton(
+                  onPressed: () => Navigator.pop(c),
+                  child: const Text('OK'),
+                ),
               ],
             ),
           );
@@ -293,15 +379,19 @@ class SessionDetailScreen extends StatelessWidget {
         }
       }
       if (!context.mounted || content == null) return;
-      await Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => SealedLogScreen(
-          content: content!,
-          recordedBy: '${log['displayName'] ?? '?'}',
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => SealedLogScreen(
+            content: content!,
+            recordedBy: '${log['displayName'] ?? '?'}',
+          ),
         ),
-      ));
+      );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorText(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorText(e))));
       }
     }
   }
@@ -334,14 +424,17 @@ class _ReasonDialogState extends State<_ReasonDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const Text('Say why you need it. Your name, the time and this reason '
-              'are recorded permanently and can be seen by every admin.'),
+          const Text(
+            'Say why you need it. Your name, the time and this reason '
+            'are recorded permanently and can be seen by every admin.',
+          ),
           const SizedBox(height: 16),
           TextField(
             controller: _reason,
             autofocus: true,
             minLines: 2,
             maxLines: 4,
+            maxLength: ProtocolLimits.maxUnsealReason,
             onChanged: (_) => setState(() {}),
             decoration: const InputDecoration(
               labelText: 'Reason',
@@ -351,18 +444,25 @@ class _ReasonDialogState extends State<_ReasonDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _case,
-            decoration: const InputDecoration(labelText: 'Case or incident number (optional)'),
+            maxLength: ProtocolLimits.maxCaseRef,
+            decoration: const InputDecoration(
+              labelText: 'Case or incident number (optional)',
+              counterText: '',
+            ),
           ),
         ],
       ),
       actions: <Widget>[
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           onPressed: ok
               ? () => Navigator.pop(context, (
-                    reason: _reason.text.trim(),
-                    caseRef: _case.text.trim().isEmpty ? null : _case.text.trim(),
-                  ))
+                  reason: _reason.text.trim(),
+                  caseRef: _case.text.trim().isEmpty ? null : _case.text.trim(),
+                ))
               : null,
           child: const Text('Open and record'),
         ),
@@ -374,7 +474,11 @@ class _ReasonDialogState extends State<_ReasonDialog> {
 /// A decrypted session record: who was there, their last known state, and
 /// a timeline of everything the recording phone saw.
 class SealedLogScreen extends StatelessWidget {
-  const SealedLogScreen({super.key, required this.content, required this.recordedBy});
+  const SealedLogScreen({
+    super.key,
+    required this.content,
+    required this.recordedBy,
+  });
   final Map<String, dynamic> content;
   final String recordedBy;
 
@@ -382,11 +486,15 @@ class SealedLogScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData t = Theme.of(context);
     final List<Map<String, dynamic>> members =
-        (content['members'] as List<dynamic>? ?? <dynamic>[]).cast<Map<String, dynamic>>();
+        (content['members'] as List<dynamic>? ?? <dynamic>[])
+            .cast<Map<String, dynamic>>();
     final List<Map<String, dynamic>> events =
-        (content['events'] as List<dynamic>? ?? <dynamic>[]).cast<Map<String, dynamic>>();
+        (content['events'] as List<dynamic>? ?? <dynamic>[])
+            .cast<Map<String, dynamic>>();
     return Scaffold(
-      appBar: AppBar(title: Text(content['sessionName'] as String? ?? 'Session record')),
+      appBar: AppBar(
+        title: Text(content['sessionName'] as String? ?? 'Session record'),
+      ),
       body: ConsoleList(
         maxWidth: 760,
         children: <Widget>[
@@ -395,13 +503,23 @@ class SealedLogScreen extends StatelessWidget {
             '${content['endedAt'] == null ? 'still running at last upload' : consoleDate(content['endedAt'])}',
             style: t.textTheme.bodySmall,
           ),
-          if (content['endReason'] != null) Text('Ended: ${content['endReason']}', style: t.textTheme.bodySmall),
+          if (content['endReason'] != null)
+            Text(
+              'Ended: ${content['endReason']}',
+              style: t.textTheme.bodySmall,
+            ),
           if (content['truncated'] == true)
             const Padding(
               padding: EdgeInsets.only(top: 8),
-              child: NoticeTray(icon: Icons.content_cut, text: 'This record hit its size limit; later events were dropped.'),
+              child: NoticeTray(
+                icon: Icons.content_cut,
+                text:
+                    'This record hit its size limit; later events were dropped.',
+              ),
             ),
-          SectionLabel('Last known state (boundary ${content['boundaryMeters'] ?? '?'} m)'),
+          SectionLabel(
+            'Last known state (boundary ${content['boundaryMeters'] ?? '?'} m)',
+          ),
           Tray(
             padding: EdgeInsets.zero,
             child: SingleChildScrollView(
@@ -416,25 +534,45 @@ class SealedLogScreen extends StatelessWidget {
                 ],
                 rows: <DataRow>[
                   for (final Map<String, dynamic> m in members)
-                    DataRow(cells: <DataCell>[
-                      DataCell(Row(children: <Widget>[
-                        Text(m['name'] as String? ?? '?'),
-                        if (m['verifiedInPerson'] == true)
-                          const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.verified, size: 14)),
-                      ])),
-                      DataCell(Text(m['lastDistanceMeters'] == null ? '—' : '${m['lastDistanceMeters']} m')),
-                      DataCell(Text(consoleDate(m['lastDistanceAt']))),
-                      DataCell(Text(consoleDate(m['lastHeard']))),
-                      DataCell(Text(m['presentAtEnd'] == false ? 'left' : 'present')),
-                    ]),
+                    DataRow(
+                      cells: <DataCell>[
+                        DataCell(
+                          Row(
+                            children: <Widget>[
+                              Text(m['name'] as String? ?? '?'),
+                              if (m['verifiedInPerson'] == true)
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 4),
+                                  child: Icon(Icons.verified, size: 14),
+                                ),
+                            ],
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            m['lastDistanceMeters'] == null
+                                ? '—'
+                                : '${m['lastDistanceMeters']} m',
+                          ),
+                        ),
+                        DataCell(Text(consoleDate(m['lastDistanceAt']))),
+                        DataCell(Text(consoleDate(m['lastHeard']))),
+                        DataCell(
+                          Text(m['presentAtEnd'] == false ? 'left' : 'present'),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),
           ),
           const Padding(
             padding: EdgeInsets.only(top: 6),
-            child: Text('Distances are estimated from Bluetooth signal strength, with privacy noise. '
-                'No coordinates are ever recorded.', style: TextStyle(fontSize: 12)),
+            child: Text(
+              'Distances are estimated from Bluetooth signal strength, with privacy noise. '
+              'No coordinates are ever recorded.',
+              style: TextStyle(fontSize: 12),
+            ),
           ),
           const SectionLabel('Timeline'),
           for (final Map<String, dynamic> e in events) _EventRow(event: e),
@@ -471,16 +609,25 @@ class _EventRow extends StatelessWidget {
   }
 
   static String _time(Object? iso) {
-    final DateTime? d = iso is String ? DateTime.tryParse(iso)?.toLocal() : null;
+    final DateTime? d = iso is String
+        ? DateTime.tryParse(iso)?.toLocal()
+        : null;
     if (d == null) return '';
     return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
 
-  static (IconData, Color?, String) _describe(String type, Map<String, dynamic> e) {
+  static (IconData, Color?, String) _describe(
+    String type,
+    Map<String, dynamic> e,
+  ) {
     final String note = e['note'] == null ? '' : ' “${e['note']}”';
     switch (type) {
       case SessionLogEvent.started:
-        return (Icons.play_arrow, null, 'Session started (boundary ${e['boundaryMeters']} m)');
+        return (
+          Icons.play_arrow,
+          null,
+          'Session started (boundary ${e['boundaryMeters']} m)',
+        );
       case SessionLogEvent.memberJoined:
         return (Icons.person_add_alt, null, '${e['name']} joined');
       case SessionLogEvent.memberLeft:
@@ -488,27 +635,50 @@ class _EventRow extends StatelessWidget {
       case SessionLogEvent.sosRaised:
         return (Icons.sos, EchoTheme.sos, '${e['by']} raised an SOS$note');
       case SessionLogEvent.sosResolved:
-        return (Icons.health_and_safety, Colors.green, '${e['by']} is safe (SOS ended)');
+        return (
+          Icons.health_and_safety,
+          Colors.green,
+          '${e['by']} is safe (SOS ended)',
+        );
       case SessionLogEvent.pingSent:
-        return (Icons.campaign_outlined, EchoTheme.checkIn,
-            'Check-in sent to ${e['everyone'] == true ? 'everyone' : '${e['recipients']} people'}$note');
+        return (
+          Icons.campaign_outlined,
+          EchoTheme.checkIn,
+          'Check-in sent to ${e['everyone'] == true ? 'everyone' : '${e['recipients']} people'}$note',
+        );
       case SessionLogEvent.pingReceived:
-        return (Icons.campaign_outlined, EchoTheme.checkIn, '${e['from']} asked for a check-in$note');
+        return (
+          Icons.campaign_outlined,
+          EchoTheme.checkIn,
+          '${e['from']} asked for a check-in$note',
+        );
       case SessionLogEvent.pingStatus:
         final String? response = e['response'] as String?;
         return (
           response == 'Need help' ? Icons.warning_amber : Icons.reply,
           response == 'Need help' ? EchoTheme.sos : null,
-          response == null ? '${e['name']}: ${e['state']}' : '${e['name']} answered “$response”',
+          response == null
+              ? '${e['name']}: ${e['state']}'
+              : '${e['name']} answered “$response”',
         );
       case SessionLogEvent.pingAnswered:
-        return (Icons.reply, e['response'] == 'Need help' ? EchoTheme.sos : null,
-            'Answered ${e['to']}: “${e['response']}”');
+        return (
+          Icons.reply,
+          e['response'] == 'Need help' ? EchoTheme.sos : null,
+          'Answered ${e['to']}: “${e['response']}”',
+        );
       case SessionLogEvent.leftBoundary:
-        return (Icons.logout, EchoTheme.checkIn,
-            '${e['name']} went outside the boundary (~${e['distanceMeters']} m)');
+        return (
+          Icons.logout,
+          EchoTheme.checkIn,
+          '${e['name']} went outside the boundary (~${e['distanceMeters']} m)',
+        );
       case SessionLogEvent.returnedToBoundary:
-        return (Icons.login, null, '${e['name']} came back inside (~${e['distanceMeters']} m)');
+        return (
+          Icons.login,
+          null,
+          '${e['name']} came back inside (~${e['distanceMeters']} m)',
+        );
       case SessionLogEvent.security:
         return (Icons.gpp_maybe, EchoTheme.sos, 'Security: ${e['message']}');
       case SessionLogEvent.ended:

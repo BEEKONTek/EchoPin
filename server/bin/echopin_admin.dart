@@ -81,7 +81,8 @@ class _InitKeys extends Command<int> {
   @override
   final String name = 'init-keys';
   @override
-  final String description = 'Create escrow, data and backup keys (new installs only).';
+  final String description =
+      'Create escrow, data and backup keys (new installs only).';
 
   @override
   Future<int> run() async {
@@ -118,7 +119,9 @@ class _RotateEscrow extends Command<int> {
     final String? bundle = Platform.environment['ECHOPIN_KEYS'];
     if (bundle != null && bundle.trim().isNotEmpty) {
       stdout.writeln('ECHOPIN_KEYS=${ServerKeys.rotateBundle(bundle)}');
-      stderr.writeln('\nReplace the ECHOPIN_KEYS secret with the line above and redeploy.');
+      stderr.writeln(
+        '\nReplace the ECHOPIN_KEYS secret with the line above and redeploy.',
+      );
       return 0;
     }
     final String dir = Platform.environment['KEYS_DIR'] ?? 'keys';
@@ -148,19 +151,29 @@ class _CreateAdmin extends Command<int> {
     argParser
       ..addOption('email', mandatory: true)
       ..addOption('name', mandatory: true)
-      ..addFlag('password-stdin', help: 'Read the password from stdin (for scripts).');
+      ..addFlag(
+        'password-stdin',
+        help: 'Read the password from stdin (for scripts).',
+      );
   }
 
   @override
   final String name = 'create-admin';
   @override
-  final String description = 'Create an active admin account, or promote an existing one.';
+  final String description =
+      'Create an active admin account, or promote an existing one.';
 
   @override
   Future<int> run() async {
     final ArgResults a = argResults!;
-    final String email = normalizeEmail(a['email'] as String);
-    final String displayName = cleanDisplayName(a['name'] as String);
+    final String email;
+    final String displayName;
+    try {
+      email = normalizeEmail(a['email'] as String);
+      displayName = cleanDisplayName(a['name'] as String);
+    } on ApiException catch (e) {
+      usageException(e.message);
+    }
     final String password;
     if (a['password-stdin'] as bool) {
       password = (stdin.readLineSync() ?? '').trimRight();
@@ -214,7 +227,15 @@ Future<(Db, BackupService)> _backupService() async {
   final ServerConfig c = _config;
   final Db db = _connect(c);
   final ServerKeys keys = await _keys(c);
-  return (db, BackupService(db: db, keys: keys, config: c, audit: AuditLog(macKey: keys.auditMacKey)));
+  return (
+    db,
+    BackupService(
+      db: db,
+      keys: keys,
+      config: c,
+      audit: AuditLog(macKey: keys.auditMacKey),
+    ),
+  );
 }
 
 class _Backup extends Command<int> {
@@ -240,7 +261,8 @@ class _VerifyBackup extends Command<int> {
   @override
   final String name = 'verify-backup';
   @override
-  final String description = 'Decrypt a backup and check that PostgreSQL can read it.';
+  final String description =
+      'Decrypt a backup and check that PostgreSQL can read it.';
   @override
   String get invocation => 'echopin_admin verify-backup <file or backup name>';
 
@@ -250,7 +272,9 @@ class _VerifyBackup extends Command<int> {
     if (rest.length != 1) usageException('Give exactly one backup file.');
     final (Db db, BackupService b) = await _backupService();
     final int entries = await b.verifyFile(rest.single);
-    stdout.writeln('OK: ${rest.single} decrypts and lists $entries database objects.');
+    stdout.writeln(
+      'OK: ${rest.single} decrypts and lists $entries database objects.',
+    );
     await db.close();
     return 0;
   }
@@ -259,9 +283,15 @@ class _VerifyBackup extends Command<int> {
 class _Restore extends Command<int> {
   _Restore() {
     argParser
-      ..addFlag('yes-overwrite-database',
-          negatable: false, help: 'Required. Confirms you mean to replace all data.')
-      ..addOption('database-url', help: 'Restore somewhere else (e.g. a scratch database).');
+      ..addFlag(
+        'yes-overwrite-database',
+        negatable: false,
+        help: 'Required. Confirms you mean to replace all data.',
+      )
+      ..addOption(
+        'database-url',
+        help: 'Restore somewhere else (e.g. a scratch database).',
+      );
   }
 
   @override
@@ -287,8 +317,13 @@ class _Restore extends Command<int> {
     }
     final (Db db, BackupService b) = await _backupService();
     await db.close();
-    await b.restoreFile(a.rest.single, databaseUrl: a['database-url'] as String?);
-    stdout.writeln('Restored ${a.rest.single}. Run `audit-verify`, then start the server.');
+    await b.restoreFile(
+      a.rest.single,
+      databaseUrl: a['database-url'] as String?,
+    );
+    stdout.writeln(
+      'Restored ${a.rest.single}. Run `audit-verify`, then start the server.',
+    );
     return 0;
   }
 }
@@ -303,7 +338,9 @@ class _AuditVerify extends Command<int> {
   Future<int> run() async {
     final Db db = _connect(_config);
     final ServerKeys keys = await _keys(_config);
-    final AuditVerification v = await AuditLog(macKey: keys.auditMacKey).verify(db);
+    final AuditVerification v = await AuditLog(
+      macKey: keys.auditMacKey,
+    ).verify(db);
     await db.close();
     if (v.ok) {
       stdout.writeln('Audit chain intact (${v.checked} entries).');
@@ -337,17 +374,27 @@ class _InitCustodian extends Command<int> {
       ..writeln()
       ..writeln('   CUSTODIAN_PUBLIC_KEYS=${base64.encode(pub)}')
       ..writeln()
-      ..writeln('2. Custodian key: import it in Console → Custodian key on every')
-      ..writeln('   responder device that must open records, and keep a copy offline')
-      ..writeln('   (password manager or printed in a safe). Never put it on the server.')
+      ..writeln(
+        '2. Custodian key: import it in Console → Custodian key on every',
+      )
+      ..writeln(
+        '   responder device that must open records, and keep a copy offline',
+      )
+      ..writeln(
+        '   (password manager or printed in a safe). Never put it on the server.',
+      )
       ..writeln()
       ..writeln('   ECHOPIN-CUSTODIAN-1:${base64Url.encode(priv)}')
       ..writeln()
       ..writeln('   Key id: ${SealedBox.keyIdFor(pub)}')
       ..writeln()
-      ..writeln('If every copy of this key is lost, double-sealed records can never be')
+      ..writeln(
+        'If every copy of this key is lost, double-sealed records can never be',
+      )
       ..writeln('opened again. If it leaks, create a new one, put it first in')
-      ..writeln('CUSTODIAN_PUBLIC_KEYS, and import it on responder devices; old records')
+      ..writeln(
+        'CUSTODIAN_PUBLIC_KEYS, and import it on responder devices; old records',
+      )
       ..writeln('still need the old key.');
     return 0;
   }

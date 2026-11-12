@@ -166,12 +166,16 @@ flowchart TB
 | `src/db/database.dart` | Connection pool, TLS defaults, transactions |
 | `src/db/migrations.dart` | The schema, applied in order under a lock (including the audit immutability triggers) |
 | `src/mail/mailer.dart` | Console, SMTP, Brevo and Resend senders |
+| `src/api/http.dart` | `ApiException`, JSON body reading with a size cap, typed field accessors, `uuidParam`/`idParam`/`queryInt`/`queryStr` for URL input, and the middleware that turns every exception into a safe JSON error |
+| `tool/test.sh` | All server tests against a throwaway PostgreSQL cluster |
+| `tool/live_check.sh`, `tool/live_check.dart` | System test: starts a real server with fresh keys and drives 31 end-to-end checks over HTTP (sign-up, codes, lockouts, two-step, sealed uploads, break-glass, audit chain) |
 
 ## Where to look for…
 
 | Question | Look at |
 | --- | --- |
 | "Why can't I sign in?" | `auth_service.dart` `login`, then the app's `AccountProvider.signIn` |
+| "Where is input validated?" | App: `maxLength` on each field + `AccountProvider._require*`; server: `api/http.dart` accessors and `routes.dart`; limits in `packages/echopin_protocol` `ProtocolLimits` |
 | "Why is my account asking for a PIN?" | `providers/account_lock_provider.dart` (when it locks, why it signs out) |
 | "How is a session encrypted?" | `docs/PROTOCOL.md`, `security/secure_messenger.dart` |
 | "Who opened this record?" | Console → Sessions → a session → Access history; `admin_service.dart` `unseal` |

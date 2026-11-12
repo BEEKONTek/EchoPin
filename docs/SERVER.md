@@ -375,6 +375,25 @@ uses an in-memory fake server that checks device proofs and opens sealed
 records with real keys. `test/account/e2e_server_test.dart` drives a real
 running server; see the file header for the variables it needs.
 
+### PostgreSQL versions
+
+`pg_dump`/`pg_restore` in the server image must be the **same major** as
+the database (the image ships 17; Supabase projects created in 2026 are
+17). A newer client cannot restore into an older server (it emits settings
+such as `transaction_timeout` that the server rejects), and an older
+client refuses to dump a newer server. When Supabase upgrades the
+database major, bump the `FROM postgres:…` line in `server/Dockerfile`.
+
+### System test
+
+    tool/live_check.sh
+
+starts a throwaway PostgreSQL and a real server with fresh keys, creates
+an admin and runs `tool/live_check.dart`: 31 checks over plain HTTP, from
+breached-password refusal and uniform timing through lockouts, two-step,
+custodian double-sealed uploads, break-glass and the audit chain. It
+needs internet for the breached-password lookup.
+
 ## Known limits
 
 - Someone who knows an email can pause sign-ins *from new devices* for

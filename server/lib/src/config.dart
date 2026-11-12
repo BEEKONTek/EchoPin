@@ -51,7 +51,11 @@ enum BackupStoreKind { local, supabase }
 /// Where backup files go. Hosted containers have no lasting disk, so they
 /// use object storage.
 class BackupStoreConfig {
-  const BackupStoreConfig.local() : kind = BackupStoreKind.local, supabaseUrl = null, supabaseKey = null, bucket = 'echopin-backups';
+  const BackupStoreConfig.local()
+    : kind = BackupStoreKind.local,
+      supabaseUrl = null,
+      supabaseKey = null,
+      bucket = 'echopin-backups';
   const BackupStoreConfig.supabase({
     required String this.supabaseUrl,
     required String this.supabaseKey,
@@ -218,7 +222,14 @@ class ServerConfig {
     // SECURITY: refuse configurations that are only safe on a laptop.
     final bool dev = boolOf('ECHOPIN_DEV');
     final String dbHost = Uri.tryParse(db)?.host ?? '';
-    if (dev && !const <String>{'localhost', '127.0.0.1', '::1', 'db', 'postgres'}.contains(dbHost)) {
+    if (dev &&
+        !const <String>{
+          'localhost',
+          '127.0.0.1',
+          '::1',
+          'db',
+          'postgres',
+        }.contains(dbHost)) {
       throw const ConfigException(
         'ECHOPIN_DEV is for local development only (it prints sign-in codes '
         'to the log). Remove it, or point DATABASE_URL at a local database',
@@ -245,7 +256,10 @@ class ServerConfig {
     }
     final List<String> custodian = <String>[];
     for (final String entry in rawCustodian.split(',')) {
-      final String k = entry.trim().replaceAll(RegExp('^["\']+|["\']+\$'), '').replaceAll(RegExp(r'\s+'), '');
+      final String k = entry
+          .trim()
+          .replaceAll(RegExp('^["\']+|["\']+\$'), '')
+          .replaceAll(RegExp(r'\s+'), '');
       if (k.isEmpty) continue;
       List<int> bytes = const <int>[];
       try {
@@ -264,7 +278,9 @@ class ServerConfig {
     // Mail: explicit MAIL_PROVIDER, else SMTP when SMTP_HOST is set, else
     // the development console mailer.
     final String providerName =
-        (get('MAIL_PROVIDER') ?? (get('SMTP_HOST') != null ? 'smtp' : 'console')).toLowerCase();
+        (get('MAIL_PROVIDER') ??
+                (get('SMTP_HOST') != null ? 'smtp' : 'console'))
+            .toLowerCase();
     final MailProvider provider = MailProvider.values.firstWhere(
       (MailProvider p) => p.name == providerName,
       orElse: () => throw ConfigException(
@@ -285,9 +301,16 @@ class ServerConfig {
         ),
       ),
       MailProvider.brevo => () {
-        final String apiKey = need('BREVO_API_KEY', 'for MAIL_PROVIDER=brevo').trim();
-        final (String email, String? name) =
-            parseSender(need('MAIL_FROM', 'for MAIL_PROVIDER=brevo (a sender verified in Brevo)'));
+        final String apiKey = need(
+          'BREVO_API_KEY',
+          'for MAIL_PROVIDER=brevo',
+        ).trim();
+        final (String email, String? name) = parseSender(
+          need(
+            'MAIL_FROM',
+            'for MAIL_PROVIDER=brevo (a sender verified in Brevo)',
+          ),
+        );
         return MailConfig(
           provider: provider,
           apiKey: apiKey,
@@ -296,9 +319,16 @@ class ServerConfig {
         );
       }(),
       MailProvider.resend => () {
-        final String apiKey = need('RESEND_API_KEY', 'for MAIL_PROVIDER=resend').trim();
-        final (String email, String? name) =
-            parseSender(need('MAIL_FROM', 'for MAIL_PROVIDER=resend (an address on a verified domain)'));
+        final String apiKey = need(
+          'RESEND_API_KEY',
+          'for MAIL_PROVIDER=resend',
+        ).trim();
+        final (String email, String? name) = parseSender(
+          need(
+            'MAIL_FROM',
+            'for MAIL_PROVIDER=resend (an address on a verified domain)',
+          ),
+        );
         return MailConfig(
           provider: provider,
           apiKey: apiKey,
@@ -312,11 +342,18 @@ class ServerConfig {
     final BackupStoreConfig store = switch (storeName) {
       'local' => const BackupStoreConfig.local(),
       'supabase' => BackupStoreConfig.supabase(
-        supabaseUrl: supabaseApiUrl(need('SUPABASE_URL', 'for BACKUP_STORE=supabase')),
-        supabaseKey: need('SUPABASE_SERVICE_KEY', 'for BACKUP_STORE=supabase (service role or secret key)'),
+        supabaseUrl: supabaseApiUrl(
+          need('SUPABASE_URL', 'for BACKUP_STORE=supabase'),
+        ),
+        supabaseKey: need(
+          'SUPABASE_SERVICE_KEY',
+          'for BACKUP_STORE=supabase (service role or secret key)',
+        ),
         bucket: get('SUPABASE_BACKUP_BUCKET') ?? 'echopin-backups',
       ),
-      _ => throw ConfigException('BACKUP_STORE must be local or supabase (got "$storeName")'),
+      _ => throw ConfigException(
+        'BACKUP_STORE must be local or supabase (got "$storeName")',
+      ),
     };
 
     return ServerConfig(
@@ -325,7 +362,11 @@ class ServerConfig {
       port: intOf('PORT', 8080, min: 1, max: 65535),
       keysBundle: get('ECHOPIN_KEYS'),
       keysDir: get('KEYS_DIR'),
-      backupsDir: get('BACKUPS_DIR') ?? (store.kind == BackupStoreKind.local ? 'backups' : Directory.systemTemp.path),
+      backupsDir:
+          get('BACKUPS_DIR') ??
+          (store.kind == BackupStoreKind.local
+              ? 'backups'
+              : Directory.systemTemp.path),
       devMode: dev,
       trustProxy: boolOf('TRUST_PROXY'),
       clientIpHeader: get('CLIENT_IP_HEADER')?.toLowerCase(),
@@ -346,7 +387,11 @@ class ServerConfig {
       unsealAlerts: boolOr('UNSEAL_ALERTS', true),
       retainSessionLogsDays: intOf('RETAIN_SESSION_LOGS_DAYS', 365, max: 36500),
       retainDiagnosticsDays: intOf('RETAIN_DIAGNOSTICS_DAYS', 90, max: 36500),
-      retainClosedReportsDays: intOf('RETAIN_CLOSED_REPORTS_DAYS', 730, max: 36500),
+      retainClosedReportsDays: intOf(
+        'RETAIN_CLOSED_REPORTS_DAYS',
+        730,
+        max: 36500,
+      ),
     );
   }
 }
@@ -363,7 +408,9 @@ class ConfigException implements Exception {
 /// and Resend want the address on its own, and answer 400 otherwise).
 (String, String?) parseSender(String raw) {
   String s = raw.trim();
-  if (s.length >= 2 && s.startsWith('"') && s.endsWith('"')) s = s.substring(1, s.length - 1).trim();
+  if (s.length >= 2 && s.startsWith('"') && s.endsWith('"')) {
+    s = s.substring(1, s.length - 1).trim();
+  }
   String? name;
   final RegExpMatch? m = RegExp(r'^(.*?)\s*<([^<>]+)>$').firstMatch(s);
   if (m != null) {
@@ -386,11 +433,15 @@ class ConfigException implements Exception {
 /// with a service path such as `/rest/v1` or `/storage/v1` on the end.
 String supabaseApiUrl(String raw) {
   String s = raw.trim().replaceAll(RegExp(r'^["\x27]|["\x27]$'), '');
-  final RegExpMatch? dash =
-      RegExp(r'^https?://(?:app\.)?supabase\.com/dashboard/project/([a-z0-9]{20})').firstMatch(s);
+  final RegExpMatch? dash = RegExp(
+    r'^https?://(?:app\.)?supabase\.com/dashboard/project/([a-z0-9]{20})',
+  ).firstMatch(s);
   if (dash != null) return 'https://${dash.group(1)}.supabase.co';
   final Uri? u = Uri.tryParse(s);
-  if (u == null || !u.hasScheme || u.host.isEmpty || !(u.scheme == 'https' || u.scheme == 'http')) {
+  if (u == null ||
+      !u.hasScheme ||
+      u.host.isEmpty ||
+      !(u.scheme == 'https' || u.scheme == 'http')) {
     throw ConfigException(
       'SUPABASE_URL must be the project API address, e.g. https://abcdefghijklmnopqrst.supabase.co '
       '(Project Settings → Data API), got "$raw"',

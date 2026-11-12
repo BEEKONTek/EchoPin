@@ -1,7 +1,11 @@
 /// Enumerations whose wire values the app and the server must agree on.
 library;
 
-T? _fromWire<T extends Enum>(List<T> values, String Function(T) wire, Object? v) {
+T? _fromWire<T extends Enum>(
+  List<T> values,
+  String Function(T) wire,
+  Object? v,
+) {
   for (final T e in values) {
     if (wire(e) == v) return e;
   }
@@ -130,4 +134,19 @@ abstract final class ProtocolLimits {
   static const int minPasswordLength = 10;
   static const int maxPasswordLength = 256;
   static const int maxDisplayName = 40;
+
+  /// RFC 5321 path limit; the server also checks the shape.
+  static const int maxEmail = 254;
+
+  // Console free text. The app caps the fields at the same numbers the
+  // server enforces, so people see the limit while typing instead of an
+  // error after sending.
+  static const int maxUnsealReason = 1000;
+  static const int maxCaseRef = 100;
+  static const int maxReportNote = 4000;
+  static const int maxResolution = 2000;
+  static const int maxSearchQuery = 200;
+
+  /// Paging and listing caps for console queries.
+  static const int maxPageSize = 500;
 }

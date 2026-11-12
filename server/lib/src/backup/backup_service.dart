@@ -91,7 +91,10 @@ class BackupService {
       return;
     }
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(minutes: 15), (_) => unawaited(_tick()));
+    _timer = Timer.periodic(
+      const Duration(minutes: 15),
+      (_) => unawaited(_tick()),
+    );
     unawaited(() async {
       // A backup that was running when its server died never finishes;
       // free the slot so the next one can start. This must not depend on
@@ -154,7 +157,11 @@ class BackupService {
     required AuditActor actor,
   }) async {
     if (_running) {
-      throw const ApiException(409, 'backup_running', 'A backup is already running');
+      throw const ApiException(
+        409,
+        'backup_running',
+        'A backup is already running',
+      );
     }
     _running = true;
     final DateTime started = _clock().toUtc();
@@ -170,12 +177,18 @@ class BackupService {
     } catch (e) {
       _running = false;
       if ('$e'.contains('backups_one_running')) {
-        throw const ApiException(409, 'backup_running', 'A backup is already running');
+        throw const ApiException(
+          409,
+          'backup_running',
+          'A backup is already running',
+        );
       }
       rethrow;
     }
     final String id = row['id'] as String;
-    final Directory dir = await Directory.systemTemp.createTemp('echopin-backup-');
+    final Directory dir = await Directory.systemTemp.createTemp(
+      'echopin-backup-',
+    );
     final String stamp = started
         .toIso8601String()
         .replaceAll(RegExp(r'[:\-]'), '')
@@ -187,21 +200,19 @@ class BackupService {
       // lands in this backup's error, visible in Console → Backups, rather
       // than only in the host's log.
       await _store.ensureReady();
-      final (String dbArg, Map<String, String> env) = libpqTarget(_config.databaseUrl);
-      final Process p = await Process.start(
-        _config.pgDump,
-        <String>[
-          '--format=custom',
-          '--no-owner',
-          '--no-privileges',
-          // Only EchoPin's tables. Hosted Postgres (Supabase) keeps its own
-          // schemas in the same database; those are not ours to back up
-          // or to drop on restore.
-          '--schema=public',
-          '--dbname=$dbArg',
-        ],
-        environment: env,
+      final (String dbArg, Map<String, String> env) = libpqTarget(
+        _config.databaseUrl,
       );
+      final Process p = await Process.start(_config.pgDump, <String>[
+        '--format=custom',
+        '--no-owner',
+        '--no-privileges',
+        // Only EchoPin's tables. Hosted Postgres (Supabase) keeps its own
+        // schemas in the same database; those are not ours to back up
+        // or to drop on restore.
+        '--schema=public',
+        '--dbname=$dbArg',
+      ], environment: env);
       final Future<String> stderr = p.stderr.transform(utf8.decoder).join();
       final IOSink sink = part.openWrite();
       final String sha;
@@ -212,7 +223,9 @@ class BackupService {
       }
       final int code = await p.exitCode;
       if (code != 0) {
-        throw BackupException('pg_dump exited with $code: ${(await stderr).trim()}');
+        throw BackupException(
+          'pg_dump exited with $code: ${(await stderr).trim()}',
+        );
       }
       final int size = await part.length();
       await _store.put(name, part);
@@ -228,8 +241,13 @@ class BackupService {
             'id': id,
           },
         );
-        await _audit.recordIn(tx, actor, 'backup.created', target: id,
-            detail: <String, Object?>{'file': name, 'bytes': size, 'kind': kind});
+        await _audit.recordIn(
+          tx,
+          actor,
+          'backup.created',
+          target: id,
+          detail: <String, Object?>{'file': name, 'bytes': size, 'kind': kind},
+        );
       });
       _log.info('Backup $name stored in ${_store.description} ($size bytes)');
       // Write the audit chain's tip to the platform log, which lives
@@ -246,18 +264,25 @@ class BackupService {
         // write never fails the backup.
         try {
           final File anchor = File('${dir.path}/audit-anchor.json')
-            ..writeAsStringSync(jsonEncode(<String, Object?>{
-              'id': tip['id'],
-              'hash': tip['hash'],
-              'at': _clock().toUtc().toIso8601String(),
-            }));
+            ..writeAsStringSync(
+              jsonEncode(<String, Object?>{
+                'id': tip['id'],
+                'hash': tip['hash'],
+                'at': _clock().toUtc().toIso8601String(),
+              }),
+            );
           await _store.put(anchorName, anchor);
         } catch (e) {
           _log.warning('Could not store the audit anchor: $e');
         }
       }
       await _prune();
-      return <String, Object?>{'id': id, 'fileName': name, 'sizeBytes': size, 'sha256': sha};
+      return <String, Object?>{
+        'id': id,
+        'fileName': name,
+        'sizeBytes': size,
+        'sha256': sha,
+      };
     } catch (e) {
       final String message = e is ProcessException
           ? '${_config.pgDump} not found. Install the PostgreSQL client tools'
@@ -267,8 +292,13 @@ class BackupService {
            where id = @id::uuid''',
         <String, Object?>{'e': message, 'at': _clock().toUtc(), 'id': id},
       );
-      await _audit.record(_db, actor, 'backup.failed', target: id,
-          detail: <String, Object?>{'error': message});
+      await _audit.record(
+        _db,
+        actor,
+        'backup.failed',
+        target: id,
+        detail: <String, Object?>{'error': message},
+      );
       throw ApiException(500, 'backup_failed', 'The backup failed: $message');
     } finally {
       _running = false;
@@ -312,7 +342,8 @@ class BackupService {
     try {
       final File f = File('${tmp.path}/a.json');
       await _store.fetch(anchorName, f);
-      final Map<String, dynamic> j = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+      final Map<String, dynamic> j =
+          jsonDecode(await f.readAsString()) as Map<String, dynamic>;
       return (id: j['id'] as int, hash: j['hash'] as String);
     } catch (_) {
       return null; // no backup yet, or store unreachable
@@ -342,7 +373,9 @@ class BackupService {
             'finishedAt': r['finished_at'],
             'createdBy': r['created_by'],
             // True/false for local disk; null (unknown) for object storage.
-            'onDisk': r['file_name'] == null ? false : _store.existsCheap(r['file_name'] as String),
+            'onDisk': r['file_name'] == null
+                ? false
+                : _store.existsCheap(r['file_name'] as String),
           },
         )
         .toList();
@@ -356,9 +389,14 @@ class BackupService {
   Future<int> verifyFile(String file) async {
     final File tmp = await _decryptToTemp(file);
     try {
-      final ProcessResult r = await Process.run(_config.pgRestore, <String>['--list', tmp.path]);
+      final ProcessResult r = await Process.run(_config.pgRestore, <String>[
+        '--list',
+        tmp.path,
+      ]);
       if (r.exitCode != 0) {
-        throw BackupException('pg_restore could not read the dump: ${r.stderr}');
+        throw BackupException(
+          'pg_restore could not read the dump: ${r.stderr}',
+        );
       }
       return '${r.stdout}'
           .split('\n')
@@ -380,28 +418,29 @@ class BackupService {
       // Restore everything except the public schema itself: dropping and
       // recreating `public` would take hosted databases' own grants and
       // objects with it.
-      final ProcessResult listed = await Process.run(_config.pgRestore, <String>['--list', tmp.path]);
+      final ProcessResult listed = await Process.run(
+        _config.pgRestore,
+        <String>['--list', tmp.path],
+      );
       if (listed.exitCode != 0) {
-        throw BackupException('pg_restore could not read the dump: ${listed.stderr}');
+        throw BackupException(
+          'pg_restore could not read the dump: ${listed.stderr}',
+        );
       }
       final File toc = File('${tmp.path}.list')
         ..writeAsStringSync(restoreList('${listed.stdout}'));
-      final ProcessResult r = await Process.run(
-        _config.pgRestore,
-        <String>[
-          '-L',
-          toc.path,
-          '--clean',
-          '--if-exists',
-          '--no-owner',
-          '--no-privileges',
-          '--single-transaction',
-          '--exit-on-error',
-          '--dbname=$dbArg',
-          tmp.path,
-        ],
-        environment: env,
-      );
+      final ProcessResult r = await Process.run(_config.pgRestore, <String>[
+        '-L',
+        toc.path,
+        '--clean',
+        '--if-exists',
+        '--no-owner',
+        '--no-privileges',
+        '--single-transaction',
+        '--exit-on-error',
+        '--dbname=$dbArg',
+        tmp.path,
+      ], environment: env);
       toc.deleteSync();
       if (r.exitCode != 0) {
         throw BackupException('pg_restore failed: ${r.stderr}');
@@ -415,11 +454,17 @@ class BackupService {
   /// entries.
   static String restoreList(String toc) => toc
       .split('\n')
-      .where((String l) => !RegExp(r'^\d+; \d+ \d+ (SCHEMA - public|COMMENT - SCHEMA public) ').hasMatch(l))
+      .where(
+        (String l) => !RegExp(
+          r'^\d+; \d+ \d+ (SCHEMA - public|COMMENT - SCHEMA public) ',
+        ).hasMatch(l),
+      )
       .join('\n');
 
   Future<File> _decryptToTemp(String file) async {
-    final Directory work = await Directory.systemTemp.createTemp('echopin-restore-');
+    final Directory work = await Directory.systemTemp.createTemp(
+      'echopin-restore-',
+    );
     File src = File(file);
     if (!src.existsSync()) {
       // Not a local path: fetch it from the store by name.
@@ -453,7 +498,9 @@ class BackupService {
     SecretKey key,
   ) async {
     final _DigestSink digest = _DigestSink();
-    final ByteConversionSink hasher = crypto.sha256.startChunkedConversion(digest);
+    final ByteConversionSink hasher = crypto.sha256.startChunkedConversion(
+      digest,
+    );
     void write(List<int> bytes) {
       out.add(bytes);
       hasher.add(bytes);
@@ -469,7 +516,8 @@ class BackupService {
         secretKey: key,
         aad: _aad(index, flags),
       );
-      final ByteData len = ByteData(4)..setUint32(0, box.cipherText.length + 16);
+      final ByteData len = ByteData(4)
+        ..setUint32(0, box.cipherText.length + 16);
       write(<int>[flags]);
       write(len.buffer.asUint8List());
       write(box.nonce);
@@ -483,7 +531,9 @@ class BackupService {
       while (buf.length >= frameSize) {
         final Uint8List all = buf.takeBytes();
         await frame(Uint8List.sublistView(all, 0, frameSize), false);
-        if (all.length > frameSize) buf.add(Uint8List.sublistView(all, frameSize));
+        if (all.length > frameSize) {
+          buf.add(Uint8List.sublistView(all, frameSize));
+        }
       }
     }
     await frame(buf.takeBytes(), true);
@@ -511,8 +561,12 @@ class BackupService {
       if (sawLast) throw const BackupException('Data after the final frame');
       final int flags = flagsByte[0];
       final List<int> lenBytes = await r.take(4);
-      if (lenBytes.length != 4) throw const BackupException('Backup is truncated');
-      final int len = ByteData.sublistView(Uint8List.fromList(lenBytes)).getUint32(0);
+      if (lenBytes.length != 4) {
+        throw const BackupException('Backup is truncated');
+      }
+      final int len = ByteData.sublistView(
+        Uint8List.fromList(lenBytes),
+      ).getUint32(0);
       if (len < 16 || len > frameSize + 16) {
         throw const BackupException('Backup is corrupt (bad frame length)');
       }
@@ -559,11 +613,15 @@ class BackupService {
   final Uri u = Uri.parse(url);
   final List<String> info = u.userInfo.split(':');
   final String user = Uri.decodeComponent(info.first);
-  final String? password = info.length > 1 ? Uri.decodeComponent(info.sublist(1).join(':')) : null;
+  final String? password = info.length > 1
+      ? Uri.decodeComponent(info.sublist(1).join(':'))
+      : null;
   final Uri clean = u.replace(userInfo: user);
   return (
     clean.toString(),
-    <String, String>{if (password != null && password.isNotEmpty) 'PGPASSWORD': password},
+    <String, String>{
+      if (password != null && password.isNotEmpty) 'PGPASSWORD': password,
+    },
   );
 }
 

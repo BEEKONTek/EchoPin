@@ -8,7 +8,11 @@ import 'package:mailer/smtp_server.dart';
 import '../config.dart';
 
 class OutgoingMail {
-  const OutgoingMail({required this.to, required this.subject, required this.text});
+  const OutgoingMail({
+    required this.to,
+    required this.subject,
+    required this.text,
+  });
   final String to;
   final String subject;
   final String text;
@@ -83,7 +87,8 @@ class SmtpMailer implements Mailer {
 /// ports (Render's free tier blocks 25, 465 and 587), so this is the
 /// default for hosted deployments.
 class HttpMailer implements Mailer {
-  HttpMailer(this._config, {http.Client? client}) : _client = client ?? http.Client();
+  HttpMailer(this._config, {http.Client? client})
+    : _client = client ?? http.Client();
 
   final MailConfig _config;
   final http.Client _client;
@@ -127,13 +132,19 @@ class HttpMailer implements Mailer {
         );
       case MailProvider.console:
       case MailProvider.smtp:
-        throw StateError('HttpMailer cannot send with ${_config.provider.name}');
+        throw StateError(
+          'HttpMailer cannot send with ${_config.provider.name}',
+        );
     }
     if (res.statusCode < 200 || res.statusCode >= 300) {
       // The body may echo configuration; log it, never return it.
-      _log.severe('${_config.provider.name} refused mail to ${mail.to}: '
-          '${res.statusCode} ${res.body}');
-      throw StateError('Mail provider answered ${res.statusCode}${providerReason(res.body)}');
+      _log.severe(
+        '${_config.provider.name} refused mail to ${mail.to}: '
+        '${res.statusCode} ${res.body}',
+      );
+      throw StateError(
+        'Mail provider answered ${res.statusCode}${providerReason(res.body)}',
+      );
     }
   }
 }
@@ -156,7 +167,10 @@ String providerReason(String body) {
     final String code = '${j['code'] ?? j['name'] ?? ''}'.trim();
     String msg = '${j['message'] ?? ''}'.trim();
     if (msg.length > 160) msg = '${msg.substring(0, 160)}…';
-    final String both = <String>[code, msg].where((String x) => x.isNotEmpty).join(': ');
+    final String both = <String>[
+      code,
+      msg,
+    ].where((String x) => x.isNotEmpty).join(': ');
     return both.isEmpty ? '' : ' ($both)';
   } catch (_) {
     return '';

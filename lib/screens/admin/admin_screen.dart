@@ -8,6 +8,7 @@ import 'package:echo_pin/providers/admin_scope.dart';
 import 'package:echo_pin/providers/session_provider.dart';
 import 'package:echo_pin/providers/session_scope.dart';
 import 'package:echo_pin/services/admin_auth_service.dart';
+import 'package:echo_pin/session/session_engine.dart' show maxNameLength;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -300,10 +301,12 @@ class _SyntheticPeersCardState extends State<_SyntheticPeersCard> {
           TextField(
             key: const Key('admin.peerLabel'),
             controller: _label,
+            maxLength: maxNameLength,
             decoration: const InputDecoration(
               labelText: 'Label (optional)',
               border: OutlineInputBorder(),
               isDense: true,
+              counterText: '',
             ),
           ),
           const SizedBox(height: 8),

@@ -1,334 +1,191 @@
+<div align="center">
+
 # EchoPin
 
-Privacy-first group presence. See where your group is relative to you,
-check in on people, and call for help, over Bluetooth or Wi-Fi. Sessions
-run phone to phone with no server in the loop. Presence is relative, noisy,
-and boundary-scoped: no coordinates are ever measured, stored, or
-transmitted.
+**Keep your group together, privately.**
+See where your people are relative to you, check in, and call for help,
+phone to phone over Bluetooth or Wi-Fi. No GPS. No coordinates. No server
+needed.
 
-Organisations can add the optional [EchoPin server](docs/SERVER.md):
-verified accounts, sealed emergency records of each session that only a
-responder can open (for a stated, audited reason), reports and diagnostics
-from every device, a central console, and encrypted backups.
+[![Lint](https://github.com/BEEKONTek/EchoPin/actions/workflows/lint.yml/badge.svg)](https://github.com/BEEKONTek/EchoPin/actions/workflows/lint.yml)
+[![Test](https://github.com/BEEKONTek/EchoPin/actions/workflows/test.yml/badge.svg)](https://github.com/BEEKONTek/EchoPin/actions/workflows/test.yml)
+[![Build](https://github.com/BEEKONTek/EchoPin/actions/workflows/build.yml/badge.svg)](https://github.com/BEEKONTek/EchoPin/actions/workflows/build.yml)
+[![Web demo](https://img.shields.io/badge/web%20demo-live-2563EB)](https://beekontek.github.io/EchoPin/)
+[![Flutter](https://img.shields.io/badge/Flutter-3.44-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+<img src="docs/images/home.png" alt="EchoPin home screen" width="720">
+
+</div>
+
+---
+
+## Try it in 60 seconds
+
+| | |
+| --- | --- |
+| 🌐 **In the browser** | Open the [web demo](https://beekontek.github.io/EchoPin/) and tap **Try the demo**. Four simulated people run the real protocol: encryption, signatures, check-ins and SOS. |
+| 📱 **On Android** | `flutter build apk --release`, then `scripts/share_apk.sh` prints a QR code; phones on your Wi-Fi scan it and install. |
+| 🖥️ **On Linux** | `flutter run -d linux` |
+
+Everything above works with **no server**. Organisations can add the optional
+[EchoPin server](docs/SERVER.md) for verified accounts, sealed emergency
+records, a responder console and encrypted backups; a free hosted setup
+takes an afternoon ([guide](docs/DEPLOY_HOSTED.md)).
 
 ## What it does
 
 A small group creates or joins a temporary **session** with an invite code
-or QR. Each phone shows the others on a pinwheel around "you", as distance
-from Bluetooth signal strength (up to 100 m), inside a boundary circle you
-drag to size. Bluetooth gives distance but not direction, so the pinwheel
-says so rather than guess (see *Pinwheel* below).
-When someone crosses the boundary you get an alert. Anyone can **check in**
-on selected people or everyone, and anyone can raise an **SOS** that every
-member receives, with delivery receipts and answers.
+or QR. Each phone shows the others on a **pinwheel** around "you": distance
+from Bluetooth signal strength (up to 100 m) inside a boundary circle you
+drag to size. Cross the boundary and everyone is told. Anyone can **check
+in** on selected people or everyone, and anyone can raise an **SOS** that
+reaches every member, with delivery receipts and answers.
 
-Everything is end-to-end encrypted and signed. Possession of the invite code
-is what grants membership; nobody, including EchoPin, can read session
-traffic without it. With a server configured, each phone also keeps a
-sealed record of what it saw (see below).
+<div align="center">
+<img src="docs/images/radar.png" alt="The pinwheel: Bluetooth shows distance only, the demo shows simulated directions" width="820">
+<br><sub>Left: real phones. Bluetooth measures distance, not direction, so people sit at their distance with no bearing and the radar says so. Right: the demo, whose people have simulated directions.</sub>
+</div>
 
 ## Features
 
-- **Invites.** Codes `ECHO-XXXX-XXXX-XXXX-XXXX-CC` carry the session secret
-  (~78 bits) plus a typo-catching checksum that works on any device. Share as
-  QR, code or `echopin://join` link; join by scanning, pasting or typing.
-  Every mistake gets a precise message ("Codes never contain 0, 1").
-- **Pinwheel.** A 100 m radar with rings every 25 m, a drag-to-set
-  boundary (10–100 m, default 50 m), privacy noise and SOS halos. People
-  past 100 m sit on the edge as hollow dots; unconfirmed signals draw
-  hollow; Wi-Fi-only peers are listed but not drawn, because no distance is
-  known.
-  - **Direction.** Bluetooth signal strength measures how far someone is,
-    not which way. For real phones the pinwheel places people at their
-    distance, spaced evenly round the circle, with no direction line and no
-    "N" marker, and the caption reads *Distance only · direction unknown*.
-    Only the demo and admin test people have (simulated) directions. True
-    direction would need ultra-wideband radios (iPhone 11 and later, some
-    recent Android flagships); that is not built yet.
-- **Peer tray.** A draggable bottom sheet of animated cards ("trays") that
-  slide in and out as people appear and leave, with live distance, radio,
-  verification badge and ping status. Long-press to select people.
-- **Pings.** Check in with selected people or everyone; answers are
-  *I'm OK*, *On my way* or *Need help*. **SOS** is press-and-hold, reaches
-  people who join later, and resolves everywhere when you tap *I'm safe*.
-  Pings retry until delivered and show per-person status.
-- **Verification.** Every member has a per-session 12-digit safety code.
-  Compare in person and mark the peer verified.
-- **Status trays.** Animated cards explain what is wrong and fix it in one
-  tap: Bluetooth off (*Turn on*), Bluetooth not allowed (*Allow* or
-  *Settings*), not on Wi-Fi, nobody reachable, security warnings.
-- **Two radios.** Bluetooth LE for offline use and distance; Wi-Fi or a
-  hotspot for range. Both run at once; duplicates are dropped.
-- **Alerts.** In-app banner, haptics (three pulses for SOS), and OS
-  notifications on Android, iOS, macOS, Linux and Windows (in-app on web).
-  An SOS always notifies, even with OS notifications switched off.
-- **Sessions end by themselves** after 8 hours. Leaving sends a signed bye
-  and wipes all keys. Recent sessions can be rejoined from the home screen.
-- **Demo mode.** Four simulated people who run the *real* protocol:
-  encryption, signatures, pings and answers.
-- **Admin system** (PIN-protected): diagnostics, radio and alert settings,
-  synthetic test peers, data tools, audit log.
-- **Accounts and central console** (with a server): email-verified
-  accounts, device-bound sign-in, two-step sign-in, *Report a problem*,
-  and for responders and admins a console with an overview across every
-  device, report triage, the session index with audited break-glass
-  access, people, diagnostics, the audit chain and backups.
-
-## Architecture
-
-    lib/
-      account/         server client, AccountProvider (tokens, device key),
-                       Outbox (store-and-forward), SessionRecorder (sealed
-                       emergency records)
-      core/            EchoError: every failure as a typed, human sentence
-      security/        codes → keys (HKDF), Ed25519 identity, envelope,
-                       SecureMessenger (decrypt, verify, pin, replay, rate)
-      session/         SessionEngine (membership, pings, receipts, retries),
-                       DemoCrowd (simulated people running the engine)
-      transport/       MessageTransport contract, Wi-Fi (Bonjour + TCP),
-                       in-memory loopback
-      services/        Bluetooth transport + native bridge, presence
-                       (MeshService), noise, boundary monitor, notifications,
-                       connectivity, history, settings, admin auth, bootstrap
-      providers/       ChangeNotifiers: Session, Alert, Settings, Admin
-      screens/         home, session, QR scanner, admin (gate + panel),
-                       account (sign-in, account), report, console
-      widgets/         pinwheel, animated tray list, peer / ping / status trays,
-                       hold-to-send SOS
-      ui/              theme and motion constants, formatting
-    android/           Kotlin BLE plugin (advertise, scan, GATT inbox/client)
-    ios/               Swift BLE plugin (same protocol)
-    packages/echopin_protocol/  sealed boxes, device proofs, shared enums
-    server/            central server (Dart + PostgreSQL), see docs/SERVER.md
-    docs/PROTOCOL.md   the wire protocol, normative
-    docs/CODE_MAP.md   guided tour: what every part of the code does
-    docs/SECURITY_REVIEW.md  auth/verification threat review and fixes
-
-Native code only moves opaque bytes. All cryptography is in Dart, so it is
-identical on every platform and tested on the desktop.
-
-The session pipeline:
-
-    radios ──frames──▶ SecureMessenger ──▶ SessionEngine ──members/pings──┐
-    BLE ──sightings──▶ MeshService ───────────────────────────────────────┤
-                                                                          ▼
-                    SessionProvider: merge → privacy noise → boundary crossings
-                                     → Session.peers, trays, alerts → UI
-
-Six `InheritedNotifier` scopes (`SettingsScope`, `AlertScope`,
-`SessionScope`, `AdminScope`, `AccountScope`, `OutboxScope`) expose
-providers without an external state-management dependency.
-
-## Privacy and security model
-
-- **Relative only.** No field anywhere holds a coordinate. Distance comes
-  from Bluetooth signal strength measured on the receiving phone; nothing
-  location-like is sent.
-- **Noisy by default.** Distances are jittered by up to ±sigma (default 7 m)
-  with an offset fixed per peer per minute, before alerts or the UI see them.
-- **Encrypted and signed.** XChaCha20-Poly1305 with a key derived from the
-  code; Ed25519 signatures with a fresh key per device per session; sender
-  ids derived from keys and pinned on first use; 64-message replay window;
-  ±2 min clock window; per-sender rate limits; 20-member cap.
-- **Untrusted input.** Names and notes from the network are stripped of
-  control and bidi-override characters and length-capped. Unconfirmed BLE
-  sightings never trigger alerts and cannot be pinged.
-- **Secrets at rest.** Invite codes in the recent-sessions list and the admin
-  PIN hash live in the OS keystore (Keychain / EncryptedSharedPreferences),
-  falling back to app preferences only where no keystore exists. Peers,
-  distances and pings are never persisted.
-- **With a server.** Accounts use Argon2id passwords, verified email and
-  optional TOTP; each install signs in with its own Ed25519 device key (no
-  IMEI or hardware ids), and every token refresh must be signed by it.
-  Session records are sealed on the phone to the server's escrow key and
-  can only be opened by a responder who gives a reason, which goes into a
-  hash-chained audit log. Records never contain coordinates. Details in
-  `docs/SERVER.md`.
-- **Not provided:** forward secrecy within a session, hiding that a session
-  exists nearby (its public id is advertised), or protection from a member
-  who leaks the code. See `docs/PROTOCOL.md` §8 and `docs/THREAT_MODEL.md`.
-
-## Admin system
-
-Reached from the shield icon on the home screen or the session menu. Fully
-offline.
-
-- **Access.** The first visit creates a 4–12 digit PIN; only a salted
-  PBKDF2-HMAC-SHA256 hash is stored. Five wrong PINs lock the gate for 60 s,
-  surviving restarts. The panel auto-locks after 5 minutes idle.
-- **Enforcement.** `AdminProvider` checks the unlocked state on every
-  privileged call, so the gate holds even if a screen is reached some other
-  way.
-- **Diagnostics.** Platform, storage, notifications, radios with live
-  health, session id, your peer id and safety code, members, messages sent /
-  accepted / rejected, rejection reasons. Never the invite code.
-- **Settings.** Default boundary, privacy noise, alerts, OS notifications,
-  haptics, Bluetooth and Wi-Fi radios, force simulation.
-- **Synthetic peers.** Inject, move or remove test peers; they flow through
-  noise, crossing detection and alerts like real ones.
-- **Data & security.** Clear history, reset settings, change or remove PIN.
-- **Audit log.** In memory, this run only.
-
-## Accounts and central console (optional)
-
-Build with `--dart-define=ECHOPIN_SERVER_URL=https://your-server` to turn
-them on; without it the app is fully local, as above.
-
-- **Sign-in.** Live sessions need an account (the demo never does). Create
-  one in the app: name, email, password (10+ characters), then the 8-digit
-  code from the email. Sign-in persists offline; only the server can sign
-  you out, and the app says why.
-- **Account screen.** Two-step sign-in with any authenticator app (QR
-  code), change password, see and remove your devices, *Report a problem*,
-  follow your reports, and see what is still waiting to upload.
-- **Account PIN.** Like the admin panel, the signed-in account is behind a
-  local 4–12 digit PIN (a separate PIN from the admin one), chosen right
-  after signing in. It guards Account, reports and the console; sessions,
-  check-ins and SOS never ask for it. Lock it with the padlock on the
-  Account screen; it also locks itself after 5 minutes without use,
-  including time the app spent in the background. Five wrong PINs lock it
-  for 60 s, and the third lockout in a row signs the account out (so 15
-  guesses in all). Forgot it? *Forgot your PIN?* signs out; sign in with
-  your password and choose a new one. Signing out always wipes the PIN.
-- **Emergency records.** Live sessions are recorded on the phone and
-  uploaded sealed: a checkpoint within seconds of an SOS, then the final
-  record. Everything waits in an outbox when there is no signal.
-- **Console** (responders and admins): overview with 14-day trends,
-  reports sorted critical-first, session index with *Open* (reason
-  required, permanently logged), and for admins people, diagnostics, the
-  audit log with a chain check, and backups.
-
-Running the server: free hosted setup in `docs/DEPLOY_HOSTED.md`
-(Render + Supabase + Brevo), everything else in `docs/SERVER.md`.
-
-## Backend fallbacks
-
-Every platform probe has a timeout and a working substitute, so the app
-always launches.
-
-| Capability | Primary | Fallback |
+| | Feature | What you get |
 | --- | --- | --- |
-| Secret storage | OS keystore | App preferences |
-| OS notifications | `flutter_local_notifications` | In-app banner only |
-| Bluetooth | Native plugin (Android, iOS) | Session runs on Wi-Fi; a tray explains |
-| Wi-Fi transport | Bonjour + TCP | Session runs on Bluetooth; a tray explains |
+| 🔗 | **Invites** | `ECHO-XXXX-XXXX-XXXX-XXXX-CC` codes carry the session secret (~78 bits) plus a typo-catching checksum. Share as QR, code or `echopin://join` link. Every mistake gets a precise message. |
+| 🧭 | **Pinwheel** | 100 m radar, rings every 25 m, drag-to-set boundary (10–100 m), privacy noise, SOS halos. Honest about direction: none is invented. |
+| 👥 | **Peer tray** | Animated cards slide in and out as people appear and leave: live distance, radio, verification badge, ping status. |
+| 📣 | **Pings & SOS** | *I'm OK*, *On my way*, *Need help*. SOS is press-and-hold, reaches late joiners, resolves everywhere on *I'm safe*. Retries until delivered. |
+| ✅ | **Verification** | A 12-digit per-session safety code per member. Compare in person, mark verified. |
+| 📡 | **Two radios** | Bluetooth LE for offline use and distance; Wi-Fi or a hotspot for range. Both at once, duplicates dropped. |
+| 🚨 | **Alerts** | In-app banner, haptics, OS notifications on Android, iOS, macOS, Linux and Windows. An SOS always notifies. |
+| 🛡️ | **Admin panel** | PIN-protected diagnostics, radio and alert settings, synthetic test peers, audit log. Fully offline. |
+| 🔐 | **Accounts** (optional) | Email-verified accounts, device-bound sign-in (no IMEI), two-step sign-in, an account PIN on each phone, *Report a problem*. |
+| 🏥 | **Console** (optional) | Cross-device overview, report triage, sealed session records opened only by audited break-glass, people, diagnostics, audit chain, backups. |
 
-Real sessions never fall back to simulated people. Permission prompts wait
-until after the first frame.
+## How it works
+
+```mermaid
+flowchart LR
+  R[Radios<br/>BLE GATT · Bonjour + TCP] -- frames --> SM[SecureMessenger<br/>decrypt · verify · pin · replay · rate]
+  SM --> SE[SessionEngine<br/>members · pings · receipts]
+  B[BLE sightings<br/>RSSI → distance] --> MS[MeshService]
+  SE --> SP[SessionProvider]
+  MS --> SP
+  SP --> N[privacy noise] --> X[boundary crossings] --> UI[pinwheel · trays · alerts]
+```
+
+- **Membership is the code.** HKDF turns the invite code into the session id
+  and key; nobody without the code, EchoPin included, can read session
+  traffic.
+- **Encrypted and signed.** XChaCha20-Poly1305 envelopes, Ed25519 signatures
+  with a fresh key per device per session, pinned sender ids, a replay
+  window, clock window, rate limits and a 20-member cap.
+- **Native code moves opaque bytes.** All cryptography is Dart, identical on
+  every platform and tested on the desktop.
+- **Relative only.** No field anywhere holds a coordinate. Distances are
+  jittered (±7 m by default, fixed per peer per minute) before alerts or
+  the UI see them.
+
+Full detail: [Architecture](docs/ARCHITECTURE.md) · [Protocol](docs/PROTOCOL.md) · [Threat model](docs/THREAT_MODEL.md).
+
+## With a server
+
+<div align="center">
+<img src="docs/images/console-overview.png" alt="The responder console" width="720">
+</div>
+
+Build with `--dart-define=ECHOPIN_SERVER_URL=https://your-server` and the
+app gains accounts and a console; without it, it is exactly the app above.
+
+- **Sign-in that doesn't trust hardware ids.** Each install has its own
+  Ed25519 device key in the keystore; sign-in and every token refresh are
+  signed by it. Argon2id passwords, 8-digit email codes, optional TOTP
+  (required for staff), lockouts that can't be used to lock the owner out.
+- **Account PIN.** Like the admin panel: a local PIN guards Account,
+  reports and the console on each phone, never sessions or SOS.
+- **Sealed emergency records.** Each live session is recorded on the phone
+  (never coordinates), sealed twice (custodian key, then escrow key) and
+  uploaded through an offline-tolerant outbox, with a checkpoint seconds
+  after an SOS. The server alone cannot read them.
+- **Break-glass, not browsing.** A responder opens a record by giving a
+  reason; the grant and reason land in an append-only, HMAC-chained audit
+  log and every admin is emailed.
+- **Hardened by review and live testing.** See the
+  [security review](docs/SECURITY_REVIEW.md): findings, fixes, and what
+  still remains.
+
+Server docs: [SERVER.md](docs/SERVER.md) · hosted for free: [DEPLOY_HOSTED.md](docs/DEPLOY_HOSTED.md).
 
 ## Platform support
 
 | Platform | Bluetooth | Wi-Fi | QR scan | Notes |
-| --- | --- | --- | --- | --- |
-| Android | yes | yes | yes | Release APK built and signed on Linux |
-| iOS | yes | yes | yes | Foreground BLE; needs a macOS host to build |
-| macOS | — | yes | yes | macOS host |
-| Linux | — | yes | paste | Needs avahi for Bonjour |
-| Windows | — | yes | paste | Windows host |
-| Web | — | — | yes | Demo only: browsers cannot use these radios |
+| --- | :-: | :-: | :-: | --- |
+| Android | ✅ | ✅ | ✅ | Release APK built on Linux; install by QR code |
+| iOS | ✅ | ✅ | ✅ | Foreground BLE; needs a Mac to build and sign |
+| macOS | — | ✅ | ✅ | macOS host |
+| Linux | — | ✅ | paste | Needs avahi for Bonjour |
+| Windows | — | ✅ | paste | Build not yet verified |
+| Web | — | — | ✅ | Demo only: browsers cannot use these radios |
+
+## Documentation
+
+| Read this for… | Document |
+| --- | --- |
+| The whole system in diagrams | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| What every file does, and where to look when something breaks | [docs/CODE_MAP.md](docs/CODE_MAP.md) |
+| Coding, testing, system test cases with results, installation | [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) ([PDF](docs/IMPLEMENTATION.pdf)) |
+| Getting a development machine ready | [docs/SETUP.md](docs/SETUP.md) |
+| The wire protocol (normative) | [docs/PROTOCOL.md](docs/PROTOCOL.md) |
+| Threats, mitigations, residual risk | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) |
+| The server: identity, records, audit, backups, config, API | [docs/SERVER.md](docs/SERVER.md) |
+| Free hosting on Render + Supabase + Brevo | [docs/DEPLOY_HOSTED.md](docs/DEPLOY_HOSTED.md) |
+| Security review of accounts and verification | [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) |
+| A 30-minute live demo script | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) |
+| Slides, speech and code reference for the 0.4 update | [docs/presentation/](docs/presentation/) |
+| What is open, and the rules that must hold | [docs/HANDOFF.md](docs/HANDOFF.md) |
 
 ## Development
 
-    flutter pub get
-    flutter analyze                     # must be clean
-    flutter test                        # unit + widget tests
-    flutter test integration_test -d linux   # real Bonjour + TCP
-    flutter run                         # or -d linux / -d chrome
-    (cd server && ./tool/test.sh)       # server: throwaway PostgreSQL + all tests
+    flutter pub get && (cd packages/echopin_protocol && dart pub get) && (cd server && dart pub get)
+    flutter analyze                                # must be clean, covers all three packages
+    flutter test                                   # app: 239 unit + widget tests
+    (cd server && tool/test.sh)                    # server: 75 tests on a throwaway PostgreSQL
+    (cd server && tool/live_check.sh)              # system test: 31 end-to-end checks over HTTP
+    (cd packages/echopin_protocol && dart test)    # shared crypto and models
+    xvfb-run -a flutter test integration_test/lan_transport_test.dart -d linux   # real Bonjour + TCP
 
-`--dart-define=ECHOPIN_FORCE_SIM=true` skips the Bluetooth probe.
+Every text field is capped in the app at the exact limit the server
+enforces (one shared `ProtocolLimits`), and every failure is a typed error
+with a human sentence. Details and the validation matrix are in
+[docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md).
 
-## Building
+### Building
 
-Android. Release signing reads `android/key.properties`; its `storeFile` is
-relative to `android/` (for example `keystore/release.jks`). Without a usable
-keystore the release build falls back to the debug key, so fresh clones and
-CI still build:
+    flutter build apk --release              # Android (debug key unless android/key.properties exists)
+    flutter build linux --release            # needs clang cmake ninja-build libgtk-3-dev libsecret-1-dev
+    flutter build web --release
+    flutter build ios --no-codesign          # macOS host
+    flutter build macos                      # macOS host
+    flutter build windows                    # Windows host
 
-    flutter build apk --release
-
-To install it on phones by QR code, run `scripts/share_apk.sh`. It serves
-the newest APK over your Wi-Fi and prints a QR code; phones on the same
-network scan it and install. With a cable instead:
-`adb install -r build/app/outputs/flutter-apk/app-release.apk`.
-
-Others:
-
-    flutter build linux      # clang cmake ninja-build libgtk-3-dev libsecret-1-dev
-    flutter build web
-    flutter build ios --no-codesign   # macOS host
-    flutter build macos               # macOS host
-    flutter build windows             # Windows host
-
-Point a build at your server, and build in the custodian key, with
-`--dart-define=ECHOPIN_SERVER_URL=https://…` and
-`--dart-define=ECHOPIN_CUSTODIAN_KEY=…` (see `docs/DEPLOY_HOSTED.md`).
-
-### iOS (needs a Mac)
-
-An iPhone app can't be built on Linux. Apple's compiler and signing tools
-(Xcode) only run on macOS, and an iPhone only installs apps signed with an
-Apple certificate. What is possible:
-
-| Route | Cost | Gives you |
-| --- | --- | --- |
-| CI (`.github/workflows/build.yml`, `ios` job) | Free (public repo) | Proves the iOS code compiles. Unsigned, so it can't be installed |
-| A Mac + free Apple ID, Xcode → *Run* | Free | Installs on your own iPhone over a cable; the app expires after 7 days |
-| A Mac or a cloud Mac (Codemagic, GitHub macOS runner) + Apple Developer Program | US$99/year | TestFlight links for up to 10,000 testers, then the App Store |
-
-Before the first signed build, change `PRODUCT_BUNDLE_IDENTIFIER` in
-`ios/Runner.xcodeproj` from `com.example.echoPin` to an id you own (Apple
-rejects `com.example`), and set your team in Xcode → Signing & Capabilities.
-
-Requirements: Flutter 3.38 or newer (CI uses 3.44), JDK 17 or newer, and
-about 3 GB of free RAM for Gradle (`android/gradle.properties` sets
-`-Xmx2G`).
-
-## Testing
-
-    test/
-      security/    codes, key derivation, identity, envelope tampering,
-                   wrong keys, impersonation, replay, clock skew, flooding,
-                   member cap
-      session/     whole sessions in memory: discovery, targeted and
-                   broadcast pings, lossy links, partitions, late joiners,
-                   reply retries, sanitisation, wipe on exit
-      providers/   two complete apps over a shared radio: join, pings, SOS
-                   and "I'm safe", verification, trays, demo, history;
-                   admin lock enforcement and diagnostics
-      services/    BLE transport recovery (off → on, permissions), presence,
-                   PBKDF2 vectors, noise, notifications, history
-      widgets/     end-to-end UI: home, demo with answers, hold-to-send
-                   SOS, inline code errors, wide layout, admin flows
-    integration_test/  real Bonjour discovery and TCP between two engines
+Add `--dart-define=ECHOPIN_SERVER_URL=…` and
+`--dart-define=ECHOPIN_CUSTODIAN_KEY=…` to point a build at your server.
+An iPhone build needs a Mac and an Apple certificate; the options are in
+[docs/SETUP.md](docs/SETUP.md).
 
 ## Status
 
-Verified on this repository's Linux host:
+Verified: analyzer and formatter clean; all app, server, protocol and
+system tests pass; the Linux integration test passes; Android, Linux and
+web release builds; a live hosted deployment with email and backups
+working end to end.
 
-- Analyzer clean; unit, widget and Linux integration tests pass.
-- Android release APK builds with the Kotlin GATT plugin compiled in.
-- Linux and web release builds; the web demo renders and runs.
+Not yet verified (needs hardware or another OS): Bluetooth between real
+phones, iOS and macOS on a device, the Windows build, and background
+operation. Each is tracked in [docs/HANDOFF.md](docs/HANDOFF.md).
 
-Not yet verified (needs hardware or another host OS):
+## Contributing and license
 
-- **Bluetooth between real phones.** The GATT code compiles for Android and
-  follows CoreBluetooth's rules on iOS, but has not run on devices. Test two
-  phones in one session, then an Android with an iPhone.
-- **iOS and macOS builds** (CI builds them on macOS runners, unsigned; see
-  *iOS (needs a Mac)* above).
-- **Background operation.** Bluetooth discovery runs while the app is open.
-  iOS does not advertise local names in the background, and Android may
-  pause scans with the screen off.
-
-## CI
-
-Workflows in `.github/workflows/`, pinned to Flutter 3.44.0:
-
-| File | Runs |
-| --- | --- |
-| `build.yml` | Release builds for Android, web, Linux, iOS (no codesign), macOS, Windows |
-| `lint.yml` | `flutter analyze` and a `dart format` check |
-| `test.yml` | Unit and widget tests with coverage, plus the Linux integration test |
-| `ci.yml` | Summary |
-| `dependency-check.yml` | Manual `pub outdated` |
+Issues and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md)
+and the [code of conduct](CODE_OF_CONDUCT.md). EchoPin is released under
+the [MIT License](LICENSE).

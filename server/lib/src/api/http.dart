@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:logging/logging.dart';
+import 'package:postgres/postgres.dart' show ServerException;
 import 'package:shelf/shelf.dart';
 
 /// An expected failure with a stable machine code and a human sentence.
@@ -14,8 +15,10 @@ class ApiException implements Exception {
   final String message;
   final Map<String, Object?>? extra;
 
-  static ApiException badRequest(String message, {String code = 'invalid_input'}) =>
-      ApiException(400, code, message);
+  static ApiException badRequest(
+    String message, {
+    String code = 'invalid_input',
+  }) => ApiException(400, code, message);
   static const ApiException unauthorized = ApiException(
     401,
     'unauthorized',
@@ -51,7 +54,9 @@ String _human(Duration d) {
 Response json(Object? body, {int status = 200}) => Response(
   status,
   body: jsonEncode(body, toEncodable: _encodable),
-  headers: const <String, String>{'content-type': 'application/json; charset=utf-8'},
+  headers: const <String, String>{
+    'content-type': 'application/json; charset=utf-8',
+  },
 );
 
 Object? _encodable(Object? v) {
@@ -62,7 +67,10 @@ Object? _encodable(Object? v) {
 const int defaultBodyLimit = 64 * 1024;
 
 /// Reads and decodes a JSON object body, enforcing [limit] bytes.
-Future<Map<String, dynamic>> readJson(Request req, {int limit = defaultBodyLimit}) async {
+Future<Map<String, dynamic>> readJson(
+  Request req, {
+  int limit = defaultBodyLimit,
+}) async {
   final int? declared = req.contentLength;
   if (declared != null && declared > limit) {
     throw const ApiException(413, 'too_large', 'That request is too large');
@@ -111,7 +119,9 @@ extension JsonFields on Map<String, dynamic> {
   int integer(String key, {int min = 0, int max = 1 << 31}) {
     final Object? v = this[key];
     if (v is! int || v < min || v > max) {
-      throw ApiException.badRequest('$key must be a whole number from $min to $max');
+      throw ApiException.badRequest(
+        '$key must be a whole number from $min to $max',
+      );
     }
     return v;
   }
@@ -126,7 +136,9 @@ extension JsonFields on Map<String, dynamic> {
     final Object? v = this[key];
     if (v == null) return null;
     final DateTime? t = v is String ? DateTime.tryParse(v) : null;
-    if (t == null) throw ApiException.badRequest('$key must be an ISO-8601 time');
+    if (t == null) {
+      throw ApiException.badRequest('$key must be an ISO-8601 time');
+    }
     return t.toUtc();
   }
 
@@ -151,6 +163,59 @@ extension JsonFields on Map<String, dynamic> {
 
 final Logger _log = Logger('http');
 
+final RegExp _uuidShape = RegExp(
+  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+);
+
+/// An id from the URL that must be a UUID. Anything else can't name a row,
+/// so it is "not found" (404) rather than a database cast error (500).
+String uuidParam(String raw, {String what = 'That'}) {
+  final String v = raw.trim();
+  if (!_uuidShape.hasMatch(v)) throw ApiException.notFound(what);
+  return v.toLowerCase();
+}
+
+/// An opaque id from the URL (session ids, file names): length-capped and
+/// printable, never containing path or control characters.
+String idParam(String raw, {String what = 'That', int max = 64}) {
+  final String v = raw.trim();
+  if (v.isEmpty ||
+      v.length > max ||
+      !RegExp(r'^[A-Za-z0-9._:@~-]+$').hasMatch(v)) {
+    throw ApiException.notFound(what);
+  }
+  return v;
+}
+
+/// `?key=` as a whole number, clamped to `[min, max]`; [fallback] when
+/// absent or not a number. Paging never trusts the caller for its size.
+int queryInt(
+  Request req,
+  String key, {
+  required int fallback,
+  int min = 0,
+  required int max,
+}) {
+  final int? v = int.tryParse(req.url.queryParameters[key] ?? '');
+  return (v ?? fallback).clamp(min, max);
+}
+
+/// Like [queryInt] but absent stays null (cursors such as `?before=`).
+int? queryIntOrNull(Request req, String key, {int min = 0, int max = 1 << 52}) {
+  final int? v = int.tryParse(req.url.queryParameters[key] ?? '');
+  return v?.clamp(min, max);
+}
+
+/// `?key=` trimmed, null when empty, refused when longer than [max].
+String? queryStr(Request req, String key, {int max = 200}) {
+  final String? v = req.url.queryParameters[key]?.trim();
+  if (v == null || v.isEmpty) return null;
+  if (v.length > max) {
+    throw ApiException.badRequest('$key must be at most $max characters');
+  }
+  return v;
+}
+
 /// Converts [ApiException] (and anything unexpected) into JSON errors and
 /// logs one line per request, never bodies.
 Middleware errorsAndLogging() {
@@ -166,6 +231,33 @@ Middleware errorsAndLogging() {
           'message': e.message,
           ...?e.extra,
         }, status: e.status);
+      } on ServerException catch (e, st) {
+        // Safety net under the explicit checks: a value PostgreSQL refuses
+        // (SQLSTATE class 22, e.g. a bad cast or an out-of-range number) is
+        // the caller's mistake, and a uniqueness clash is a conflict. Only
+        // the class is used; PostgreSQL's own message never reaches clients.
+        final String code = e.code ?? '';
+        if (code.startsWith('22')) {
+          res = json(const <String, Object?>{
+            'error': 'invalid_input',
+            'message': 'One of the values in that request is not valid',
+          }, status: 400);
+        } else if (code == '23505') {
+          res = json(const <String, Object?>{
+            'error': 'conflict',
+            'message': 'That already exists',
+          }, status: 409);
+        } else {
+          _log.severe(
+            'Database error on ${req.method} ${req.url.path} ($code)',
+            e,
+            st,
+          );
+          res = json(const <String, Object?>{
+            'error': 'server_error',
+            'message': 'Something went wrong on our side. Try again shortly',
+          }, status: 500);
+        }
       } catch (e, st) {
         _log.severe('Unhandled error on ${req.method} ${req.url.path}', e, st);
         res = json(const <String, Object?>{
@@ -173,8 +265,10 @@ Middleware errorsAndLogging() {
           'message': 'Something went wrong on our side. Try again shortly',
         }, status: 500);
       }
-      _log.info('${req.method} /${req.url.path} → ${res.statusCode} '
-          '(${sw.elapsedMilliseconds} ms)');
+      _log.info(
+        '${req.method} /${req.url.path} → ${res.statusCode} '
+        '(${sw.elapsedMilliseconds} ms)',
+      );
       return res;
     };
   };
@@ -184,13 +278,15 @@ Middleware securityHeaders() {
   return (Handler inner) {
     return (Request req) async {
       final Response res = await inner(req);
-      return res.change(headers: const <String, String>{
-        'x-content-type-options': 'nosniff',
-        'x-frame-options': 'DENY',
-        'referrer-policy': 'no-referrer',
-        'cache-control': 'no-store',
-        'strict-transport-security': 'max-age=31536000',
-      });
+      return res.change(
+        headers: const <String, String>{
+          'x-content-type-options': 'nosniff',
+          'x-frame-options': 'DENY',
+          'referrer-policy': 'no-referrer',
+          'cache-control': 'no-store',
+          'strict-transport-security': 'max-age=31536000',
+        },
+      );
     };
   };
 }
@@ -204,7 +300,8 @@ Middleware cors(List<String> origins) {
       final Map<String, String> h = allowed
           ? <String, String>{
               'access-control-allow-origin': origin,
-              'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+              'access-control-allow-methods':
+                  'GET, POST, PATCH, DELETE, OPTIONS',
               'access-control-allow-headers': 'authorization, content-type',
               'access-control-max-age': '600',
               // Lets the web app read the server clock (see the app's
@@ -224,7 +321,11 @@ Middleware cors(List<String> origins) {
 /// proxies. The address feeds per-IP rate limits and the audit log, so it
 /// must not be something a client can simply make up.
 class ClientIpPolicy {
-  const ClientIpPolicy({this.trustProxy = false, this.header, this.proxyHops = 1});
+  const ClientIpPolicy({
+    this.trustProxy = false,
+    this.header,
+    this.proxyHops = 1,
+  });
 
   /// Off: use the TCP peer address and ignore every forwarding header.
   final bool trustProxy;

@@ -12,10 +12,9 @@ import 'package:echo_pin/widgets/pin_field.dart';
 import 'package:flutter/material.dart';
 
 /// Pushes [child] behind the account lock.
-Future<T?> pushLocked<T>(BuildContext context, Widget child) =>
-    Navigator.of(context).push<T>(
-      MaterialPageRoute<T>(builder: (_) => AccountLockGuard(child: child)),
-    );
+Future<T?> pushLocked<T>(BuildContext context, Widget child) => Navigator.of(
+  context,
+).push<T>(MaterialPageRoute<T>(builder: (_) => AccountLockGuard(child: child)));
 
 /// Shows [child] only while the account is unlocked, and the PIN panel
 /// (first PIN for this sign-in, or unlock) in its place otherwise.
@@ -197,7 +196,10 @@ class _AccountPinPanelState extends State<AccountPinPanel> {
           'Reports waiting to send stay on this phone.',
         ),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             key: const Key('accountLock.forgotConfirm'),
             onPressed: () => Navigator.pop(c, true),
@@ -223,7 +225,9 @@ class _AccountPinPanelState extends State<AccountPinPanel> {
     final int lockoutsLeft = lock.maxLockouts - _lockouts;
 
     return Scaffold(
-      appBar: AppBar(title: Text(setup ? 'Protect your account' : 'Account locked')),
+      appBar: AppBar(
+        title: Text(setup ? 'Protect your account' : 'Account locked'),
+      ),
       body: hasPin == null
           ? const Center(child: CircularProgressIndicator())
           : Center(
@@ -270,13 +274,17 @@ class _AccountPinPanelState extends State<AccountPinPanel> {
                     if (_error != null || locked) ...<Widget>[
                       const SizedBox(height: 12),
                       Text(
-                        locked ? 'Too many attempts. Try again in $lockSeconds s.' : _error!,
+                        locked
+                            ? 'Too many attempts. Try again in $lockSeconds s.'
+                            : _error!,
                         style: TextStyle(color: theme.colorScheme.error),
                         textAlign: TextAlign.center,
                       ),
                     ],
                     // Say so before it happens, not after.
-                    if (!setup && _lockouts > 0 && lockoutsLeft > 0) ...<Widget>[
+                    if (!setup &&
+                        _lockouts > 0 &&
+                        lockoutsLeft > 0) ...<Widget>[
                       const SizedBox(height: 8),
                       Text(
                         lockoutsLeft == 1
@@ -289,7 +297,9 @@ class _AccountPinPanelState extends State<AccountPinPanel> {
                     const SizedBox(height: 20),
                     FilledButton(
                       key: const Key('accountLock.submit'),
-                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                      ),
                       onPressed: _busy || locked ? null : _submit,
                       child: _busy
                           ? const SizedBox.square(

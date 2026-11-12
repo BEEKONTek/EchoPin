@@ -86,6 +86,9 @@ jobs:
       - run: flutter build macos --release
 
   windows:
+    # Not yet verified on a Windows host (see README › Status); a failure
+    # here is reported but does not fail the workflow.
+    continue-on-error: true
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4

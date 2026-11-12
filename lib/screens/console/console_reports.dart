@@ -59,7 +59,8 @@ class _ReportsTabState extends State<ReportsTab> {
                   child: FilterChip(
                     label: Text(c.wire),
                     selected: _category == c.wire,
-                    onSelected: (bool on) => setState(() => _category = on ? c.wire : null),
+                    onSelected: (bool on) =>
+                        setState(() => _category = on ? c.wire : null),
                   ),
                 ),
             ],
@@ -68,69 +69,104 @@ class _ReportsTabState extends State<ReportsTab> {
         Expanded(
           child: ConsoleLoader(
             key: ValueKey<String>('$query/$_generation'),
-            load: (BuildContext c) => consoleApi(c, 'GET', '/v1/admin/reports?$query'),
-            builder: (BuildContext context, Map<String, dynamic> data, VoidCallback reload) {
-              final List<Map<String, dynamic>> reports =
-                  (data['reports'] as List<dynamic>).cast<Map<String, dynamic>>();
-              return ConsoleList(
-                children: <Widget>[
-                  if (reports.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(child: Text('Nothing here. All clear.')),
-                    ),
-                  for (final Map<String, dynamic> r in reports)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Tray(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-                        onTap: () async {
-                          await Navigator.of(context).push(MaterialPageRoute<void>(
-                            builder: (_) => ReportDetailScreen(id: r['id'] as String),
-                          ));
-                          if (mounted) setState(() => _generation++);
-                        },
-                        child: Row(
-                          children: <Widget>[
-                            Container(
-                              width: 4,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: severityColor(context, r['severity'] as String),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(r['subject'] as String, style: Theme.of(context).textTheme.titleSmall),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${r['category']} · ${r['reporterName'] ?? 'deleted account'} · '
-                                    '${consoleAgo(r['createdAt'])}'
-                                    '${r['assignee'] == null ? '' : ' · ${r['assignee']}'}',
-                                    style: Theme.of(context).textTheme.bodySmall,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
+            load: (BuildContext c) =>
+                consoleApi(c, 'GET', '/v1/admin/reports?$query'),
+            builder:
+                (
+                  BuildContext context,
+                  Map<String, dynamic> data,
+                  VoidCallback reload,
+                ) {
+                  final List<Map<String, dynamic>> reports =
+                      (data['reports'] as List<dynamic>)
+                          .cast<Map<String, dynamic>>();
+                  return ConsoleList(
+                    children: <Widget>[
+                      if (reports.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(
+                            child: Text('Nothing here. All clear.'),
+                          ),
+                        ),
+                      for (final Map<String, dynamic> r in reports)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Tray(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                            onTap: () async {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      ReportDetailScreen(id: r['id'] as String),
+                                ),
+                              );
+                              if (mounted) setState(() => _generation++);
+                            },
+                            child: Row(
                               children: <Widget>[
-                                Pill(r['severity'] as String, color: severityColor(context, r['severity'] as String)),
-                                const SizedBox(height: 4),
-                                Pill(r['status'] as String, color: statusColor(context, r['status'] as String)),
+                                Container(
+                                  width: 4,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: severityColor(
+                                      context,
+                                      r['severity'] as String,
+                                    ),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Text(
+                                        r['subject'] as String,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleSmall,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${r['category']} · ${r['reporterName'] ?? 'deleted account'} · '
+                                        '${consoleAgo(r['createdAt'])}'
+                                        '${r['assignee'] == null ? '' : ' · ${r['assignee']}'}',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: <Widget>[
+                                    Pill(
+                                      r['severity'] as String,
+                                      color: severityColor(
+                                        context,
+                                        r['severity'] as String,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Pill(
+                                      r['status'] as String,
+                                      color: statusColor(
+                                        context,
+                                        r['status'] as String,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                ],
-              );
-            },
+                    ],
+                  );
+                },
           ),
         ),
       ],
@@ -166,7 +202,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   Future<void> _load() async {
     try {
-      final Map<String, dynamic> r = await consoleApi(context, 'GET', '/v1/admin/reports/${widget.id}');
+      final Map<String, dynamic> r = await consoleApi(
+        context,
+        'GET',
+        '/v1/admin/reports/${widget.id}',
+      );
       if (mounted) setState(() => _report = r);
     } catch (e) {
       if (mounted) setState(() => _error = errorText(e));
@@ -176,10 +216,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   Future<void> _patch(Map<String, Object?> body) async {
     setState(() => _busy = true);
     try {
-      final Map<String, dynamic> r = await consoleApi(context, 'PATCH', '/v1/admin/reports/${widget.id}', body: body);
+      final Map<String, dynamic> r = await consoleApi(
+        context,
+        'PATCH',
+        '/v1/admin/reports/${widget.id}',
+        body: body,
+      );
       if (mounted) setState(() => _report = r);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorText(e))));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorText(e))));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -190,12 +239,20 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     if (text.isEmpty) return;
     setState(() => _busy = true);
     try {
-      final Map<String, dynamic> r = await consoleApi(context, 'POST', '/v1/admin/reports/${widget.id}/notes',
-          body: <String, Object?>{'body': text});
+      final Map<String, dynamic> r = await consoleApi(
+        context,
+        'POST',
+        '/v1/admin/reports/${widget.id}/notes',
+        body: <String, Object?>{'body': text},
+      );
       _note.clear();
       if (mounted) setState(() => _report = r);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorText(e))));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorText(e))));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -212,11 +269,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           autofocus: true,
           minLines: 2,
           maxLines: 5,
+          maxLength: ProtocolLimits.maxResolution,
           decoration: const InputDecoration(labelText: 'What was the outcome?'),
         ),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(d, c.text.trim()), child: const Text('Save')),
+          TextButton(
+            onPressed: () => Navigator.pop(d),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(d, c.text.trim()),
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
@@ -232,15 +296,25 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Report')),
       body: r == null
-          ? Center(child: _error == null ? const CircularProgressIndicator() : Text(_error!))
+          ? Center(
+              child: _error == null
+                  ? const CircularProgressIndicator()
+                  : Text(_error!),
+            )
           : ConsoleList(
               maxWidth: 720,
               children: <Widget>[
                 Wrap(
                   spacing: 8,
                   children: <Widget>[
-                    Pill(r['severity'] as String, color: severityColor(context, r['severity'] as String)),
-                    Pill(r['status'] as String, color: statusColor(context, r['status'] as String)),
+                    Pill(
+                      r['severity'] as String,
+                      color: severityColor(context, r['severity'] as String),
+                    ),
+                    Pill(
+                      r['status'] as String,
+                      color: statusColor(context, r['status'] as String),
+                    ),
                     Pill(r['category'] as String),
                   ],
                 ),
@@ -264,37 +338,65 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   runSpacing: 8,
                   children: <Widget>[
                     OutlinedButton.icon(
-                      onPressed: _busy ? null : () => unawaited(_patch(<String, Object?>{'assignToMe': true, 'status': 'investigating'})),
+                      onPressed: _busy
+                          ? null
+                          : () => unawaited(
+                              _patch(<String, Object?>{
+                                'assignToMe': true,
+                                'status': 'investigating',
+                              }),
+                            ),
                       icon: const Icon(Icons.person_pin_outlined),
-                      label: Text(r['assignee'] == null ? 'Take it' : 'Assigned: ${r['assignee']}'),
+                      label: Text(
+                        r['assignee'] == null
+                            ? 'Take it'
+                            : 'Assigned: ${r['assignee']}',
+                      ),
                     ),
                     OutlinedButton.icon(
-                      onPressed: _busy ? null : () => unawaited(_close('resolved')),
+                      onPressed: _busy
+                          ? null
+                          : () => unawaited(_close('resolved')),
                       icon: const Icon(Icons.check_circle_outline),
                       label: const Text('Resolve'),
                     ),
                     OutlinedButton.icon(
-                      onPressed: _busy ? null : () => unawaited(_close('dismissed')),
+                      onPressed: _busy
+                          ? null
+                          : () => unawaited(_close('dismissed')),
                       icon: const Icon(Icons.do_not_disturb_on_outlined),
                       label: const Text('Dismiss'),
                     ),
                     PopupMenuButton<String>(
                       tooltip: 'Change severity',
-                      onSelected: (String s) => unawaited(_patch(<String, Object?>{'severity': s})),
+                      onSelected: (String s) =>
+                          unawaited(_patch(<String, Object?>{'severity': s})),
                       itemBuilder: (_) => <PopupMenuEntry<String>>[
                         for (final ReportSeverity s in ReportSeverity.values)
-                          PopupMenuItem<String>(value: s.wire, child: Text(s.wire)),
+                          PopupMenuItem<String>(
+                            value: s.wire,
+                            child: Text(s.wire),
+                          ),
                       ],
-                      child: const Chip(avatar: Icon(Icons.tune, size: 16), label: Text('Severity')),
+                      child: const Chip(
+                        avatar: Icon(Icons.tune, size: 16),
+                        label: Text('Severity'),
+                      ),
                     ),
                   ],
                 ),
                 if (r['sessionId'] != null) ...<Widget>[
                   const SectionLabel('Linked session'),
                   Tray(
-                    onTap: () => unawaited(Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => SessionDetailScreen(sessionId: r['sessionId'] as String),
-                    ))),
+                    onTap: () => unawaited(
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => SessionDetailScreen(
+                            sessionId: r['sessionId'] as String,
+                          ),
+                        ),
+                      ),
+                    ),
                     child: Row(
                       children: <Widget>[
                         const Icon(Icons.hub_outlined),
@@ -311,14 +413,22 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     padding: EdgeInsets.zero,
                     child: Column(
                       children: <Widget>[
-                        for (final MapEntry<String, dynamic> e in (r['diagnostics'] as Map<String, dynamic>).entries)
-                          ListTile(dense: true, title: Text(e.key), trailing: Text('${e.value}')),
+                        for (final MapEntry<String, dynamic> e
+                            in (r['diagnostics'] as Map<String, dynamic>)
+                                .entries)
+                          ListTile(
+                            dense: true,
+                            title: Text(e.key),
+                            trailing: Text('${e.value}'),
+                          ),
                       ],
                     ),
                   ),
                 ],
                 const SectionLabel('Internal notes'),
-                for (final Map<String, dynamic> n in (r['notes'] as List<dynamic>).cast<Map<String, dynamic>>())
+                for (final Map<String, dynamic> n
+                    in (r['notes'] as List<dynamic>)
+                        .cast<Map<String, dynamic>>())
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Tray(
@@ -327,7 +437,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         children: <Widget>[
                           Text(n['body'] as String),
                           const SizedBox(height: 4),
-                          Text('${n['author'] ?? '—'} · ${consoleAgo(n['createdAt'])}', style: t.textTheme.bodySmall),
+                          Text(
+                            '${n['author'] ?? '—'} · ${consoleAgo(n['createdAt'])}',
+                            style: t.textTheme.bodySmall,
+                          ),
                         ],
                       ),
                     ),
@@ -336,6 +449,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   controller: _note,
                   minLines: 1,
                   maxLines: 4,
+                  maxLength: ProtocolLimits.maxReportNote,
                   decoration: InputDecoration(
                     labelText: 'Add a note (not shown to the reporter)',
                     suffixIcon: IconButton(

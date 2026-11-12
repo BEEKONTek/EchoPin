@@ -120,7 +120,12 @@ class EscrowKey {
       if (cpub.length != 32 || SealedBox.keyIdFor(cpub) != cid) {
         throw const FormatException('Custodian key does not match its id');
       }
-      return EscrowKey(keyId: id, publicKey: pub, custodianKeyId: cid, custodianPublicKey: cpub);
+      return EscrowKey(
+        keyId: id,
+        publicKey: pub,
+        custodianKeyId: cid,
+        custodianPublicKey: cpub,
+      );
     }
     return EscrowKey(keyId: id, publicKey: pub);
   }

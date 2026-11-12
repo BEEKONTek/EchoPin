@@ -33,7 +33,10 @@ Future<void> main() async {
     exit(64);
   }
 
-  final Db db = Db.connect(config.databaseUrl, poolSize: config.databasePoolSize);
+  final Db db = Db.connect(
+    config.databaseUrl,
+    poolSize: config.databasePoolSize,
+  );
   final bool fresh;
   try {
     fresh = await isFreshDatabase(db);
@@ -60,11 +63,19 @@ Future<void> main() async {
     );
   }
 
-  final EchoPinServer server = EchoPinServer.create(config: config, db: db, keys: keys);
+  final EchoPinServer server = EchoPinServer.create(
+    config: config,
+    db: db,
+    keys: keys,
+  );
   server.backups.startSchedule();
   server.retention.startSchedule();
 
-  final HttpServer http = await io.serve(server.handler, config.host, config.port);
+  final HttpServer http = await io.serve(
+    server.handler,
+    config.host,
+    config.port,
+  );
   http.autoCompress = true;
   log.info(
     'EchoPin server $serverVersion listening on ${config.host}:${config.port} '

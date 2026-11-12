@@ -122,7 +122,10 @@ class SessionRecorder {
         'self': _sessions.selfName,
       });
       _periodic?.cancel();
-      _periodic = Timer.periodic(checkpointEvery, (_) => unawaited(_checkpoint()));
+      _periodic = Timer.periodic(
+        checkpointEvery,
+        (_) => unawaited(_checkpoint()),
+      );
     }
     _diff(s);
   }
@@ -140,7 +143,8 @@ class SessionRecorder {
     for (final SessionMember m in members.values) {
       final _Member? known = log.members[m.peerId];
       if (known == null) {
-        log.members[m.peerId] = _Member(m.name, m.safetyCode, now)..lastHeard = m.lastHeard;
+        log.members[m.peerId] = _Member(m.name, m.safetyCode, now)
+          ..lastHeard = m.lastHeard;
         _event(SessionLogEvent.memberJoined, <String, Object?>{
           'peerId': m.peerId,
           'name': m.name,
@@ -345,15 +349,22 @@ class SessionRecorder {
     if (log.diagnostics.isNotEmpty) await _enqueueDiagnostics(log);
   }
 
-  Future<void> _enqueue(_Log log, {required bool finalLog, required String? reason}) async {
+  Future<void> _enqueue(
+    _Log log, {
+    required bool finalLog,
+    required String? reason,
+  }) async {
     if (_account.account?.id != log.accountId) return;
     log.sequence++;
     try {
-      await _outbox.enqueue(OutboxKind.sessionLog, log.body(
-        endedAt: finalLog ? _clock().toUtc() : null,
-        reason: reason,
-        finalLog: finalLog,
-      ));
+      await _outbox.enqueue(
+        OutboxKind.sessionLog,
+        log.body(
+          endedAt: finalLog ? _clock().toUtc() : null,
+          reason: reason,
+          finalLog: finalLog,
+        ),
+      );
       unawaited(_outbox.flush());
     } on EchoError {
       // Signed out between the check and the enqueue; nothing to do.
@@ -364,7 +375,9 @@ class SessionRecorder {
     final Map<String, Object?> d = log.diagnostics;
     final bool radioDown = (d['radios'] as String? ?? '').contains('down');
     final int rejected = d['rejected'] as int? ?? 0;
-    final bool alarms = log.events.any((Map<String, Object?> e) => e['type'] == SessionLogEvent.security);
+    final bool alarms = log.events.any(
+      (Map<String, Object?> e) => e['type'] == SessionLogEvent.security,
+    );
     final DiagnosticLevel level = alarms
         ? DiagnosticLevel.error
         : (radioDown || rejected > 20)
@@ -383,7 +396,10 @@ class SessionRecorder {
         'payload': <String, Object?>{
           ...d,
           'sessionId': log.sessionId,
-          'durationMinutes': _clock().toUtc().difference(log.startedAt).inMinutes,
+          'durationMinutes': _clock()
+              .toUtc()
+              .difference(log.startedAt)
+              .inMinutes,
           'members': log.members.length,
           'outboxRejected': _outbox.rejectedCount,
         },
@@ -395,7 +411,10 @@ class SessionRecorder {
   }
 
   Map<String, Object?> _diagnostics(SessionEngine engine) {
-    final int rejected = engine.messenger.rejections.values.fold(0, (int a, int b) => a + b);
+    final int rejected = engine.messenger.rejections.values.fold(
+      0,
+      (int a, int b) => a + b,
+    );
     return <String, Object?>{
       'radios': engine.transports
           .map((MessageTransport t) => '${t.label}: ${t.status.health.name}')
@@ -404,7 +423,8 @@ class SessionRecorder {
       'accepted': engine.messenger.acceptedCount,
       'rejected': rejected,
       'rejections': <String, int>{
-        for (final MapEntry<SecurityProblem, int> e in engine.messenger.rejections.entries)
+        for (final MapEntry<SecurityProblem, int> e
+            in engine.messenger.rejections.entries)
           e.key.name: e.value,
       },
     };
@@ -419,15 +439,20 @@ class SessionRecorder {
     _draftTimer = Timer(const Duration(seconds: 5), () {
       final _Log? log = _log;
       if (log == null) return;
-      unawaited(_kv.write(_kDraft, jsonEncode(<String, Object?>{
-        'accountId': log.accountId,
-        'body': log.body(
-          endedAt: _clock().toUtc(),
-          reason: 'The app closed before the session ended',
-          finalLog: true,
-          sequenceOverride: log.sequence + 1,
+      unawaited(
+        _kv.write(
+          _kDraft,
+          jsonEncode(<String, Object?>{
+            'accountId': log.accountId,
+            'body': log.body(
+              endedAt: _clock().toUtc(),
+              reason: 'The app closed before the session ended',
+              finalLog: true,
+              sequenceOverride: log.sequence + 1,
+            ),
+          }),
         ),
-      })));
+      );
     });
   }
 
@@ -438,7 +463,10 @@ class SessionRecorder {
     try {
       final Map<String, dynamic> j = jsonDecode(raw) as Map<String, dynamic>;
       if (j['accountId'] != _account.account?.id) return;
-      await _outbox.enqueue(OutboxKind.sessionLog, j['body'] as Map<String, dynamic>);
+      await _outbox.enqueue(
+        OutboxKind.sessionLog,
+        j['body'] as Map<String, dynamic>,
+      );
     } catch (_) {
       // A damaged draft is dropped rather than blocking startup.
     }
@@ -493,7 +521,8 @@ class _Log {
   final String selfName;
   final List<Map<String, Object?>> events = <Map<String, Object?>>[];
   final Map<String, _Member> members = <String, _Member>{};
-  final Map<String, Map<String, String>> outgoing = <String, Map<String, String>>{};
+  final Map<String, Map<String, String>> outgoing =
+      <String, Map<String, String>>{};
   final Map<String, String> incoming = <String, String>{};
   final Set<String> cancelled = <String>{};
   final Set<String> outside = <String>{};
@@ -538,7 +567,8 @@ class _Log {
       'boundaryMeters': boundaryMeters.round(),
       'recordedBy': <String, Object?>{'peerId': selfPeerId, 'name': selfName},
       'members': <Object?>[
-        for (final MapEntry<String, _Member> m in members.entries) m.value.toJson(m.key),
+        for (final MapEntry<String, _Member> m in members.entries)
+          m.value.toJson(m.key),
       ],
       'events': events,
       'truncated': truncated,

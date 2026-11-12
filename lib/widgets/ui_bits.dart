@@ -113,7 +113,12 @@ class ErrorLine extends StatelessWidget {
 
 /// One-line explanation tray (info, warning or success).
 class NoticeTray extends StatelessWidget {
-  const NoticeTray({super.key, required this.icon, required this.text, this.color});
+  const NoticeTray({
+    super.key,
+    required this.icon,
+    required this.text,
+    this.color,
+  });
   final IconData icon;
   final String text;
   final Color? color;

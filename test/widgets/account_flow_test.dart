@@ -40,21 +40,34 @@ void main() {
         bootstrap: Bootstrap.forTesting(kv: kv),
         settings: SettingsProvider(),
         adminAuth: AdminAuthService(kv: kv, iterations: 10, useIsolate: false),
-        accountLockAuth: AdminAuthService.account(kv: kv, iterations: 10, useIsolate: false),
+        accountLockAuth: AdminAuthService.account(
+          kv: kv,
+          iterations: 10,
+          useIsolate: false,
+        ),
         connectivity: ConnectivityService.disabled(),
         account: account,
       ),
     );
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
     await tester.pumpAndSettle();
     return account;
   }
 
   Future<void> settle(WidgetTester tester) async {
-    // Crypto and the fake server complete on the real event loop.
-    for (int i = 0; i < 6; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
-      await tester.pump(const Duration(milliseconds: 50));
+    // Crypto and the fake server complete on the real event loop, which
+    // can be slow on a CI runner: wait until the server has been idle for
+    // two consecutive checks (a reply often triggers one more request),
+    // up to 6 s, rather than a fixed few hundred milliseconds.
+    int idle = 0;
+    for (int i = 0; i < 120 && idle < 2; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 25)),
+      );
+      await tester.pump(const Duration(milliseconds: 25));
+      idle = server.inFlight == 0 ? idle + 1 : 0;
     }
     await tester.pumpAndSettle();
   }
@@ -75,37 +88,62 @@ void main() {
     }
   }
 
-  testWidgets('live sessions ask for sign-in first; the demo does not', (WidgetTester tester) async {
+  testWidgets('live sessions ask for sign-in first; the demo does not', (
+    WidgetTester tester,
+  ) async {
     final AccountProvider account = await pumpApp(tester);
-    expect(find.textContaining('Sign in to start or join live sessions'), findsOneWidget);
+    expect(
+      find.textContaining('Sign in to start or join live sessions'),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('home.account')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('home.create')));
     await tester.pumpAndSettle();
     expect(find.byType(SignInScreen), findsOneWidget);
 
-    await tester.enterText(find.byKey(const Key('signin.email')), 'ana@example.com');
-    await tester.enterText(find.byKey(const Key('signin.password')), 'wrong password!!');
+    await tester.enterText(
+      find.byKey(const Key('signin.email')),
+      'ana@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('signin.password')),
+      'wrong password!!',
+    );
     await tester.tap(find.byKey(const Key('signin.submit')));
     await settle(tester);
     expect(find.text('That email and password do not match'), findsOneWidget);
 
-    await tester.enterText(find.byKey(const Key('signin.password')), 'correct horse battery');
+    await tester.enterText(
+      find.byKey(const Key('signin.password')),
+      'correct horse battery',
+    );
     await tester.tap(find.byKey(const Key('signin.submit')));
     await settle(tester);
     expect(account.signedIn, isTrue);
     expect(find.byType(SignInScreen), findsNothing);
-    expect(find.textContaining('Sign in to start or join live sessions'), findsNothing);
+    expect(
+      find.textContaining('Sign in to start or join live sessions'),
+      findsNothing,
+    );
     await teardown(tester);
   });
 
-  testWidgets('two-step sign-in reveals the code field', (WidgetTester tester) async {
+  testWidgets('two-step sign-in reveals the code field', (
+    WidgetTester tester,
+  ) async {
     await pumpApp(tester);
     server.totpRequired = true;
     await tester.tap(find.byKey(const Key('home.account')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('signin.email')), 'ana@example.com');
-    await tester.enterText(find.byKey(const Key('signin.password')), 'correct horse battery');
+    await tester.enterText(
+      find.byKey(const Key('signin.email')),
+      'ana@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('signin.password')),
+      'correct horse battery',
+    );
     await tester.tap(find.byKey(const Key('signin.submit')));
     await settle(tester);
     expect(find.byKey(const Key('signin.totp')), findsOneWidget);
@@ -117,38 +155,59 @@ void main() {
     await teardown(tester);
   });
 
-  testWidgets('a responder reaches the console overview; a member does not see it', (WidgetTester tester) async {
-    final AccountProvider account = await pumpApp(tester);
-    server.role = 'responder';
-    await tester.runAsync(() => account.signIn(email: 'ana@example.com', password: 'correct horse battery'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('home.account')));
-    await settle(tester);
-    await createPin(tester);
-    expect(find.byType(AccountScreen), findsOneWidget);
-    await tester.tap(find.byKey(const Key('account.console')));
-    await settle(tester);
-    expect(find.byType(ConsoleScreen), findsOneWidget);
-    expect(find.text('Open reports'), findsOneWidget);
-    expect(find.textContaining('1 critical report open'), findsOneWidget);
-    expect(find.text('Sessions per day'), findsOneWidget);
-    // Responders get reports and sessions, not people or backups.
-    Finder nav(String label) =>
-        find.descendant(of: find.byType(NavigationBar), matching: find.text(label));
-    expect(nav('Sessions'), findsOneWidget);
-    expect(nav('People'), findsNothing);
-    expect(nav('Backups'), findsNothing);
-    await teardown(tester);
-  });
+  testWidgets(
+    'a responder reaches the console overview; a member does not see it',
+    (WidgetTester tester) async {
+      final AccountProvider account = await pumpApp(tester);
+      server.role = 'responder';
+      await tester.runAsync(
+        () => account.signIn(
+          email: 'ana@example.com',
+          password: 'correct horse battery',
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home.account')));
+      await settle(tester);
+      await createPin(tester);
+      expect(find.byType(AccountScreen), findsOneWidget);
+      await tester.tap(find.byKey(const Key('account.console')));
+      await settle(tester);
+      expect(find.byType(ConsoleScreen), findsOneWidget);
+      expect(find.text('Open reports'), findsOneWidget);
+      expect(find.textContaining('1 critical report open'), findsOneWidget);
+      expect(find.text('Sessions per day'), findsOneWidget);
+      // Responders get reports and sessions, not people or backups.
+      Finder nav(String label) => find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text(label),
+      );
+      expect(nav('Sessions'), findsOneWidget);
+      expect(nav('People'), findsNothing);
+      expect(nav('Backups'), findsNothing);
+      await teardown(tester);
+    },
+  );
 
-  testWidgets('a safety report marked urgent goes up as critical', (WidgetTester tester) async {
+  testWidgets('a safety report marked urgent goes up as critical', (
+    WidgetTester tester,
+  ) async {
     final AccountProvider account = await pumpApp(tester);
-    await tester.runAsync(() => account.signIn(email: 'ana@example.com', password: 'correct horse battery'));
+    await tester.runAsync(
+      () => account.signIn(
+        email: 'ana@example.com',
+        password: 'correct horse battery',
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('home.account')));
     await settle(tester);
     await createPin(tester);
-    expect(find.byKey(const Key('account.console')), findsNothing, reason: 'members have no console');
+    expect(
+      find.byKey(const Key('account.console')),
+      findsNothing,
+      reason: 'members have no console',
+    );
     await tester.tap(find.byKey(const Key('account.report')));
     await tester.pumpAndSettle();
     expect(find.byType(ReportScreen), findsOneWidget);
@@ -157,10 +216,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('hold SOS'), findsOneWidget);
     await tester.tap(find.byKey(const Key('report.urgent')));
-    await tester.enterText(find.byKey(const Key('report.subject')), 'Lost contact with Ben');
-    await tester.enterText(find.byKey(const Key('report.body')), 'Last seen near the north ridge at 14:00');
-    await tester.scrollUntilVisible(find.byKey(const Key('report.send')), 200,
-        scrollable: find.descendant(of: find.byType(ReportScreen), matching: find.byType(Scrollable)).first);
+    await tester.enterText(
+      find.byKey(const Key('report.subject')),
+      'Lost contact with Ben',
+    );
+    await tester.enterText(
+      find.byKey(const Key('report.body')),
+      'Last seen near the north ridge at 14:00',
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('report.send')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(ReportScreen),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.tap(find.byKey(const Key('report.send')));
     await settle(tester);
     expect(server.reports.single['severity'], 'critical');
@@ -170,46 +243,65 @@ void main() {
     await teardown(tester);
   });
 
-  testWidgets('the account PIN: lock, wrong PIN, unlock, and the demo never asks', (WidgetTester tester) async {
+  testWidgets(
+    'the account PIN: lock, wrong PIN, unlock, and the demo never asks',
+    (WidgetTester tester) async {
+      final AccountProvider account = await pumpApp(tester);
+      await tester.runAsync(
+        () => account.signIn(
+          email: 'ana@example.com',
+          password: 'correct horse battery',
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home.account')));
+      await settle(tester);
+      await createPin(tester);
+      expect(find.byType(AccountScreen), findsOneWidget);
+
+      // Lock: back to home. Opening Account again asks for the PIN.
+      await tester.tap(find.byKey(const Key('account.lock')));
+      await settle(tester);
+      expect(find.byType(AccountScreen), findsNothing);
+      await tester.tap(find.byKey(const Key('home.account')));
+      await settle(tester);
+      expect(find.text('Account locked'), findsOneWidget);
+      expect(
+        find.byType(AccountScreen),
+        findsNothing,
+        reason: 'nothing loads before the PIN',
+      );
+
+      await tester.enterText(find.byKey(const Key('accountLock.pin')), '0000');
+      await tester.tap(find.byKey(const Key('accountLock.submit')));
+      await settle(tester);
+      expect(find.text('Wrong PIN. 4 attempt(s) left.'), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('accountLock.pin')), '2468');
+      await tester.tap(find.byKey(const Key('accountLock.submit')));
+      await settle(tester);
+      expect(find.byType(AccountScreen), findsOneWidget);
+
+      // Sessions don't need the PIN, even while locked.
+      await tester.tap(find.byKey(const Key('account.lock')));
+      await settle(tester);
+      await tester.tap(find.text('Try the demo (simulated people)'));
+      await settle(tester);
+      expect(find.text('Account locked'), findsNothing);
+      await teardown(tester);
+    },
+  );
+
+  testWidgets('forgot PIN signs out and returns home', (
+    WidgetTester tester,
+  ) async {
     final AccountProvider account = await pumpApp(tester);
-    await tester.runAsync(() => account.signIn(email: 'ana@example.com', password: 'correct horse battery'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('home.account')));
-    await settle(tester);
-    await createPin(tester);
-    expect(find.byType(AccountScreen), findsOneWidget);
-
-    // Lock: back to home. Opening Account again asks for the PIN.
-    await tester.tap(find.byKey(const Key('account.lock')));
-    await settle(tester);
-    expect(find.byType(AccountScreen), findsNothing);
-    await tester.tap(find.byKey(const Key('home.account')));
-    await settle(tester);
-    expect(find.text('Account locked'), findsOneWidget);
-    expect(find.byType(AccountScreen), findsNothing, reason: 'nothing loads before the PIN');
-
-    await tester.enterText(find.byKey(const Key('accountLock.pin')), '0000');
-    await tester.tap(find.byKey(const Key('accountLock.submit')));
-    await settle(tester);
-    expect(find.text('Wrong PIN. 4 attempt(s) left.'), findsOneWidget);
-
-    await tester.enterText(find.byKey(const Key('accountLock.pin')), '2468');
-    await tester.tap(find.byKey(const Key('accountLock.submit')));
-    await settle(tester);
-    expect(find.byType(AccountScreen), findsOneWidget);
-
-    // Sessions don't need the PIN, even while locked.
-    await tester.tap(find.byKey(const Key('account.lock')));
-    await settle(tester);
-    await tester.tap(find.text('Try the demo (simulated people)'));
-    await settle(tester);
-    expect(find.text('Account locked'), findsNothing);
-    await teardown(tester);
-  });
-
-  testWidgets('forgot PIN signs out and returns home', (WidgetTester tester) async {
-    final AccountProvider account = await pumpApp(tester);
-    await tester.runAsync(() => account.signIn(email: 'ana@example.com', password: 'correct horse battery'));
+    await tester.runAsync(
+      () => account.signIn(
+        email: 'ana@example.com',
+        password: 'correct horse battery',
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('home.account')));
     await settle(tester);
@@ -225,19 +317,37 @@ void main() {
     await settle(tester);
     expect(account.signedIn, isFalse);
     expect(find.text('Account locked'), findsNothing);
-    expect(find.textContaining('Sign in to start or join live sessions'), findsOneWidget);
+    expect(
+      find.textContaining('Sign in to start or join live sessions'),
+      findsOneWidget,
+    );
     await teardown(tester);
   });
 
-  testWidgets('change the account PIN from Account', (WidgetTester tester) async {
+  testWidgets('change the account PIN from Account', (
+    WidgetTester tester,
+  ) async {
     final AccountProvider account = await pumpApp(tester);
-    await tester.runAsync(() => account.signIn(email: 'ana@example.com', password: 'correct horse battery'));
+    await tester.runAsync(
+      () => account.signIn(
+        email: 'ana@example.com',
+        password: 'correct horse battery',
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('home.account')));
     await settle(tester);
     await createPin(tester);
-    await tester.scrollUntilVisible(find.byKey(const Key('account.changePin')), 200,
-        scrollable: find.descendant(of: find.byType(AccountScreen), matching: find.byType(Scrollable)).first);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('account.changePin')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(AccountScreen),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.tap(find.byKey(const Key('account.changePin')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('changePin.current')), '2468');
@@ -258,28 +368,47 @@ void main() {
     await teardown(tester);
   });
 
-  testWidgets('an auto-lock covers the screen; unlocking returns to it as it was', (WidgetTester tester) async {
-    final AccountProvider account = await pumpApp(tester);
-    await tester.runAsync(() => account.signIn(email: 'ana@example.com', password: 'correct horse battery'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('home.account')));
-    await settle(tester);
-    await createPin(tester);
-    await tester.tap(find.byKey(const Key('account.report')));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('report.subject')), 'Half-written report');
+  testWidgets(
+    'an auto-lock covers the screen; unlocking returns to it as it was',
+    (WidgetTester tester) async {
+      final AccountProvider account = await pumpApp(tester);
+      await tester.runAsync(
+        () => account.signIn(
+          email: 'ana@example.com',
+          password: 'correct horse battery',
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home.account')));
+      await settle(tester);
+      await createPin(tester);
+      await tester.tap(find.byKey(const Key('account.report')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('report.subject')),
+        'Half-written report',
+      );
 
-    // What the 5-minute timer does.
-    AccountLockScope.read(tester.element(find.byType(ReportScreen))).lock();
-    await tester.pumpAndSettle();
-    expect(find.text('Account locked'), findsOneWidget);
-    expect(find.text('Half-written report'), findsNothing, reason: 'hidden while locked');
+      // What the 5-minute timer does.
+      AccountLockScope.read(tester.element(find.byType(ReportScreen))).lock();
+      await tester.pumpAndSettle();
+      expect(find.text('Account locked'), findsOneWidget);
+      expect(
+        find.text('Half-written report'),
+        findsNothing,
+        reason: 'hidden while locked',
+      );
 
-    await tester.enterText(find.byKey(const Key('accountLock.pin')), '2468');
-    await tester.tap(find.byKey(const Key('accountLock.submit')));
-    await settle(tester);
-    expect(find.byType(ReportScreen), findsOneWidget);
-    expect(find.text('Half-written report'), findsOneWidget, reason: 'the draft survived');
-    await teardown(tester);
-  });
+      await tester.enterText(find.byKey(const Key('accountLock.pin')), '2468');
+      await tester.tap(find.byKey(const Key('accountLock.submit')));
+      await settle(tester);
+      expect(find.byType(ReportScreen), findsOneWidget);
+      expect(
+        find.text('Half-written report'),
+        findsOneWidget,
+        reason: 'the draft survived',
+      );
+      await teardown(tester);
+    },
+  );
 }

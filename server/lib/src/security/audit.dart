@@ -30,7 +30,10 @@ class AuditVerification {
 /// Who did something. System jobs use [AuditActor.system].
 class AuditActor {
   const AuditActor({this.id, required this.label, this.ip});
-  const AuditActor.system(String job) : id = null, label = 'system:$job', ip = null;
+  const AuditActor.system(String job)
+    : id = null,
+      label = 'system:$job',
+      ip = null;
 
   final String? id;
   final String label;
@@ -71,7 +74,8 @@ class AuditLog {
     String? target,
     Map<String, Object?> detail = const <String, Object?>{},
   }) => db.tx(
-    (DbSession tx) => recordIn(tx, actor, action, target: target, detail: detail),
+    (DbSession tx) =>
+        recordIn(tx, actor, action, target: target, detail: detail),
   );
 
   /// Records inside the caller's transaction, so the audit row commits or
@@ -122,19 +126,25 @@ class AuditLog {
   /// Walks the whole chain. With [anchorId]/[anchorHash] (a tip recorded
   /// outside the database, see BackupService.latestAnchor) it also proves
   /// nothing was cut off the end since that tip was recorded.
-  Future<AuditVerification> verify(Db db, {int? anchorId, String? anchorHash}) async {
+  Future<AuditVerification> verify(
+    Db db, {
+    int? anchorId,
+    String? anchorHash,
+  }) async {
     // Checked first: a cut-off tail is invisible to the walk below.
     if (anchorId != null && anchorHash != null) {
       final Row? a = await db.one(
         'select hash from audit_log where id = @id',
         <String, Object?>{'id': anchorId},
       );
-      if (a == null || _hex(a['hash'] as List<int>) != anchorHash.toLowerCase()) {
+      if (a == null ||
+          _hex(a['hash'] as List<int>) != anchorHash.toLowerCase()) {
         return AuditVerification(
           ok: false,
           checked: 0,
           brokenAtId: anchorId,
-          reason: 'Entry $anchorId, recorded with the last backup, is missing or '
+          reason:
+              'Entry $anchorId, recorded with the last backup, is missing or '
               'different: entries were removed from the end of the log',
         );
       }
@@ -158,7 +168,8 @@ class AuditLog {
             ok: false,
             checked: checked,
             brokenAtId: id,
-            reason: 'Row $id does not follow the row before it '
+            reason:
+                'Row $id does not follow the row before it '
                 '(a row was removed or inserted)',
           );
         }
@@ -213,8 +224,10 @@ class AuditLog {
   }
 
   /// Millisecond precision survives every round trip through Postgres.
-  static DateTime _truncate(DateTime t) =>
-      DateTime.fromMillisecondsSinceEpoch(t.millisecondsSinceEpoch, isUtc: true);
+  static DateTime _truncate(DateTime t) => DateTime.fromMillisecondsSinceEpoch(
+    t.millisecondsSinceEpoch,
+    isUtc: true,
+  );
 
   static bool _eq(List<int> a, List<int> b) {
     if (a.length != b.length) return false;

@@ -35,12 +35,17 @@ class TelemetryService {
 
   DateTime get _now => _clock().toUtc();
 
-  Future<void> addDiagnostics(AuthContext ctx, Map<String, dynamic> body) async {
+  Future<void> addDiagnostics(
+    AuthContext ctx,
+    Map<String, dynamic> body,
+  ) async {
     final DiagnosticLevel level =
         DiagnosticLevel.fromWire(body['level']) ??
         (throw ApiException.badRequest('level must be info, warning or error'));
     final Object? payload = body['payload'];
-    if (payload is! Map) throw ApiException.badRequest('payload must be an object');
+    if (payload is! Map) {
+      throw ApiException.badRequest('payload must be an object');
+    }
     final String encoded = jsonEncode(payload);
     if (encoded.length > ProtocolLimits.maxDiagnosticsBytes) {
       throw const ApiException(413, 'too_large', 'Diagnostics are too large');
@@ -85,18 +90,28 @@ class TelemetryService {
     }
     // Second seal: which custodian key the inside layer is sealed to.
     final String? custodianKeyId = body.optStr('custodianKeyId', max: 32);
-    if (custodianKeyId != null && !_custodian.publicKeys.containsKey(custodianKeyId)) {
-      throw const ApiException(409, 'unknown_custodian_key',
-          'This log was sealed to a custodian key the server does not accept. Update the app');
+    if (custodianKeyId != null &&
+        !_custodian.publicKeys.containsKey(custodianKeyId)) {
+      throw const ApiException(
+        409,
+        'unknown_custodian_key',
+        'This log was sealed to a custodian key the server does not accept. Update the app',
+      );
     }
     if (custodianKeyId == null && custodianRequired) {
-      throw const ApiException(409, 'custodian_required',
-          'This server only accepts double-sealed logs. Update the app');
+      throw const ApiException(
+        409,
+        'custodian_required',
+        'This server only accepts double-sealed logs. Update the app',
+      );
     }
     // Session tag: proves the uploader knew the session key (see
     // AdminService.session). 16 bytes; optional for older apps.
-    final List<int>? tag = body['sessionTag'] == null ? null : body.b64('sessionTag', length: 16);
-    int count(String k) => (body[k] is int) ? (body[k] as int).clamp(0, 100000) : 0;
+    final List<int>? tag = body['sessionTag'] == null
+        ? null
+        : body.b64('sessionTag', length: 16);
+    int count(String k) =>
+        (body[k] is int) ? (body[k] as int).clamp(0, 100000) : 0;
     final int inserted = await _db.execute(
       '''insert into session_logs
            (id, session_id, session_name, account_id, device_id, started_at, ended_at,
@@ -134,7 +149,10 @@ class TelemetryService {
     return inserted > 0;
   }
 
-  Future<Map<String, Object?>> addReport(AuthContext ctx, Map<String, dynamic> body) async {
+  Future<Map<String, Object?>> addReport(
+    AuthContext ctx,
+    Map<String, dynamic> body,
+  ) async {
     final ReportCategory category =
         ReportCategory.fromWire(body['category']) ??
         (throw ApiException.badRequest('Pick what the report is about'));
@@ -142,17 +160,27 @@ class TelemetryService {
     // never lowers a safety report below high.
     ReportSeverity severity =
         ReportSeverity.fromWire(body['severity']) ??
-        (category == ReportCategory.safety ? ReportSeverity.high : ReportSeverity.normal);
-    if (category == ReportCategory.safety && severity.index < ReportSeverity.high.index) {
+        (category == ReportCategory.safety
+            ? ReportSeverity.high
+            : ReportSeverity.normal);
+    if (category == ReportCategory.safety &&
+        severity.index < ReportSeverity.high.index) {
       severity = ReportSeverity.high;
     }
     final Object? diagnostics = body['diagnostics'];
     if (diagnostics != null && diagnostics is! Map) {
       throw ApiException.badRequest('diagnostics must be an object');
     }
-    final String? diagJson = diagnostics == null ? null : jsonEncode(diagnostics);
-    if (diagJson != null && diagJson.length > ProtocolLimits.maxDiagnosticsBytes) {
-      throw const ApiException(413, 'too_large', 'Attached diagnostics are too large');
+    final String? diagJson = diagnostics == null
+        ? null
+        : jsonEncode(diagnostics);
+    if (diagJson != null &&
+        diagJson.length > ProtocolLimits.maxDiagnosticsBytes) {
+      throw const ApiException(
+        413,
+        'too_large',
+        'Attached diagnostics are too large',
+      );
     }
     final DateTime now = _now;
     final Row row = (await _db.one(
@@ -167,7 +195,9 @@ class TelemetryService {
         'c': category.wire,
         's': severity.wire,
         'subj': body.str('subject', max: ProtocolLimits.maxReportSubject),
-        'body': body.str('body', max: ProtocolLimits.maxReportBody, trim: false).trim(),
+        'body': body
+            .str('body', max: ProtocolLimits.maxReportBody, trim: false)
+            .trim(),
         'sid': body.optStr('sessionId', max: 64),
         'diag': diagJson,
         'now': now,

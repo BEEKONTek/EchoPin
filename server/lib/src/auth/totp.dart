@@ -19,9 +19,10 @@ abstract final class Totp {
 
   static String codeAt(List<int> secret, int step) {
     final ByteData counter = ByteData(8)..setUint64(0, step);
-    final List<int> mac = Hmac(sha1, secret)
-        .convert(counter.buffer.asUint8List())
-        .bytes;
+    final List<int> mac = Hmac(
+      sha1,
+      secret,
+    ).convert(counter.buffer.asUint8List()).bytes;
     final int offset = mac.last & 0x0f;
     final int binary =
         ((mac[offset] & 0x7f) << 24) |

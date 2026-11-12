@@ -15,7 +15,8 @@ class AccountScope extends InheritedNotifier<AccountProvider> {
   }) : super(notifier: notifier);
 
   static AccountProvider of(BuildContext context) {
-    final AccountScope? scope = context.dependOnInheritedWidgetOfExactType<AccountScope>();
+    final AccountScope? scope = context
+        .dependOnInheritedWidgetOfExactType<AccountScope>();
     assert(scope != null, 'AccountScope.of: no AccountScope in tree');
     return scope!.notifier!;
   }

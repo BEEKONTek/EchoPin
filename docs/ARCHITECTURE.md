@@ -1,416 +1,152 @@
-# EchoPin Architecture
+# Architecture
 
-## System Overview
-┌─────────────────────────────────────────────────────────────────────┐
-│                    EchoPin Flutter App (UI Layer)                   │
-├─────────────────────────────────────────────────────────────────────┤
-│  HomeScreen (session creation)                                      │
-│  SessionScreen (pinwheel display + peer list)                       │
-│  PinwheelWidget (AnimatedBuilder + CustomPainter)                   │
-└──────────────────────┬──────────────────────────────────────────────┘
-│
-┌───────────────┼───────────────┐
-│               │               │
-▼               ▼               ▼
-┌────────────────┐ ┌──────────────┐ ┌──────────────┐
-│  Session Model │ │State (Riverpod)
-│ (ephemeral)    │ │(peers, bounds)│ │ UI State Mgmt │
-└────────────────┘ └──────────────┘ └──────────────┘
-│               │               │
-└───────────────┼───────────────┘
-│
-┌───────────────┼───────────────┐
-│               │               │
-▼               ▼               ▼
-┌─────────────────────────────────────────────────────────┐
-│          Business Logic Layer (Services)               │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  LocationEngine          │         MeshService         │
-│  ├─ GPS stream          │         ├─ BLE advertising   │
-│  ├─ Compass heading     │         ├─ Peer discovery    │
-│  ├─ Laplace noise       │         ├─ Noise handshake   │
-│  ├─ Bearing compute     │         ├─ Message encrypt   │
-│  ├─ Distance compute    │         ├─ Rate limiting     │
-│  ├─ RSSI fallback       │         ├─ Replay protection │
-│  └─ Dead-reckoning      │         └─ Multi-hop relay   │
-│                          │                              │
-│  EncryptionService (stub)                              │
-│  └─ Noise XX protocol   │                              │
-│                          │                              │
-└─────────────────────────────────────────────────────────┘
-│                               │
-▼                               ▼
-┌──────────────────────┐       ┌──────────────────────┐
-│   Native Sensors     │       │   Native Radio       │
-├──────────────────────┤       ├──────────────────────┤
-│ ├─ GPS (Geolocator) │       │ ├─ BLE (flutter_blue)
-│ ├─ Compass          │       │ ├─ Wi-Fi Direct      │
-│ ├─ Accelerometer    │       │ └─ Mesh relay        │
-│ └─ Gyroscope        │       └──────────────────────┘
-└──────────────────────┘
+EchoPin is two things that work independently: a **phone-to-phone app**
+that needs no infrastructure, and an **optional server** that adds
+accounts, sealed emergency records and a staff console. This document is
+the map; `docs/CODE_MAP.md` names every file, `docs/PROTOCOL.md` is the
+normative wire format, and `docs/SERVER.md` covers the server in depth.
 
----
+## The two halves
 
-## **Layered Architecture**
-
-### **1. UI Layer**
-- **HomeScreen:** Create/join session UI
-- **SessionScreen:** Main pinwheel + peer list + boundary slider
-- **PinwheelWidget:** CustomPainter canvas rendering with animation controller
-- **PeerChip:** Compact peer status widget
-
-**State Management:** Riverpod (lightweight, reactive)
-
----
-
-### **2. Business Logic Layer**
-
-#### **LocationEngine**
-Responsible for computing **privacy-preserving relative location updates**.
-
-**Key Methods:**
-```dart
-ObfuscatedLocation applyPlanarLaplaceNoise(Position rawPosition)
-// Adds ε-differential privacy noise to GPS coordinates
-
-double computeBearing(ObfuscatedLocation own, ObfuscatedLocation peer)
-// Returns direction from own device to peer (0–360°)
-
-double computeDistance(ObfuscatedLocation own, ObfuscatedLocation peer)
-// Returns Haversine distance in metres
-
-double estimateDistanceFromRssi({required int rssiDbm, ...})
-// BLE signal strength fallback (when GPS unavailable)
-
-RelativePresenceUpdate? buildPresenceUpdate({...})
-// Constructs encrypted broadcast payload (bearing + distance only)
+```mermaid
+flowchart LR
+  subgraph Phones["Phones (always works, no server)"]
+    A[EchoPin app] <-- "BLE GATT / Wi-Fi TCP<br/>encrypted + signed frames" --> B[EchoPin app]
+    A <--> C[EchoPin app]
+  end
+  subgraph Server["Optional server (Dart + PostgreSQL)"]
+    S[HTTPS API] --> DB[(PostgreSQL)]
+    S --> M[Email: Brevo / SMTP]
+    S --> ST[Encrypted backups]
+  end
+  A -. "accounts, sealed records,<br/>reports, diagnostics" .-> S
+  R[Responder / admin console<br/>inside the app] -. break-glass, triage .-> S
 ```
 
-**Privacy Guarantee:**
-- Raw GPS coordinates **never** leave `LocationEngine`
-- Only **derived relative values** (bearing, distance) are transmitted
-- Laplace noise ε=0.5 provides plausible deniability within ~50m
+Sessions never go through the server. The server only ever receives
+**sealed** session records it cannot read itself, plus reports and
+diagnostics.
 
----
+## The app
 
-#### **MeshService**
-Responsible for **peer discovery, encryption, and message relay**.
+### Layers
 
-**Key Methods:**
-```dart
-Future<void> startAdvertising()
-// BLE: advertise session UUID so peers can discover you
-
-Stream<String> discoverPeers()
-// BLE scan: find peers advertising the same session UUID
-
-Future<bool> performHandshake(String peerAddress)
-// Noise XX: mutual authentication, derive transport keys
-
-void onRawMessageReceived(String fromAddress, Uint8List rawBytes)
-// Validate, decrypt, rate-limit, and dispatch incoming messages
-
-Future<void> broadcastPresence({required double bearingDeg, ...})
-// Encrypt and send your presence update to all peers
-
-Future<void> sendBye()
-// Graceful session exit (notify peers before disconnect)
+```mermaid
+flowchart TB
+  UI[screens/ + widgets/<br/>home, session, pinwheel, trays, account, console]
+  P[providers/<br/>Session · Alert · Settings · Admin · Account · AccountLock · Outbox]
+  E[session/ SessionEngine<br/>membership, pings, SOS, receipts, retries]
+  SEC[security/<br/>invite code → keys (HKDF), Ed25519 identity,<br/>XChaCha20-Poly1305 envelopes, replay + rate limits]
+  T[transport/ + services/<br/>BLE bridge, Bonjour + TCP, loopback, MeshService, noise]
+  N[Native plugins<br/>Kotlin + Swift: advertise, scan, GATT bytes]
+  UI --> P --> E --> SEC --> T --> N
 ```
 
-**Security Features:**
-- **Noise XX encryption:** mutual authentication, forward secrecy
-- **Rate limiting:** max 2 updates/peer/second (token bucket)
-- **Replay protection:** nonce + timestamp validation
-- **Session size cap:** max 20 peers to prevent DoS
+- **Native code moves opaque bytes.** All cryptography is in Dart, so it is
+  identical on every platform and tested on the desktop.
+- **Providers are plain `ChangeNotifier`s** exposed through
+  `InheritedNotifier` scopes; there is no state-management dependency.
+- **Every failure is an `EchoError`** with a human sentence; status trays
+  show it with a one-tap fix where one exists.
 
----
+### The session pipeline
 
-#### **Session Model**
-Holds **ephemeral session state** (never persisted).
-
-**Key Properties:**
-```dart
-final String sessionId;            // 6-char human-readable code
-final String qrPayload;            // Full join info (QR encoded)
-final DateTime expiresAt;          // Auto-expire after 8 hours
-final double boundaryRadiusM;      // User-configurable alert radius
-final SessionKeys keys;            // Ephemeral crypto material
-final Map<String, Peer> peers;     // All session peers
+```mermaid
+flowchart LR
+  R1[Radios] -- frames --> SM[SecureMessenger<br/>decrypt · verify · pin · replay · rate]
+  SM --> SE[SessionEngine<br/>members · pings · receipts]
+  BLE[BLE sightings<br/>RSSI → distance] --> MS[MeshService]
+  SE --> SP[SessionProvider]
+  MS --> SP
+  SP --> NZ[privacy noise<br/>±σ per peer per minute] --> BC[boundary crossings] --> V[Session.peers → pinwheel, trays, alerts]
 ```
 
-**Lifecycle:**
-1. Created: `EchoSession.create(boundaryRadiusM: 200)`
-2. Active: App advertises, discovers peers, broadcasts presence
-3. Wiped: `session.wipe()` called unconditionally on exit → all data cleared
+Distance is estimated from Bluetooth signal strength on the receiving
+phone. No direction is measured, so the pinwheel places Bluetooth peers at
+their distance without a bearing and says so; only the demo and admin test
+people carry simulated directions.
 
----
+### Local security
 
-### **3. Data Models**
+| Concern | Mechanism |
+| --- | --- |
+| Membership | possession of the invite code (`ECHO-XXXX-…-CC`, ~78 bits + checksum); HKDF derives the session id and key |
+| Confidentiality and integrity | XChaCha20-Poly1305 envelopes, Ed25519 signatures with a fresh key per device per session, sender ids pinned on first use |
+| Replay and flooding | 64-message window, ±2 min clock window, per-sender rate limits, 20-member cap |
+| Untrusted text | names and notes stripped of control/bidi characters and length-capped |
+| Secrets at rest | invite history, admin and account PIN hashes, device key in the OS keystore (fallback: app preferences, with a visible warning) |
+| Local locks | admin panel and signed-in account each behind a PBKDF2 PIN with lockout and idle auto-lock |
 
-#### **Peer**
-```dart
-class Peer {
-  final String peerId;              // Ephemeral anonymous token
-  final String displayName;         // User-chosen nickname
-  final String emoji;               // Visual label on pinwheel
-  double relativeBearingDeg;        // 0–360° (North = 0)
-  double relativeDistanceM;         // Metres
-  bool outsideBoundary;             // Breach detection
-  DateTime lastSeen;                // Stale data check (>10s = stale)
-}
+## The server
+
+```mermaid
+flowchart TB
+  subgraph API["server/lib/src/api"]
+    H[http.dart<br/>size-capped JSON, typed fields,<br/>uuid/paging checks, error mapping] --> RT[routes.dart<br/>/v1/auth · /v1/me · /v1/session-logs · /v1/reports · /v1/admin]
+  end
+  RT --> AU[AuthService<br/>Argon2id, email codes, TOTP,<br/>device proofs, lockouts, rate limits]
+  RT --> TE[TelemetryService<br/>sealed logs, diagnostics, reports]
+  RT --> AD[AdminService<br/>console queries, roles, break-glass]
+  RT --> BK[BackupService<br/>pg_dump → AES-256-GCM frames → storage]
+  AU & TE & AD & BK --> AL[AuditLog<br/>HMAC chain, append-only]
+  AU & TE & AD & BK & AL --> PG[(PostgreSQL<br/>RLS on, no API grants)]
 ```
 
-#### **ObfuscatedLocation**
-```dart
-class ObfuscatedLocation {
-  final double latNoisedDeg;        // GPS + Laplace noise
-  final double lonNoisedDeg;
-  final double accuracyM;           // Error radius estimate
-  final DateTime timestamp;
-}
+### Identity without hardware ids
+
+Each install generates an Ed25519 **device key** in the keystore. Sign-in,
+token refresh and uploads carry a signed, time-bound proof, so a stolen
+refresh token is useless without the device, a replayed one signs the
+device out, and no IMEI, serial or advertising id is ever read.
+
+### Sealed records and break-glass
+
+```mermaid
+sequenceDiagram
+  participant Phone
+  participant Server
+  participant Responder
+  Phone->>Phone: record session events (never coordinates)
+  Phone->>Phone: seal to custodian key, then to escrow key
+  Phone->>Server: upload via outbox (retries offline)
+  Responder->>Server: open record + written reason
+  Server->>Server: grant + audit row committed, admins emailed
+  Server-->>Responder: outer seal removed (still sealed to custodian)
+  Responder->>Responder: custodian key on device opens the inner seal
 ```
 
-#### **RelativePresenceUpdate**
-```dart
-class RelativePresenceUpdate {
-  final String fromPeerId;          // Sender's ephemeral token
-  final double bearingDeg;          // Direction (0=N, 90=E, ...)
-  final double distanceM;           // Metres (0–500m displayable)
-  final int nonce;                  // Replay protection
-}
-```
+The server alone cannot read a record: the custodian key never leaves
+responders' devices. Every opening is in the audit chain, which is keyed
+from a secret outside the database and refuses updates and deletes at the
+database level.
 
----
+### Trust boundaries and validation
 
-### **4. Networking Stack**
+Every request passes the same gate (`api/http.dart`): bodies are size-
+capped and must be JSON objects; fields are read through typed accessors
+with the limits in `packages/echopin_protocol` (`ProtocolLimits`), which
+the app uses for its `maxLength`s too; ids in URLs are validated before any
+query; paging is clamped; and any exception becomes a safe JSON error
+(PostgreSQL value errors → 400, uniqueness clashes → 409, anything else →
+500 with a generic message and a server-side log). Roles are re-read from
+the database on every request, so revocation is immediate.
 
-#### **BLE Advertising & Discovery**
-Device A (session host):
-├─ startAdvertising()
-│  └─ BLE service UUID = hash(sessionId)
-│     └─ No localName, no device ID (privacy)
-│
-Device B (peer):
-├─ discoverPeers()
-│  └─ BLE scan for service UUID
-│     └─ Found: Device A
-│
-Peers connect:
-├─ performHandshake(Device_A_address)
-│  └─ Noise XX (mutual auth)
-│     └─ Derive transport keys
-│
-Ongoing:
-├─ broadcastPresence()
-│  └─ Encrypt: RelativePresenceUpdate
-│     └─ Send via BLE characteristic write
+## Data at rest
 
-#### **Noise XX Handshake** (Stub → Beta)
-Pattern: XX (both parties authenticate)
-Device A → Device B:  e, s
-Device B → Device A:  e, ee, s, es
-Device A → Device B:  se
-After: both have:
-├─ Shared secret (DH result)
-├─ Transport keys (send + receive)
-└─ Forward secrecy (ephemeral keys)
+| Where | What | Protection |
+| --- | --- | --- |
+| Phone keystore | invite history, PIN hashes, device key, cached escrow key | OS keystore; plain preferences only where none exists (warned) |
+| Phone outbox | sealed uploads waiting for signal | already sealed |
+| PostgreSQL | accounts (Argon2id hashes), devices, token hashes, sealed records, reports, audit chain | RLS on, Supabase API grants revoked, TLS |
+| Backups | `pg_dump` of the public schema | AES-256-GCM in 1 MiB frames, keyed from `ECHOPIN_KEYS`, private bucket |
 
-#### **Message Encryption** (Stub → Beta)
-Plaintext: RelativePresenceUpdate (JSON)
-├─ Serialize to JSON
-├─ Encrypt with Noise transport key
-├─ Prepend nonce + timestamp
-└─ Send via BLE or Wi-Fi Direct
+## Repository layout
 
-#### **Rate Limiting**
-_RateLimiter (per peer):
-├─ Max tokens: 5
-├─ Refill: every 500ms
-└─ Allow: consume 1 token per message
-└─ Prevents DoS (max 2 msgs/sec per peer)
-
-#### **Replay Protection**
-_NonceCache (per peer):
-├─ Track latest nonce received
-├─ Reject: nonce ≤ latest nonce
-├─ Reject: timestamp > 30 seconds old
-└─ Accept: only strictly increasing nonces
-
----
-
-### **5. Privacy Layer: Planar Laplace Noise**
-
-**Mechanism:**
-True location: x = (lat, lon)
-Noised location: z = (lat + dLat, lon + dLon)
-Noise radius r ~ Laplace(1/ε) in polar coordinates
-Direction θ ~ Uniform[0, 2π)
-ε = 0.5 (privacy budget):
-├─ Expected noise: 2/ε = 4 metres
-├─ 95th percentile: ~50 metres
-└─ Plausible deniability within ~50m radius
-
-**Code:**
-```dart
-double _sampleLaplaceRadius(double eps, double u) {
-  final scale = 1.0 / eps;
-  return -scale * (log(1 - u) + log(1 - (1 - u) * 0.5));
-}
-```
-
-**Trade-off:**
-- Lower ε → more privacy, more noise (less accurate)
-- Higher ε → less privacy, less noise (more accurate)
-- Default: ε=0.5 balances privacy ↔ usability
-
----
-
-## **Data Flow Diagram**
-┌──────────────────────────────────────────────────────────────┐
-│                 Session Lifecycle                            │
-└──────────────────────────────────────────────────────────────┘
-
-CREATE SESSION
-User ──[Create session]──> SessionScreen
-├─ Session.create(boundaryRadiusM: 200)
-├─ Generate ephemeral keys
-├─ Start BLE advertising
-├─ Start LocationEngine
-└─ Show pinwheel + QR code
-PEER JOINS (via QR scan)
-Peer A ──[Show QR code]──> Peer B
-Peer B ──[Scan QR]──> parse sessionId + publicKey
-├─ Join same session
-├─ Start BLE discovery
-├─ Find Peer A (UUID match)
-└─ Perform Noise XX handshake
-PRESENCE UPDATES (continuous)
-Peer A ──[Location update]──>
-└─ LocationEngine
-├─ Read GPS + compass
-├─ Apply Laplace noise
-├─ Compute bearing/distance TO Peer B
-└─ Build RelativePresenceUpdate
-└─ MeshService.broadcastPresence()
-└─ Encrypt + send via BLE
-│
-Peer B ──[Receive encrypted update]──>
-└─ MeshService.onRawMessageReceived()
-├─ Decrypt
-├─ Validate (rate limit, replay)
-├─ Update Peer A's RelativePresenceUpdate
-└─ Emit presenceUpdates stream
-└─ SessionScreen rebuilds
-└─ PinwheelWidget repaints
-BOUNDARY BREACH DETECTION
-Peer A ──[Moves beyond boundary]──>
-└─ RelativePresenceUpdate.distanceM > boundaryRadiusM
-├─ SessionScreen detects
-├─ Emit _anyBreach = true
-├─ Trigger haptic feedback
-└─ Show red banner
-SESSION EXIT
-User ──[Leave session]──>
-├─ MeshService.sendBye()
-├─ MeshService.dispose()
-├─ session.wipe() [CRITICAL]
-│  ├─ peers.clear()
-│  ├─ keys = null
-│  └─ all data erased from memory
-└─ Return to HomeScreen
-
-
----
-
-## **File Organization**
-lib/
-├── main.dart                           # App entry, theme, routing
-├── models/
-│   ├── session.dart                    # EchoSession, Peer, SessionKeys
-│   └── ...
-├── services/
-│   ├── location_engine.dart            # GPS + Laplace noise
-│   ├── mesh_service.dart               # BLE + Noise XX
-│   └── encryption_service.dart         # (stub)
-├── screens/
-│   ├── home_screen.dart                # Create/join session UI
-│   └── session_screen.dart             # Pinwheel + peer list
-└── widgets/
-├── pinwheel_painter.dart           # CustomPainter (canvas rendering)
-└── peer_chip.dart                  # Compact peer status widget
-test/
-├── unit/
-│   ├── location_engine_test.dart       # Noise generation, bearing, distance
-│   ├── session_test.dart               # Session creation, wipe
-│   └── mesh_service_test.dart          # Rate limiting, replay protection
-└── widget/
-├── pinwheel_painter_test.dart      # Rendering, layout
-└── home_screen_test.dart           # Navigation, session creation
-
----
-
-## **Concurrency & Async Flow**
-
-**Streams:**
-```dart
-// LocationEngine
-Stream<Position> rawLocationStream  // GPS updates (3m+ distance filter)
-Stream<double?> headingStream       // Compass heading updates
-
-// MeshService
-Stream<RelativePresenceUpdate> presenceUpdates  // Peer location updates
-```
-
-**Futures:**
-```dart
-// Session lifecycle
-Future<EchoSession> EchoSession.create(...)
-Future<void> MeshService.startAdvertising()
-Future<bool> MeshService.performHandshake(...)
-Future<void> MeshService.sendBye()
-```
-
-**State Management (Riverpod):**
-```dart
-// Example (not yet implemented):
-final sessionProvider = StateNotifierProvider<SessionNotifier, EchoSession?>((ref) {
-  return SessionNotifier();
-});
-```
-
----
-
-## **Performance Considerations**
-
-| Operation | Target | Strategy |
-|-----------|--------|----------|
-| Location update latency | <3 seconds E2E | BLE + direct relay; no cloud |
-| Pinwheel redraw | 60 FPS | CustomPainter (no rebuild unless data changes) |
-| Battery drain | <20% extra over 4h | 3m distance filter; adaptive broadcast rate |
-| BLE range | ~100m | Direct range; future: multi-hop relay |
-| Session size | 2–20 peers | Rate limiting prevents DoS; cap at 20 |
-
----
-
-## **Known Limitations & Future Work**
-
-| Limitation | Current | Planned (Beta) |
-|-----------|---------|----------------|
-| Encryption | Stub (pass-through) | Real Noise XX (dart_libp2p) |
-| BLE discovery | Stub | Real flutter_blue_plus |
-| Wi-Fi Direct | Not implemented | flutter_nearby_connections |
-| Multi-hop relay | Stub | dart_libp2p protocol |
-| UWB ranging | Not supported | Optional on API 31+ |
-| IMU dead-reckoning | Linear only | Full accelerometer + gyroscope fusion |
-| Smartwatch | Not implemented | Wear OS + watchOS companion |
-| Constant-time crypto | Not implemented | Timing-safe distance calculations |
-
----
-
-## **References**
-
-- [Noise Protocol Framework](https://noiseprotocol.org/)
-- [Geo-Indistinguishability (Andres et al., 2013)](https://arxiv.org/abs/1212.1984)
-- [Flutter Architecture Guide](https://flutter.dev/docs/app-architecture)
-- [Dart Async/Await](https://dart.dev/codelabs/async-await)
+    lib/                 the app (see docs/CODE_MAP.md)
+    android/ ios/        native BLE plugins (Kotlin, Swift)
+    linux/ macos/ windows/ web/   platform runners
+    packages/echopin_protocol/    sealed boxes, device proofs, shared enums and limits
+    server/              the central server, CLI and system test
+    scripts/             share_apk.sh (install by QR code)
+    docs/                this folder; presentation/ holds the slide deck
+    .github/workflows/   CI: lint, test, build, pages, keep-alive

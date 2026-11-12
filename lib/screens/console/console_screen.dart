@@ -61,7 +61,11 @@ class _ConsoleScreenState extends State<ConsoleScreen> {
     _Tab('Sessions', Icons.hub_outlined, (_) => const SessionsTab()),
     if (me.isAdmin) ...<_Tab>[
       _Tab('People', Icons.people_outline, (_) => const PeopleTab()),
-      _Tab('Diagnostics', Icons.monitor_heart_outlined, (_) => const DiagnosticsTab()),
+      _Tab(
+        'Diagnostics',
+        Icons.monitor_heart_outlined,
+        (_) => const DiagnosticsTab(),
+      ),
       _Tab('Audit', Icons.receipt_long_outlined, (_) => const AuditTab()),
       _Tab('Backups', Icons.backup_outlined, (_) => const BackupsTab()),
     ],
@@ -73,7 +77,9 @@ class _ConsoleScreenState extends State<ConsoleScreen> {
     if (me == null || !me.canUseConsole) {
       return Scaffold(
         appBar: AppBar(title: const Text('Console')),
-        body: const Center(child: Text('Your account does not have console access.')),
+        body: const Center(
+          child: Text('Your account does not have console access.'),
+        ),
       );
     }
     final List<_Tab> tabs = _tabs(me);
@@ -91,10 +97,12 @@ class _ConsoleScreenState extends State<ConsoleScreen> {
             key: const ValueKey<String>('console.custodian'),
             tooltip: 'Custodian key',
             icon: const Icon(Icons.key_outlined),
-            onPressed: () => unawaited(showDialog<void>(
-              context: context,
-              builder: (_) => const _CustodianDialog(),
-            )),
+            onPressed: () => unawaited(
+              showDialog<void>(
+                context: context,
+                builder: (_) => const _CustodianDialog(),
+              ),
+            ),
           ),
         ],
       ),
@@ -107,7 +115,10 @@ class _ConsoleScreenState extends State<ConsoleScreen> {
                   onDestinationSelected: (int i) => setState(() => _index = i),
                   destinations: <NavigationRailDestination>[
                     for (final _Tab t in tabs)
-                      NavigationRailDestination(icon: Icon(t.icon), label: Text(t.label)),
+                      NavigationRailDestination(
+                        icon: Icon(t.icon),
+                        label: Text(t.label),
+                      ),
                   ],
                 ),
                 const VerticalDivider(width: 1),
@@ -138,7 +149,12 @@ class ConsoleLoader extends StatefulWidget {
   const ConsoleLoader({super.key, required this.load, required this.builder});
 
   final Future<Map<String, dynamic>> Function(BuildContext context) load;
-  final Widget Function(BuildContext context, Map<String, dynamic> data, VoidCallback reload) builder;
+  final Widget Function(
+    BuildContext context,
+    Map<String, dynamic> data,
+    VoidCallback reload,
+  )
+  builder;
 
   @override
   State<ConsoleLoader> createState() => _ConsoleLoaderState();
@@ -167,33 +183,39 @@ class _ConsoleLoaderState extends State<ConsoleLoader> {
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>>(
       future: _future,
-      builder: (BuildContext context, AsyncSnapshot<Map<String, dynamic>> snap) {
-        if (snap.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  const Icon(Icons.cloud_off_outlined, size: 40),
-                  const SizedBox(height: 12),
-                  Text(errorText(snap.error!), textAlign: TextAlign.center),
-                  const SizedBox(height: 12),
-                  FilledButton(onPressed: _reload, child: const Text('Try again')),
-                ],
-              ),
-            ),
-          );
-        }
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        return RefreshIndicator(
-          onRefresh: () async {
-            _reload();
-            await _future.catchError((Object _) => <String, dynamic>{});
+      builder:
+          (BuildContext context, AsyncSnapshot<Map<String, dynamic>> snap) {
+            if (snap.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Icon(Icons.cloud_off_outlined, size: 40),
+                      const SizedBox(height: 12),
+                      Text(errorText(snap.error!), textAlign: TextAlign.center),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: _reload,
+                        child: const Text('Try again'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            if (!snap.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            return RefreshIndicator(
+              onRefresh: () async {
+                _reload();
+                await _future.catchError((Object _) => <String, dynamic>{});
+              },
+              child: widget.builder(context, snap.data!, _reload),
+            );
           },
-          child: widget.builder(context, snap.data!, _reload),
-        );
-      },
     );
   }
 }
@@ -230,21 +252,29 @@ class OverviewTab extends StatelessWidget {
     return ConsoleLoader(
       load: (BuildContext c) => consoleApi(c, 'GET', '/v1/admin/overview'),
       builder: (BuildContext context, Map<String, dynamic> o, VoidCallback reload) {
-        final Map<String, dynamic> accounts = o['accounts'] as Map<String, dynamic>;
-        final Map<String, dynamic> reports = o['reports'] as Map<String, dynamic>;
-        final Map<String, dynamic> sessions = o['sessions'] as Map<String, dynamic>;
-        final Map<String, dynamic> diag = o['diagnostics24h'] as Map<String, dynamic>;
-        final Map<String, dynamic>? backup = o['lastBackup'] as Map<String, dynamic>?;
-        final List<Map<String, dynamic>> daily =
-            (o['daily'] as List<dynamic>).cast<Map<String, dynamic>>();
+        final Map<String, dynamic> accounts =
+            o['accounts'] as Map<String, dynamic>;
+        final Map<String, dynamic> reports =
+            o['reports'] as Map<String, dynamic>;
+        final Map<String, dynamic> sessions =
+            o['sessions'] as Map<String, dynamic>;
+        final Map<String, dynamic> diag =
+            o['diagnostics24h'] as Map<String, dynamic>;
+        final Map<String, dynamic>? backup =
+            o['lastBackup'] as Map<String, dynamic>?;
+        final List<Map<String, dynamic>> daily = (o['daily'] as List<dynamic>)
+            .cast<Map<String, dynamic>>();
         final List<Map<String, dynamic>> versions =
             (o['versions'] as List<dynamic>).cast<Map<String, dynamic>>();
         final ColorScheme s = Theme.of(context).colorScheme;
         final int critical = reports['critical'] as int;
         final int errors = diag['errors'] as int;
-        final bool backupStale = backup == null ||
+        final bool backupStale =
+            backup == null ||
             backup['status'] != 'ok' ||
-            DateTime.now().difference(DateTime.parse(backup['startedAt'] as String)) >
+            DateTime.now().difference(
+                  DateTime.parse(backup['startedAt'] as String),
+                ) >
                 const Duration(hours: 36);
 
         return ConsoleList(
@@ -255,7 +285,8 @@ class OverviewTab extends StatelessWidget {
                 child: NoticeTray(
                   icon: Icons.sos,
                   color: EchoTheme.sos,
-                  text: '$critical critical report${critical == 1 ? '' : 's'} open. '
+                  text:
+                      '$critical critical report${critical == 1 ? '' : 's'} open. '
                       'Someone may be in danger. Open Reports.',
                 ),
               ),
@@ -274,27 +305,78 @@ class OverviewTab extends StatelessWidget {
               ),
             _TileGrid(
               tiles: <_Stat>[
-                _Stat('Open reports', '${reports['open']}',
-                    critical > 0 ? '$critical critical' : 'none critical',
-                    critical > 0 ? EchoTheme.sos : null, Icons.flag_outlined),
-                _Stat('Sessions', '${sessions['last24h']}', '${sessions['last7d']} this week', null, Icons.hub_outlined),
-                _Stat('SOS sessions', '${sessions['withSos7d']}', 'in the last 7 days',
-                    (sessions['withSos7d'] as int) > 0 ? EchoTheme.sos : null, Icons.sos),
-                _Stat('People', '${accounts['active']}',
-                    '${accounts['pending']} unverified · ${accounts['disabled']} off', null, Icons.people_outline),
-                _Stat('Devices online', '${o['devicesActive24h']}', 'seen in 24 h', null, Icons.devices),
-                _Stat('App errors', '$errors', '${diag['warnings']} warnings · 24 h',
-                    errors > 0 ? s.error : null, Icons.error_outline),
+                _Stat(
+                  'Open reports',
+                  '${reports['open']}',
+                  critical > 0 ? '$critical critical' : 'none critical',
+                  critical > 0 ? EchoTheme.sos : null,
+                  Icons.flag_outlined,
+                ),
+                _Stat(
+                  'Sessions',
+                  '${sessions['last24h']}',
+                  '${sessions['last7d']} this week',
+                  null,
+                  Icons.hub_outlined,
+                ),
+                _Stat(
+                  'SOS sessions',
+                  '${sessions['withSos7d']}',
+                  'in the last 7 days',
+                  (sessions['withSos7d'] as int) > 0 ? EchoTheme.sos : null,
+                  Icons.sos,
+                ),
+                _Stat(
+                  'People',
+                  '${accounts['active']}',
+                  '${accounts['pending']} unverified · ${accounts['disabled']} off',
+                  null,
+                  Icons.people_outline,
+                ),
+                _Stat(
+                  'Devices online',
+                  '${o['devicesActive24h']}',
+                  'seen in 24 h',
+                  null,
+                  Icons.devices,
+                ),
+                _Stat(
+                  'App errors',
+                  '$errors',
+                  '${diag['warnings']} warnings · 24 h',
+                  errors > 0 ? s.error : null,
+                  Icons.error_outline,
+                ),
               ],
             ),
             const SectionLabel('Last 14 days'),
             LayoutBuilder(
               builder: (BuildContext context, BoxConstraints c) {
                 final List<Widget> charts = <Widget>[
-                  _DailyBars(title: 'Sessions per day', days: daily, field: 'sessions', color: s.primary),
-                  _DailyBars(title: 'Sessions with an SOS', days: daily, field: 'sos', color: EchoTheme.sos),
-                  _DailyBars(title: 'App errors', days: daily, field: 'errors', color: s.error),
-                  _DailyBars(title: 'Reports filed', days: daily, field: 'reports', color: s.tertiary),
+                  _DailyBars(
+                    title: 'Sessions per day',
+                    days: daily,
+                    field: 'sessions',
+                    color: s.primary,
+                  ),
+                  _DailyBars(
+                    title: 'Sessions with an SOS',
+                    days: daily,
+                    field: 'sos',
+                    color: EchoTheme.sos,
+                  ),
+                  _DailyBars(
+                    title: 'App errors',
+                    days: daily,
+                    field: 'errors',
+                    color: s.error,
+                  ),
+                  _DailyBars(
+                    title: 'Reports filed',
+                    days: daily,
+                    field: 'reports',
+                    color: s.tertiary,
+                  ),
                 ];
                 final int columns = c.maxWidth >= 720 ? 2 : 1;
                 return Wrap(
@@ -302,7 +384,10 @@ class OverviewTab extends StatelessWidget {
                   runSpacing: 12,
                   children: <Widget>[
                     for (final Widget w in charts)
-                      SizedBox(width: (c.maxWidth - 12 * (columns - 1)) / columns, child: w),
+                      SizedBox(
+                        width: (c.maxWidth - 12 * (columns - 1)) / columns,
+                        child: w,
+                      ),
                   ],
                 );
               },
@@ -320,8 +405,12 @@ class OverviewTab extends StatelessWidget {
                     ListTile(
                       dense: true,
                       leading: const Icon(Icons.phone_android),
-                      title: Text('${v['platform']} · EchoPin ${v['appVersion']}'),
-                      trailing: Text('${v['devices']} device${v['devices'] == 1 ? '' : 's'}'),
+                      title: Text(
+                        '${v['platform']} · EchoPin ${v['appVersion']}',
+                      ),
+                      trailing: Text(
+                        '${v['devices']} device${v['devices'] == 1 ? '' : 's'}',
+                      ),
                     ),
                 ],
               ),
@@ -372,17 +461,35 @@ class _TileGrid extends StatelessWidget {
                     children: <Widget>[
                       Row(
                         children: <Widget>[
-                          Icon(s.icon, size: 16, color: s.accent ?? t.colorScheme.onSurfaceVariant),
+                          Icon(
+                            s.icon,
+                            size: 16,
+                            color: s.accent ?? t.colorScheme.onSurfaceVariant,
+                          ),
                           const SizedBox(width: 6),
                           Expanded(
-                            child: Text(s.label, style: t.textTheme.labelMedium, overflow: TextOverflow.ellipsis),
+                            child: Text(
+                              s.label,
+                              style: t.textTheme.labelMedium,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       // The number wears text ink; the icon carries the accent.
-                      Text(s.value, style: t.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w600)),
-                      Text(s.detail, style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
+                      Text(
+                        s.value,
+                        style: t.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        s.detail,
+                        style: t.textTheme.bodySmall?.copyWith(
+                          color: t.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -397,7 +504,12 @@ class _TileGrid extends StatelessWidget {
 /// One series per chart (small multiples, never a dual axis). Bars have a
 /// rounded data end, square baseline, a 2 px gap, and a tooltip per day.
 class _DailyBars extends StatelessWidget {
-  const _DailyBars({required this.title, required this.days, required this.field, required this.color});
+  const _DailyBars({
+    required this.title,
+    required this.days,
+    required this.field,
+    required this.color,
+  });
   final String title;
   final List<Map<String, dynamic>> days;
   final String field;
@@ -406,7 +518,9 @@ class _DailyBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData t = Theme.of(context);
-    final List<int> values = days.map((Map<String, dynamic> d) => d[field] as int).toList();
+    final List<int> values = days
+        .map((Map<String, dynamic> d) => d[field] as int)
+        .toList();
     final int maxV = values.fold(0, math.max);
     final int total = values.fold(0, (int a, int b) => a + b);
     return Tray(
@@ -437,10 +551,19 @@ class _DailyBars extends StatelessWidget {
                           alignment: Alignment.bottomCenter,
                           padding: const EdgeInsets.symmetric(horizontal: 1),
                           child: Container(
-                            height: maxV == 0 ? 1 : math.max(values[i] == 0 ? 1.0 : 3.0, 72.0 * values[i] / maxV),
+                            height: maxV == 0
+                                ? 1
+                                : math.max(
+                                    values[i] == 0 ? 1.0 : 3.0,
+                                    72.0 * values[i] / maxV,
+                                  ),
                             decoration: BoxDecoration(
-                              color: values[i] == 0 ? t.colorScheme.outlineVariant : color,
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                              color: values[i] == 0
+                                  ? t.colorScheme.outlineVariant
+                                  : color,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(4),
+                              ),
                             ),
                           ),
                         ),
@@ -468,7 +591,20 @@ class _DailyBars extends StatelessWidget {
 String _day(Object? iso) {
   final DateTime? d = iso is String ? DateTime.tryParse(iso) : null;
   if (d == null) return '';
-  const List<String> m = <String>['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const List<String> m = <String>[
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   return '${d.day} ${m[d.month - 1]}';
 }
 
@@ -497,13 +633,15 @@ class _DailyTable extends StatelessWidget {
               ],
               rows: <DataRow>[
                 for (final Map<String, dynamic> d in days.reversed)
-                  DataRow(cells: <DataCell>[
-                    DataCell(Text(_day(d['day']))),
-                    DataCell(Text('${d['sessions']}')),
-                    DataCell(Text('${d['sos']}')),
-                    DataCell(Text('${d['errors']}')),
-                    DataCell(Text('${d['reports']}')),
-                  ]),
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(Text(_day(d['day']))),
+                      DataCell(Text('${d['sessions']}')),
+                      DataCell(Text('${d['sos']}')),
+                      DataCell(Text('${d['errors']}')),
+                      DataCell(Text('${d['reports']}')),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -512,8 +650,6 @@ class _DailyTable extends StatelessWidget {
     );
   }
 }
-
-
 
 /// Custodian keys on this device: needed to open double-sealed records.
 ///
@@ -552,11 +688,14 @@ class _CustodianDialogState extends State<_CustodianDialog> {
 
   Future<void> _import() async {
     try {
-      final String id = await AccountScope.read(context).importCustodianKey(_key.text);
+      final String id = await AccountScope.read(
+        context,
+      ).importCustodianKey(_key.text);
       _key.clear();
       setState(() {
         _error = null;
-        _info = 'Imported key $id. Double-sealed records sealed to it now open here.';
+        _info =
+            'Imported key $id. Double-sealed records sealed to it now open here.';
       });
       await _load();
     } catch (e) {
@@ -584,7 +723,10 @@ class _CustodianDialogState extends State<_CustodianDialog> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.key),
-                title: Text(id, style: const TextStyle(fontFamily: 'monospace')),
+                title: Text(
+                  id,
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
                 trailing: IconButton(
                   tooltip: 'Remove from this device',
                   icon: const Icon(Icons.delete_outline),
@@ -597,16 +739,31 @@ class _CustodianDialogState extends State<_CustodianDialog> {
             TextField(
               controller: _key,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'ECHOPIN-CUSTODIAN-1:…'),
+              // Prefix (20) + base64url seed (43); generous room for padding.
+              maxLength: 80,
+              decoration: const InputDecoration(
+                labelText: 'ECHOPIN-CUSTODIAN-1:…',
+                counterText: '',
+              ),
             ),
-            if (_info != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_info!)),
+            if (_info != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(_info!),
+              ),
             ErrorLine(_error),
           ],
         ),
       ),
       actions: <Widget>[
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
-        FilledButton(onPressed: () => unawaited(_import()), child: const Text('Import')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+        FilledButton(
+          onPressed: () => unawaited(_import()),
+          child: const Text('Import'),
+        ),
       ],
     );
   }

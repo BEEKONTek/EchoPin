@@ -28,9 +28,10 @@ class EchoPinApi {
     // A free hosted server that has gone to sleep takes about a minute to
     // wake; a shorter timeout would report "offline" for a working server.
     this.timeout = const Duration(seconds: 75),
-  })
-    : baseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl,
-      _client = client ?? http.Client();
+  }) : baseUrl = baseUrl.endsWith('/')
+           ? baseUrl.substring(0, baseUrl.length - 1)
+           : baseUrl,
+       _client = client ?? http.Client();
 
   final String baseUrl;
   final http.Client _client;
@@ -50,8 +51,11 @@ class EchoPinApi {
   Future<Map<String, dynamic>> get(String path, {String? token}) =>
       send('GET', path, token: token);
 
-  Future<Map<String, dynamic>> post(String path, {Object? body, String? token}) =>
-      send('POST', path, body: body, token: token);
+  Future<Map<String, dynamic>> post(
+    String path, {
+    Object? body,
+    String? token,
+  }) => send('POST', path, body: body, token: token);
 
   Future<Map<String, dynamic>> send(
     String method,
@@ -68,7 +72,9 @@ class EchoPinApi {
     }
     final http.Response res;
     try {
-      res = await http.Response.fromStream(await _client.send(req).timeout(timeout));
+      res = await http.Response.fromStream(
+        await _client.send(req).timeout(timeout),
+      );
     } on TimeoutException {
       throw const OfflineError();
     } on http.ClientException {
@@ -112,7 +118,18 @@ class EchoPinApi {
 }
 
 const List<String> _months = <String>[
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 /// Parses an RFC 1123 HTTP date (`Sun, 08 Nov 2026 10:00:00 GMT`), the only
@@ -127,7 +144,11 @@ DateTime? parseHttpDate(String? v) {
   final int month = _months.indexOf(m.group(2)!) + 1;
   if (month == 0) return null;
   return DateTime.utc(
-    int.parse(m.group(3)!), month, int.parse(m.group(1)!),
-    int.parse(m.group(4)!), int.parse(m.group(5)!), int.parse(m.group(6)!),
+    int.parse(m.group(3)!),
+    month,
+    int.parse(m.group(1)!),
+    int.parse(m.group(4)!),
+    int.parse(m.group(5)!),
+    int.parse(m.group(6)!),
   );
 }

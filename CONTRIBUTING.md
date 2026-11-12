@@ -11,7 +11,7 @@ Please read our [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) before contributing. 
 ## How to Contribute
 
 ### 1. Report a Bug
-**Found a bug?** [Open an issue](https://github.com/botlhalepono/echopin/issues/new?labels=bug) with:
+**Found a bug?** [Open an issue](https://github.com/BEEKONTek/EchoPin/issues/new?labels=bug) with:
 - Clear description of the problem
 - Steps to reproduce
 - Expected vs. actual behaviour
@@ -19,7 +19,7 @@ Please read our [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) before contributing. 
 - Screenshots or logs if applicable
 
 ### 2. Request a Feature
-**Have an idea?** [Open an issue](https://github.com/botlhalepono/echopin/issues/new?labels=enhancement) with:
+**Have an idea?** [Open an issue](https://github.com/BEEKONTek/EchoPin/issues/new?labels=enhancement) with:
 - Clear description of the feature
 - Why it would be useful
 - Example use case
@@ -29,8 +29,8 @@ Please read our [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) before contributing. 
 
 #### Fork & Clone
 ```bash
-git clone https://github.com//echopin.git
-cd echopin
+git clone https://github.com/BEEKONTek/EchoPin.git
+cd EchoPin
 git checkout -b feature/your-feature-name
 ```
 
@@ -39,7 +39,7 @@ git checkout -b feature/your-feature-name
 **Dart/Flutter Code:**
 - Follow [Effective Dart](https://dart.dev/guides/language/effective-dart) conventions
 - Use `flutter analyze` to check for issues
-- Run `dart format .` to auto-format code
+- Run `dart format lib test` (and `dart format .` inside `server/`) to auto-format code; CI checks it
 - Keep lines < 80 characters where possible
 - Use meaningful variable names (avoid `a`, `b`, `temp`)
 - Add comments for complex logic
@@ -75,7 +75,7 @@ flutter test
 flutter test --coverage
 
 # Run a specific test file
-flutter test test/unit/location_engine_test.dart
+flutter test test/services/location_engine_noise_test.dart
 ```
 
 #### Lint & Format

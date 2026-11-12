@@ -85,17 +85,33 @@ class FakeEchoPinServer {
   Duration serverSkew = Duration.zero;
   DateTime get _now => DateTime.now().toUtc().add(serverSkew);
 
+  /// Requests being handled right now; tests wait for 0 (see `settle`).
+  int inFlight = 0;
+
+  /// Requests ever received.
+  int requests = 0;
+
   http.Client get client => MockClient((http.Request req) async {
-    final http.Response r = await _handle(req);
-    return http.Response(r.body, r.statusCode,
-        headers: <String, String>{...r.headers, 'date': HttpDate.format(_now)});
+    inFlight++;
+    requests++;
+    try {
+      final http.Response r = await _handle(req);
+      return http.Response(
+        r.body,
+        r.statusCode,
+        headers: <String, String>{...r.headers, 'date': HttpDate.format(_now)},
+      );
+    } finally {
+      inFlight--;
+    }
   });
 
   Future<http.Response> _handle(http.Request req) async {
     if (offline) throw http.ClientException('offline', req.url);
     final String path = req.url.path;
-    final Map<String, dynamic> body =
-        req.body.isEmpty ? <String, dynamic>{} : jsonDecode(req.body) as Map<String, dynamic>;
+    final Map<String, dynamic> body = req.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(req.body) as Map<String, dynamic>;
     switch ((req.method, path)) {
       case ('GET', '/v1/config'):
         return _json(<String, Object?>{
@@ -118,7 +134,9 @@ class FakeEchoPinServer {
       case ('POST', '/v1/auth/register'):
         return _json(<String, Object?>{'status': 'verification_sent'}, 202);
     }
-    if (!_validAccess.contains(req.headers['authorization']?.replaceFirst('Bearer ', ''))) {
+    if (!_validAccess.contains(
+      req.headers['authorization']?.replaceFirst('Bearer ', ''),
+    )) {
       return _error(401, 'unauthorized', 'Sign in again to continue');
     }
     switch ((req.method, path)) {
@@ -128,37 +146,66 @@ class FakeEchoPinServer {
         return _json(<String, Object?>{
           'devices': <Object?>[
             <String, Object?>{
-              'id': 'device-1', 'label': 'Android device', 'platform': 'Android',
-              'appVersion': '0.4.0', 'lastSeenAt': DateTime.now().toUtc().toIso8601String(),
-              'revokedAt': null, 'current': true,
+              'id': 'device-1',
+              'label': 'Android device',
+              'platform': 'Android',
+              'appVersion': '0.4.0',
+              'lastSeenAt': DateTime.now().toUtc().toIso8601String(),
+              'revokedAt': null,
+              'current': true,
             },
           ],
         });
       case ('GET', '/v1/me/reports'):
         return _json(<String, Object?>{'reports': <Object?>[]});
       case ('GET', '/v1/admin/overview'):
-        if (role == 'member') return _error(403, 'forbidden', 'Your account is not allowed to do that');
+        if (role == 'member') {
+          return _error(
+            403,
+            'forbidden',
+            'Your account is not allowed to do that',
+          );
+        }
         final DateTime now = DateTime.now().toUtc();
         return _json(<String, Object?>{
           'generatedAt': now.toIso8601String(),
-          'accounts': <String, Object?>{'active': 12, 'pending': 1, 'disabled': 0},
+          'accounts': <String, Object?>{
+            'active': 12,
+            'pending': 1,
+            'disabled': 0,
+          },
           'devicesActive24h': 9,
           'diagnostics24h': <String, Object?>{'errors': 2, 'warnings': 3},
           'reports': <String, Object?>{'open': 4, 'critical': 1},
-          'sessions': <String, Object?>{'last24h': 3, 'last7d': 11, 'withSos7d': 1},
+          'sessions': <String, Object?>{
+            'last24h': 3,
+            'last7d': 11,
+            'withSos7d': 1,
+          },
           'versions': <Object?>[
-            <String, Object?>{'platform': 'Android', 'appVersion': '0.4.0', 'devices': 7},
+            <String, Object?>{
+              'platform': 'Android',
+              'appVersion': '0.4.0',
+              'devices': 7,
+            },
           ],
           'daily': <Object?>[
             for (int i = 13; i >= 0; i--)
               <String, Object?>{
                 'day': now.subtract(Duration(days: i)).toIso8601String(),
-                'sessions': i % 3, 'sos': i == 2 ? 1 : 0, 'errors': i % 2, 'reports': i == 0 ? 1 : 0,
+                'sessions': i % 3,
+                'sos': i == 2 ? 1 : 0,
+                'errors': i % 2,
+                'reports': i == 0 ? 1 : 0,
               },
           ],
           'lastBackup': <String, Object?>{
-            'status': 'ok', 'fileName': 'echopin-x.epbk', 'sizeBytes': 1000,
-            'startedAt': now.subtract(const Duration(hours: 3)).toIso8601String(),
+            'status': 'ok',
+            'fileName': 'echopin-x.epbk',
+            'sizeBytes': 1000,
+            'startedAt': now
+                .subtract(const Duration(hours: 3))
+                .toIso8601String(),
           },
         });
       case ('POST', '/v1/session-logs'):
@@ -167,10 +214,16 @@ class FakeEchoPinServer {
         final int? fail = failNextUploadWith;
         if (fail != null) {
           failNextUploadWith = null;
-          return _error(fail, fail >= 500 ? 'server_error' : 'invalid_input', 'Refused ($fail)');
+          return _error(
+            fail,
+            fail >= 500 ? 'server_error' : 'invalid_input',
+            'Refused ($fail)',
+          );
         }
         if (path == '/v1/session-logs') {
-          if (body.containsKey('plain')) return _error(400, 'invalid_input', 'sent unsealed!');
+          if (body.containsKey('plain')) {
+            return _error(400, 'invalid_input', 'sent unsealed!');
+          }
           SealedBox.checkStructure(base64.decode(body['sealed'] as String));
           sessionLogs.add(body);
         } else if (path == '/v1/diagnostics') {
@@ -186,7 +239,11 @@ class FakeEchoPinServer {
   Future<http.Response> _login(Map<String, dynamic> b) async {
     loginCount++;
     if (b['password'] != password) {
-      return _error(401, 'invalid_credentials', 'That email and password do not match');
+      return _error(
+        401,
+        'invalid_credentials',
+        'That email and password do not match',
+      );
     }
     final Map<String, dynamic> device = b['device'] as Map<String, dynamic>;
     lastDevice = device;
@@ -206,12 +263,19 @@ class FakeEchoPinServer {
     }
     if (totpRequired && b['totp'] != totpCode) {
       return b['totp'] == null
-          ? _error(401, 'totp_required', 'Enter the 6-digit code from your authenticator app')
+          ? _error(
+              401,
+              'totp_required',
+              'Enter the 6-digit code from your authenticator app',
+            )
           : _error(401, 'totp_invalid', 'That authenticator code is not right');
     }
     final String deviceId = 'device-${_deviceKeys.length + 1}';
     _deviceKeys[deviceId] = pub;
-    return _json(<String, Object?>{..._tokens(deviceId), 'account': _account()});
+    return _json(<String, Object?>{
+      ..._tokens(deviceId),
+      'account': _account(),
+    });
   }
 
   Future<http.Response> _refresh(Map<String, dynamic> b) async {
@@ -220,7 +284,11 @@ class FakeEchoPinServer {
     final String? deviceId = _refreshToDevice[token];
     if (refreshRefusal != null) {
       _refreshToDevice.remove(token);
-      return _error(401, refreshRefusal!, 'For your safety this device was signed out. Sign in again');
+      return _error(
+        401,
+        refreshRefusal!,
+        'For your safety this device was signed out. Sign in again',
+      );
     }
     if (deviceId == null || deviceId != b['deviceId']) {
       return _error(401, 'session_revoked', 'Sign in again to continue');
@@ -229,7 +297,9 @@ class FakeEchoPinServer {
       publicKey: _deviceKeys[deviceId]!,
       signature: base64.decode(b['proofSignature'] as String),
       purpose: 'refresh',
-      subject: base64Url.encode(crypto.sha256.convert(utf8.encode(token)).bytes),
+      subject: base64Url.encode(
+        crypto.sha256.convert(utf8.encode(token)).bytes,
+      ),
       timestampMs: b['proofTimestamp'] as int,
       now: _now,
     );

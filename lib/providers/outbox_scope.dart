@@ -8,14 +8,12 @@ import 'package:echo_pin/account/outbox.dart';
 import 'package:flutter/widgets.dart';
 
 class OutboxScope extends InheritedNotifier<Outbox> {
-  const OutboxScope({
-    super.key,
-    required Outbox notifier,
-    required super.child,
-  }) : super(notifier: notifier);
+  const OutboxScope({super.key, required Outbox notifier, required super.child})
+    : super(notifier: notifier);
 
   static Outbox of(BuildContext context) {
-    final OutboxScope? scope = context.dependOnInheritedWidgetOfExactType<OutboxScope>();
+    final OutboxScope? scope = context
+        .dependOnInheritedWidgetOfExactType<OutboxScope>();
     assert(scope != null, 'OutboxScope.of: no OutboxScope in tree');
     return scope!.notifier!;
   }

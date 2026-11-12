@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [0.5.0] — 2026-11-12
+
+### Added
+- **Input validation everywhere.** Every text field is capped in the app at
+  the exact limit the server enforces (one shared `ProtocolLimits`), with
+  instant local checks for email shape, name, password and codes before a
+  request goes out. On the server, ids in URLs are checked before any
+  query (404, never a database error), paging is clamped, search text is
+  length-capped, and a value PostgreSQL refuses becomes a 400 instead of a
+  500. The CLI reports a bad `--email` as a usage error.
+- **System test in one command**: `server/tool/live_check.sh` starts a
+  throwaway database and server and runs 31 end-to-end checks over HTTP.
+- `docs/IMPLEMENTATION.md`: coding, testing, system test cases with
+  results, and installation, with a PDF.
+- GitHub Pages workflow publishing the web demo.
+
+### Changed
+- CI: Lint resolves the nested packages before analysing (it reported 975
+  false errors), test steps use the `github` reporter so failures are
+  readable as annotations, the server job pins `pg_dump`/`pg_restore` to
+  the service's PostgreSQL major, integration tests run one file per step,
+  and the unverified Windows build no longer fails the workflow.
+- Widget tests wait for the fake server to be idle instead of a fixed
+  delay, so slow CI runners don't fail them.
+- Docs: stale June-era `API.md`/`ROADMAP.md` removed; `ARCHITECTURE.md`,
+  `SETUP.md` and the handoff rewritten for the current system; README
+  redesigned.
+- Server version 1.1.0.
+
 
 ### Added
 - **Account PIN.** The signed-in account is now behind a local PIN, like

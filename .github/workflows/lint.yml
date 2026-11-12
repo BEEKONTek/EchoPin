@@ -15,5 +15,12 @@ jobs:
           flutter-version: '3.44.0'
           cache: true
       - run: flutter pub get
+      # `flutter analyze` covers the nested packages too, so resolve them first.
+      - run: cd packages/echopin_protocol && dart pub get
+      - run: cd server && dart pub get
       - run: flutter analyze
-      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: >
+          dart format --output=none --set-exit-if-changed
+          lib test integration_test
+          packages/echopin_protocol/lib packages/echopin_protocol/test
+          server/lib server/bin server/test server/tool

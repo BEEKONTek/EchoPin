@@ -64,7 +64,9 @@ class _ReportScreenState extends State<ReportScreen> {
     }
     final Outbox outbox = OutboxScope.read(context);
     final SessionProvider sessions = SessionScope.read(context);
-    final Map<String, String> diagnostics = AdminScope.read(context).diagnostics();
+    final Map<String, String> diagnostics = AdminScope.read(
+      context,
+    ).diagnostics();
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     final NavigatorState nav = Navigator.of(context);
     final (String, String)? session = _session(sessions);
@@ -76,7 +78,9 @@ class _ReportScreenState extends State<ReportScreen> {
       await outbox.enqueue(OutboxKind.report, <String, dynamic>{
         'category': _category.wire,
         'severity': _category == ReportCategory.safety
-            ? (_urgent ? ReportSeverity.critical.wire : ReportSeverity.high.wire)
+            ? (_urgent
+                  ? ReportSeverity.critical.wire
+                  : ReportSeverity.high.wire)
             : ReportSeverity.normal.wire,
         'subject': subject,
         'body': body,
@@ -84,11 +88,15 @@ class _ReportScreenState extends State<ReportScreen> {
         if (_attachDiagnostics) 'diagnostics': diagnostics,
       });
       final bool sent = await outbox.flush();
-      messenger.showSnackBar(SnackBar(
-        content: Text(sent
-            ? 'Report sent. You can follow it under Account → My reports'
-            : 'Saved. It will be sent as soon as you are back online'),
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            sent
+                ? 'Report sent. You can follow it under Account → My reports'
+                : 'Saved. It will be sent as soon as you are back online',
+          ),
+        ),
+      );
       nav.pop();
     } catch (e) {
       setState(() => _error = errorText(e));
@@ -138,17 +146,23 @@ class _ReportScreenState extends State<ReportScreen> {
                               const NoticeTray(
                                 icon: Icons.sos,
                                 color: EchoTheme.sos,
-                                text: 'If someone is in danger right now, hold SOS in your '
+                                text:
+                                    'If someone is in danger right now, hold SOS in your '
                                     'session and call local emergency services. A report '
                                     'is not an emergency call.',
                               ),
                               SwitchListTile(
                                 key: const Key('report.urgent'),
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text('Someone may still be in danger'),
-                                subtitle: const Text('Puts this at the top of every responder’s list'),
+                                title: const Text(
+                                  'Someone may still be in danger',
+                                ),
+                                subtitle: const Text(
+                                  'Puts this at the top of every responder’s list',
+                                ),
                                 value: _urgent,
-                                onChanged: (bool v) => setState(() => _urgent = v),
+                                onChanged: (bool v) =>
+                                    setState(() => _urgent = v),
                               ),
                             ],
                           ),
@@ -160,7 +174,10 @@ class _ReportScreenState extends State<ReportScreen> {
                   controller: _subject,
                   maxLength: ProtocolLimits.maxReportSubject,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(labelText: 'Short title', counterText: ''),
+                  decoration: const InputDecoration(
+                    labelText: 'Short title',
+                    counterText: '',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -182,7 +199,9 @@ class _ReportScreenState extends State<ReportScreen> {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('App diagnostics'),
-                  subtitle: const Text('Version, radios and error counts. Never locations.'),
+                  subtitle: const Text(
+                    'Version, radios and error counts. Never locations.',
+                  ),
                   value: _attachDiagnostics,
                   onChanged: (bool v) => setState(() => _attachDiagnostics = v),
                 ),
@@ -190,7 +209,9 @@ class _ReportScreenState extends State<ReportScreen> {
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text('Link “${session.$2}”'),
-                    subtitle: const Text('Lets a responder find that session’s sealed record'),
+                    subtitle: const Text(
+                      'Lets a responder find that session’s sealed record',
+                    ),
                     value: _linkSession,
                     onChanged: (bool v) => setState(() => _linkSession = v),
                   ),
@@ -206,7 +227,9 @@ class _ReportScreenState extends State<ReportScreen> {
                 Text(
                   'Reports go to your EchoPin administrators.',
                   textAlign: TextAlign.center,
-                  style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant),
+                  style: t.textTheme.bodySmall?.copyWith(
+                    color: t.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),

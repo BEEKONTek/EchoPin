@@ -40,7 +40,11 @@ class AccountProvider extends ChangeNotifier {
   }) : _kv = kv,
        _deviceKey = DeviceKeyStore(kv),
        _pinnedCustodian = _decodeKey(pinnedCustodianKey),
-       _api = api ?? (serverUrlAllowed(serverUrl) ? EchoPinApi(baseUrl: serverUrl) : null),
+       _api =
+           api ??
+           (serverUrlAllowed(serverUrl)
+               ? EchoPinApi(baseUrl: serverUrl)
+               : null),
        _clock = clock ?? DateTime.now;
 
   final KeyValueStore _kv;
@@ -91,11 +95,14 @@ class AccountProvider extends ChangeNotifier {
   /// Now, corrected by the server's clock (see [EchoPinApi.clockOffset]).
   /// Used for proof timestamps and token expiry, which the server judges
   /// by its own clock.
-  DateTime _serverNow() => _clock().toUtc().add(_api?.clockOffset ?? Duration.zero);
+  DateTime _serverNow() =>
+      _clock().toUtc().add(_api?.clockOffset ?? Duration.zero);
 
   EchoPinApi get _server {
     final EchoPinApi? api = _api;
-    if (api == null) throw const UnexpectedError('No EchoPin server is configured');
+    if (api == null) {
+      throw const UnexpectedError('No EchoPin server is configured');
+    }
     return api;
   }
 
@@ -140,13 +147,26 @@ class AccountProvider extends ChangeNotifier {
     required String password,
     required String displayName,
   }) async {
+    _requireEmail(email);
+    if (displayName.trim().isEmpty) {
+      throw const AccountError('invalid_name', 'Enter your name');
+    }
+    if (displayName.trim().length > ProtocolLimits.maxDisplayName) {
+      throw AccountError(
+        'invalid_name',
+        'Names can be at most ${ProtocolLimits.maxDisplayName} characters',
+      );
+    }
     final String? weak = localPasswordProblem(password);
     if (weak != null) throw AccountError('weak_password', weak);
-    await _server.post('/v1/auth/register', body: <String, Object?>{
-      'email': email.trim(),
-      'password': password,
-      'displayName': displayName.trim(),
-    });
+    await _server.post(
+      '/v1/auth/register',
+      body: <String, Object?>{
+        'email': email.trim(),
+        'password': password,
+        'displayName': displayName.trim(),
+      },
+    );
     _pendingEmail = email.trim();
     _signedOutReason = null;
     _notify();
@@ -156,13 +176,17 @@ class AccountProvider extends ChangeNotifier {
   /// sign-up as well as the code, so nobody who re-registers the same
   /// address in between can get their password activated.
   Future<void> verifyEmail(String code, {required String password}) async {
+    _requireCode(code);
     final String? email = _pendingEmail;
     if (email == null) throw const UnexpectedError('No sign-up in progress');
-    await _server.post('/v1/auth/verify-email', body: <String, Object?>{
-      'email': email,
-      'code': code.trim(),
-      'password': password,
-    });
+    await _server.post(
+      '/v1/auth/verify-email',
+      body: <String, Object?>{
+        'email': email,
+        'code': code.trim(),
+        'password': password,
+      },
+    );
   }
 
   /// Picks up an unfinished sign-up (sign-in said the email isn't
@@ -180,7 +204,10 @@ class AccountProvider extends ChangeNotifier {
   Future<void> resendCode() async {
     final String? email = _pendingEmail;
     if (email == null) return;
-    await _server.post('/v1/auth/resend-code', body: <String, Object?>{'email': email});
+    await _server.post(
+      '/v1/auth/resend-code',
+      body: <String, Object?>{'email': email},
+    );
   }
 
   /// Leave the code screen (e.g. wrong address typed).
@@ -198,6 +225,16 @@ class AccountProvider extends ChangeNotifier {
     required String password,
     String? totp,
   }) async {
+    _requireEmail(email);
+    if (password.isEmpty) {
+      throw const AccountError('invalid_password', 'Enter your password');
+    }
+    if ((totp ?? '').isNotEmpty && !RegExp(r'^\d{6}$').hasMatch(totp!.trim())) {
+      throw const AccountError(
+        'invalid_code',
+        'The authenticator code is 6 digits',
+      );
+    }
     try {
       await _signIn(email: email, password: password, totp: totp);
     } on AccountError catch (e) {
@@ -232,20 +269,23 @@ class AccountProvider extends ChangeNotifier {
       subject: norm,
       timestampMs: ts,
     );
-    final Map<String, dynamic> r = await _server.post('/v1/auth/login', body: <String, Object?>{
-      'email': norm,
-      'password': password,
-      if (totp != null && totp.trim().isNotEmpty) 'totp': totp.trim(),
-      'device': <String, Object?>{
-        'publicKey': base64.encode(await _deviceKey.publicKey()),
-        'label': '$platform device',
-        'platform': platform,
-        'appVersion': appVersion,
-        'secureStorage': secureKeyStorage,
+    final Map<String, dynamic> r = await _server.post(
+      '/v1/auth/login',
+      body: <String, Object?>{
+        'email': norm,
+        'password': password,
+        if (totp != null && totp.trim().isNotEmpty) 'totp': totp.trim(),
+        'device': <String, Object?>{
+          'publicKey': base64.encode(await _deviceKey.publicKey()),
+          'label': '$platform device',
+          'platform': platform,
+          'appVersion': appVersion,
+          'secureStorage': secureKeyStorage,
+        },
+        'proofTimestamp': ts,
+        'proofSignature': base64.encode(sig),
       },
-      'proofTimestamp': ts,
-      'proofSignature': base64.encode(sig),
-    });
+    );
     _tokens = AuthTokens.fromJson(r);
     _account = Account.fromJson(r['account'] as Map<String, dynamic>);
     _pendingEmail = null;
@@ -269,28 +309,42 @@ class AccountProvider extends ChangeNotifier {
     await _clearSession(reason);
   }
 
-  Future<void> forgotPassword(String email) =>
-      _server.post('/v1/auth/password/forgot', body: <String, Object?>{'email': email.trim()});
+  Future<void> forgotPassword(String email) {
+    _requireEmail(email);
+    return _server.post(
+      '/v1/auth/password/forgot',
+      body: <String, Object?>{'email': email.trim()},
+    );
+  }
 
   Future<void> resetPassword({
     required String email,
     required String code,
     required String newPassword,
   }) async {
+    _requireEmail(email);
+    _requireCode(code);
     final String? weak = localPasswordProblem(newPassword);
     if (weak != null) throw AccountError('weak_password', weak);
-    await _server.post('/v1/auth/password/reset', body: <String, Object?>{
-      'email': email.trim(),
-      'code': code.trim(),
-      'newPassword': newPassword,
-    });
+    await _server.post(
+      '/v1/auth/password/reset',
+      body: <String, Object?>{
+        'email': email.trim(),
+        'code': code.trim(),
+        'newPassword': newPassword,
+      },
+    );
   }
 
   // ── Authorised requests ────────────────────────────────────────────────
 
   /// Sends an authenticated request, refreshing tokens as needed. Throws
   /// [OfflineError] when unreachable and [AccountError] when refused.
-  Future<Map<String, dynamic>> authed(String method, String path, {Object? body}) async {
+  Future<Map<String, dynamic>> authed(
+    String method,
+    String path, {
+    Object? body,
+  }) async {
     AuthTokens t = await _validTokens();
     try {
       return await _server.send(method, path, body: body, token: t.accessToken);
@@ -304,7 +358,11 @@ class AccountProvider extends ChangeNotifier {
   Future<AuthTokens> _validTokens() async {
     final AuthTokens? t = _tokens;
     if (t == null) {
-      throw const AccountError('unauthorized', 'Sign in to continue', status: 401);
+      throw const AccountError(
+        'unauthorized',
+        'Sign in to continue',
+        status: 401,
+      );
     }
     if (t.accessUsableAt(_serverNow())) return t;
     return _refresh();
@@ -315,7 +373,9 @@ class AccountProvider extends ChangeNotifier {
   Future<AuthTokens> _refresh() {
     final Future<AuthTokens>? inFlight = _refreshing;
     if (inFlight != null) return inFlight;
-    final Future<AuthTokens> f = _doRefresh().whenComplete(() => _refreshing = null);
+    final Future<AuthTokens> f = _doRefresh().whenComplete(
+      () => _refreshing = null,
+    );
     _refreshing = f;
     return f;
   }
@@ -323,7 +383,11 @@ class AccountProvider extends ChangeNotifier {
   Future<AuthTokens> _doRefresh() async {
     final AuthTokens? t = _tokens;
     if (t == null) {
-      throw const AccountError('unauthorized', 'Sign in to continue', status: 401);
+      throw const AccountError(
+        'unauthorized',
+        'Sign in to continue',
+        status: 401,
+      );
     }
     final int ts = _serverNow().millisecondsSinceEpoch;
     final List<int> sig = await DeviceProof.sign(
@@ -333,12 +397,15 @@ class AccountProvider extends ChangeNotifier {
       timestampMs: ts,
     );
     try {
-      final Map<String, dynamic> r = await _server.post('/v1/auth/refresh', body: <String, Object?>{
-        'refreshToken': t.refreshToken,
-        'deviceId': t.deviceId,
-        'proofTimestamp': ts,
-        'proofSignature': base64.encode(sig),
-      });
+      final Map<String, dynamic> r = await _server.post(
+        '/v1/auth/refresh',
+        body: <String, Object?>{
+          'refreshToken': t.refreshToken,
+          'deviceId': t.deviceId,
+          'proofTimestamp': ts,
+          'proofSignature': base64.encode(sig),
+        },
+      );
       _tokens = AuthTokens.fromJson(r);
       await _persist();
       return _tokens!;
@@ -357,7 +424,9 @@ class AccountProvider extends ChangeNotifier {
 
   /// Must match the server: base64url(SHA-256(refresh token)).
   static String refreshSubject(String refreshToken) {
-    return base64Url.encode(crypto.sha256.convert(utf8.encode(refreshToken)).bytes);
+    return base64Url.encode(
+      crypto.sha256.convert(utf8.encode(refreshToken)).bytes,
+    );
   }
 
   // ── Profile, devices, two-step ─────────────────────────────────────────
@@ -374,7 +443,9 @@ class AccountProvider extends ChangeNotifier {
     if (api == null) return null;
     try {
       final Map<String, dynamic> cfg = await api.get('/v1/config');
-      final EscrowKey key = _pinCustodian(EscrowKey.fromJson(cfg['escrow'] as Map<String, dynamic>));
+      final EscrowKey key = _pinCustodian(
+        EscrowKey.fromJson(cfg['escrow'] as Map<String, dynamic>),
+      );
       if (jsonEncode(key.toJson()) != jsonEncode(_escrow?.toJson())) {
         _escrow = key;
         await _kv.write(_kEscrow, jsonEncode(key.toJson()));
@@ -426,16 +497,25 @@ class AccountProvider extends ChangeNotifier {
     final String t = text.trim();
     const String prefix = 'ECHOPIN-CUSTODIAN-1:';
     if (!t.startsWith(prefix)) {
-      throw const AccountError('bad_custodian_key', 'That is not an EchoPin custodian key. It starts with ECHOPIN-CUSTODIAN-1:');
+      throw const AccountError(
+        'bad_custodian_key',
+        'That is not an EchoPin custodian key. It starts with ECHOPIN-CUSTODIAN-1:',
+      );
     }
     List<int> seed;
     try {
       seed = base64Url.decode(base64Url.normalize(t.substring(prefix.length)));
     } catch (_) {
-      throw const AccountError('bad_custodian_key', 'That custodian key is damaged. Copy it again');
+      throw const AccountError(
+        'bad_custodian_key',
+        'That custodian key is damaged. Copy it again',
+      );
     }
     if (seed.length != 32) {
-      throw const AccountError('bad_custodian_key', 'That custodian key is damaged. Copy it again');
+      throw const AccountError(
+        'bad_custodian_key',
+        'That custodian key is damaged. Copy it again',
+      );
     }
     final SimpleKeyPair kp = await X25519().newKeyPairFromSeed(seed);
     final String id = SealedBox.keyIdFor((await kp.extractPublicKey()).bytes);
@@ -447,7 +527,8 @@ class AccountProvider extends ChangeNotifier {
   }
 
   /// Ids of the custodian keys on this device.
-  Future<List<String>> custodianKeyIds() async => (await _custodianPrivates()).keys.toList();
+  Future<List<String>> custodianKeyIds() async =>
+      (await _custodianPrivates()).keys.toList();
 
   Future<void> removeCustodianKey(String id) async {
     final Map<String, String> all = await _custodianPrivates();
@@ -465,7 +546,9 @@ class AccountProvider extends ChangeNotifier {
   }) async {
     final String? seed = (await _custodianPrivates())[custodianKeyId];
     if (seed == null) return null;
-    final SimpleKeyPair kp = await X25519().newKeyPairFromSeed(base64.decode(seed));
+    final SimpleKeyPair kp = await X25519().newKeyPairFromSeed(
+      base64.decode(seed),
+    );
     final List<int> clear = await SealedBox.open(
       recipient: kp,
       sealed: sealedInner,
@@ -498,28 +581,35 @@ class AccountProvider extends ChangeNotifier {
   Future<void> changePassword(String current, String next) async {
     final String? weak = localPasswordProblem(next);
     if (weak != null) throw AccountError('weak_password', weak);
-    await authed('POST', '/v1/me/password', body: <String, Object?>{
-      'currentPassword': current,
-      'newPassword': next,
-    });
+    await authed(
+      'POST',
+      '/v1/me/password',
+      body: <String, Object?>{'currentPassword': current, 'newPassword': next},
+    );
   }
 
   /// Returns `secret` (base32) and `otpauthUri` for the authenticator app.
-  Future<Map<String, dynamic>> totpSetup() => authed('POST', '/v1/me/totp/setup');
+  Future<Map<String, dynamic>> totpSetup() =>
+      authed('POST', '/v1/me/totp/setup');
 
   Future<void> totpEnable(String code, {required String password}) async {
-    await authed('POST', '/v1/me/totp/enable', body: <String, Object?>{
-      'code': code.trim(),
-      'password': password,
-    });
+    await authed(
+      'POST',
+      '/v1/me/totp/enable',
+      body: <String, Object?>{'code': code.trim(), 'password': password},
+    );
     await refreshMe();
   }
 
-  Future<void> totpDisable({required String password, required String code}) async {
-    await authed('POST', '/v1/me/totp/disable', body: <String, Object?>{
-      'password': password,
-      'code': code.trim(),
-    });
+  Future<void> totpDisable({
+    required String password,
+    required String code,
+  }) async {
+    await authed(
+      'POST',
+      '/v1/me/totp/disable',
+      body: <String, Object?>{'password': password, 'code': code.trim()},
+    );
     await refreshMe();
   }
 
@@ -528,7 +618,8 @@ class AccountProvider extends ChangeNotifier {
     return (r['devices'] as List<dynamic>).cast<Map<String, dynamic>>();
   }
 
-  Future<void> revokeDevice(String id) => authed('DELETE', '/v1/me/devices/$id');
+  Future<void> revokeDevice(String id) =>
+      authed('DELETE', '/v1/me/devices/$id');
 
   Future<List<Map<String, dynamic>>> myReports() async {
     final Map<String, dynamic> r = await authed('GET', '/v1/me/reports');
@@ -543,7 +634,10 @@ class AccountProvider extends ChangeNotifier {
     if (a == null || t == null) return;
     await _kv.write(
       _kAccount,
-      jsonEncode(<String, Object?>{'account': a.toJson(), 'tokens': t.toJson()}),
+      jsonEncode(<String, Object?>{
+        'account': a.toJson(),
+        'tokens': t.toJson(),
+      }),
     );
   }
 
@@ -553,6 +647,28 @@ class AccountProvider extends ChangeNotifier {
     _signedOutReason = reason;
     await _kv.delete(_kAccount);
     _notify();
+  }
+
+  // Cheap local checks before a network round trip. The server repeats
+  // them (it never trusts a client); these only make mistakes instant.
+  static final RegExp _emailShape = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+  static void _requireEmail(String email) {
+    final String e = email.trim();
+    if (e.isEmpty ||
+        e.length > ProtocolLimits.maxEmail ||
+        !_emailShape.hasMatch(e)) {
+      throw const AccountError('invalid_email', 'Enter a valid email address');
+    }
+  }
+
+  static void _requireCode(String code) {
+    if (!RegExp(r'^\d{8}$').hasMatch(code.trim())) {
+      throw const AccountError(
+        'invalid_code',
+        'The code from the email is 8 digits',
+      );
+    }
   }
 
   Future<void> _quietly(Future<Object?> Function() f) async {
@@ -585,7 +701,12 @@ bool serverUrlAllowed(String url) {
   if (u == null || u.host.isEmpty) return false;
   if (u.scheme == 'https') return true;
   if (u.scheme != 'http') return false;
-  const Set<String> loopback = <String>{'localhost', '127.0.0.1', '::1', '[::1]'};
+  const Set<String> loopback = <String>{
+    'localhost',
+    '127.0.0.1',
+    '::1',
+    '[::1]',
+  };
   if (loopback.contains(u.host)) return true;
   if (!kReleaseMode) return true;
   debugPrint('EchoPin: refusing plain-http server $url in a release build');
@@ -601,7 +722,8 @@ String? localPasswordProblem(String password) {
   if (password.length > ProtocolLimits.maxPasswordLength) {
     return 'Use at most ${ProtocolLimits.maxPasswordLength} characters';
   }
-  if (password.split('').toSet().length < 4) return 'That password is too repetitive';
+  if (password.split('').toSet().length < 4) {
+    return 'That password is too repetitive';
+  }
   return null;
 }
-

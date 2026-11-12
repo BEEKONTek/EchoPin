@@ -65,7 +65,13 @@ class PasswordHasher {
   /// Burns the same time as a real verification, for unknown emails, so
   /// response timing does not reveal which addresses have accounts.
   Future<void> dummyVerify(String password) async {
-    await _derive(password, List<int>.filled(16, 0), memoryKib, iterations, parallelism);
+    await _derive(
+      password,
+      List<int>.filled(16, 0),
+      memoryKib,
+      iterations,
+      parallelism,
+    );
   }
 
   static Future<List<int>> _derive(
@@ -131,6 +137,17 @@ String? passwordProblem(String password, {String? email}) {
 }
 
 const List<String> _common = <String>[
-  'password', '123456', 'qwerty', 'letmein', 'welcome', 'iloveyou',
-  'admin', 'abc123', 'monkey', 'dragon', 'echopin', '111111', 'passw0rd',
+  'password',
+  '123456',
+  'qwerty',
+  'letmein',
+  'welcome',
+  'iloveyou',
+  'admin',
+  'abc123',
+  'monkey',
+  'dragon',
+  'echopin',
+  '111111',
+  'passw0rd',
 ];

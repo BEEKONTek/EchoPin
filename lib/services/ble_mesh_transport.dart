@@ -300,7 +300,7 @@ class BleMeshTransport implements MessageTransport {
     _setStatus(TransportStatus.idle);
     try {
       await _bridge.stop();
-    } catch (_) {}
+    } catch (_) {} // best effort: shutting the radio down
     unawaited(_sightings.close());
     unawaited(_frames.close());
     unawaited(_statusChanges.close());

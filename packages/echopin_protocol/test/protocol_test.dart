@@ -33,24 +33,40 @@ void main() {
         context: 'session-log:a',
       );
       await expectLater(
-        SealedBox.open(recipient: escrow, sealed: sealed, context: 'session-log:b'),
+        SealedBox.open(
+          recipient: escrow,
+          sealed: sealed,
+          context: 'session-log:b',
+        ),
         throwsA(isA<SealedBoxException>()),
       );
       await expectLater(
-        SealedBox.open(recipient: other, sealed: sealed, context: 'session-log:a'),
+        SealedBox.open(
+          recipient: other,
+          sealed: sealed,
+          context: 'session-log:a',
+        ),
         throwsA(isA<SealedBoxException>()),
       );
       final List<int> flipped = List<int>.of(sealed)..[60] ^= 1;
       await expectLater(
-        SealedBox.open(recipient: escrow, sealed: flipped, context: 'session-log:a'),
+        SealedBox.open(
+          recipient: escrow,
+          sealed: flipped,
+          context: 'session-log:a',
+        ),
         throwsA(isA<SealedBoxException>()),
       );
     });
 
     test('structure check rejects short and unknown versions', () {
-      expect(() => SealedBox.checkStructure(<int>[1, 2, 3]), throwsA(isA<SealedBoxException>()));
       expect(
-        () => SealedBox.checkStructure(List<int>.filled(SealedBox.minLength, 9)),
+        () => SealedBox.checkStructure(<int>[1, 2, 3]),
+        throwsA(isA<SealedBoxException>()),
+      );
+      expect(
+        () =>
+            SealedBox.checkStructure(List<int>.filled(SealedBox.minLength, 9)),
         throwsA(isA<SealedBoxException>()),
       );
     });
@@ -64,26 +80,41 @@ void main() {
   });
 
   group('DeviceProof', () {
-    test('verifies a fresh proof and rejects stale, wrong-purpose or wrong-key', () async {
-      final SimpleKeyPair key = await Ed25519().newKeyPair();
-      final SimpleKeyPair other = await Ed25519().newKeyPair();
-      final List<int> pub = (await key.extractPublicKey()).bytes;
-      final List<int> otherPub = (await other.extractPublicKey()).bytes;
-      final DateTime now = DateTime.utc(2026, 11, 7, 12);
-      final int ts = now.millisecondsSinceEpoch;
-      final List<int> sig = await DeviceProof.sign(
-        deviceKey: key, purpose: 'refresh', subject: 'tok', timestampMs: ts);
+    test(
+      'verifies a fresh proof and rejects stale, wrong-purpose or wrong-key',
+      () async {
+        final SimpleKeyPair key = await Ed25519().newKeyPair();
+        final SimpleKeyPair other = await Ed25519().newKeyPair();
+        final List<int> pub = (await key.extractPublicKey()).bytes;
+        final List<int> otherPub = (await other.extractPublicKey()).bytes;
+        final DateTime now = DateTime.utc(2026, 11, 7, 12);
+        final int ts = now.millisecondsSinceEpoch;
+        final List<int> sig = await DeviceProof.sign(
+          deviceKey: key,
+          purpose: 'refresh',
+          subject: 'tok',
+          timestampMs: ts,
+        );
 
-      Future<bool> check({List<int>? pk, String purpose = 'refresh', DateTime? at}) =>
-          DeviceProof.verify(
-            publicKey: pk ?? pub, signature: sig, purpose: purpose,
-            subject: 'tok', timestampMs: ts, now: at ?? now);
+        Future<bool> check({
+          List<int>? pk,
+          String purpose = 'refresh',
+          DateTime? at,
+        }) => DeviceProof.verify(
+          publicKey: pk ?? pub,
+          signature: sig,
+          purpose: purpose,
+          subject: 'tok',
+          timestampMs: ts,
+          now: at ?? now,
+        );
 
-      expect(await check(), isTrue);
-      expect(await check(purpose: 'login'), isFalse);
-      expect(await check(pk: otherPub), isFalse);
-      expect(await check(at: now.add(const Duration(minutes: 6))), isFalse);
-    });
+        expect(await check(), isTrue);
+        expect(await check(purpose: 'login'), isFalse);
+        expect(await check(pk: otherPub), isFalse);
+        expect(await check(at: now.add(const Duration(minutes: 6))), isFalse);
+      },
+    );
   });
 
   test('roles are ordered', () {

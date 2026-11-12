@@ -172,7 +172,8 @@ class _EchoPinAppState extends State<EchoPinApp> {
     // A PIN in front of the signed-in account on this device, like the
     // admin panel's. Its hash sits in the same store as the admin PIN.
     _accountLock = AccountLockProvider(
-      auth: widget.accountLockAuth ?? AdminAuthService.account(kv: bootstrap.kv),
+      auth:
+          widget.accountLockAuth ?? AdminAuthService.account(kv: bootstrap.kv),
       account: _account,
     );
     // Phones suspend timers in the background: re-check idle time on return.

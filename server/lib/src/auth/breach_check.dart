@@ -35,15 +35,20 @@ class NoBreachChecker implements BreachChecker {
 }
 
 class HibpBreachChecker implements BreachChecker {
-  HibpBreachChecker({http.Client? client, this.timeout = const Duration(seconds: 3)})
-    : _client = client ?? http.Client();
+  HibpBreachChecker({
+    http.Client? client,
+    this.timeout = const Duration(seconds: 3),
+  }) : _client = client ?? http.Client();
 
   final http.Client _client;
   final Duration timeout;
 
   @override
   Future<int> timesBreached(String password) async {
-    final String hash = sha1.convert(utf8.encode(password)).toString().toUpperCase();
+    final String hash = sha1
+        .convert(utf8.encode(password))
+        .toString()
+        .toUpperCase();
     final String prefix = hash.substring(0, 5);
     final String suffix = hash.substring(5);
     try {
@@ -57,7 +62,9 @@ class HibpBreachChecker implements BreachChecker {
           )
           .timeout(timeout);
       if (r.statusCode != 200) {
-        _log.warning('Breach check unavailable (HTTP ${r.statusCode}); skipped');
+        _log.warning(
+          'Breach check unavailable (HTTP ${r.statusCode}); skipped',
+        );
         return 0;
       }
       for (final String line in const LineSplitter().convert(r.body)) {

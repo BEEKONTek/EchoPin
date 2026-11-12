@@ -43,7 +43,10 @@ class RetentionService {
     _timer?.cancel();
     _timer = Timer(const Duration(minutes: 5), () {
       unawaited(_safeRun());
-      _timer = Timer.periodic(const Duration(hours: 24), (_) => unawaited(_safeRun()));
+      _timer = Timer.periodic(
+        const Duration(hours: 24),
+        (_) => unawaited(_safeRun()),
+      );
     });
   }
 
@@ -60,7 +63,8 @@ class RetentionService {
   /// Deletes everything past its retention period; returns counts by kind.
   Future<Map<String, int>> run() async {
     final DateTime now = _clock().toUtc();
-    DateTime? cutoff(int days) => days <= 0 ? null : now.subtract(Duration(days: days));
+    DateTime? cutoff(int days) =>
+        days <= 0 ? null : now.subtract(Duration(days: days));
     final Map<String, int> removed = <String, int>{};
 
     final DateTime? logs = cutoff(_config.retainSessionLogsDays);
@@ -104,8 +108,12 @@ class RetentionService {
 
     removed.removeWhere((_, int n) => n == 0);
     if (removed.isNotEmpty) {
-      await _audit.record(_db, const AuditActor.system('retention'), 'retention.purged',
-          detail: removed);
+      await _audit.record(
+        _db,
+        const AuditActor.system('retention'),
+        'retention.purged',
+        detail: removed,
+      );
       _log.info('Retention removed $removed');
     }
     return removed;

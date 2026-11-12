@@ -92,8 +92,11 @@ class EchoPinServer {
       audit: audit,
       hasher: hasher,
       limiter: lim,
-      breachChecker: breachChecker ??
-          (config.passwordBreachCheck ? HibpBreachChecker() : const NoBreachChecker()),
+      breachChecker:
+          breachChecker ??
+          (config.passwordBreachCheck
+              ? HibpBreachChecker()
+              : const NoBreachChecker()),
       mailInBackground: mailInBackground,
       minPublicResponse: minPublicResponse,
       requireStaffTwoStep: config.requireStaffTwoStep,

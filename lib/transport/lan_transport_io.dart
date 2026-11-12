@@ -222,7 +222,7 @@ class LanTransport implements MessageTransport {
     }
     try {
       socket.setOption(SocketOption.tcpNoDelay, true);
-    } catch (_) {}
+    } catch (_) {} // best effort: a socket option, never fatal
     final _Link link = _Link(socket);
     _pending.add(link);
     // Write failures (e.g. EPIPE when the peer walked out of range) surface
@@ -365,7 +365,7 @@ class LanTransport implements MessageTransport {
   static Future<void> _safely(Future<void> Function() f) async {
     try {
       await f();
-    } catch (_) {}
+    } catch (_) {} // best effort: a socket option, never fatal
   }
 
   @override

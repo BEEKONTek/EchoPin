@@ -5,6 +5,7 @@ import 'package:echo_pin/core/echo_error.dart';
 import 'package:echo_pin/providers/account_scope.dart';
 import 'package:echo_pin/ui/theme.dart';
 import 'package:echo_pin/widgets/ui_bits.dart';
+import 'package:echopin_protocol/echopin_protocol.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -18,9 +19,9 @@ class SignInScreen extends StatefulWidget {
 
   /// Returns true when the person ends up signed in.
   static Future<bool> open(BuildContext context) async {
-    final bool? ok = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(builder: (_) => const SignInScreen()),
-    );
+    final bool? ok = await Navigator.of(
+      context,
+    ).push<bool>(MaterialPageRoute<bool>(builder: (_) => const SignInScreen()));
     return ok ?? false;
   }
 
@@ -54,7 +55,11 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   void dispose() {
     for (final TextEditingController c in <TextEditingController>[
-      _email, _password, _name, _code, _totp,
+      _email,
+      _password,
+      _name,
+      _code,
+      _totp,
     ]) {
       c.dispose();
     }
@@ -87,8 +92,15 @@ class _SignInScreenState extends State<SignInScreen> {
           if (mounted) Navigator.of(context).pop(true);
           return;
         case _Mode.register:
-          await a.signUp(email: _email.text, password: _password.text, displayName: _name.text);
-          _go(_Mode.verify, info: 'We sent an 8-digit code to ${_email.text.trim()}.');
+          await a.signUp(
+            email: _email.text,
+            password: _password.text,
+            displayName: _name.text,
+          );
+          _go(
+            _Mode.verify,
+            info: 'We sent an 8-digit code to ${_email.text.trim()}.',
+          );
         case _Mode.verify:
           await a.verifyEmail(_code.text, password: _password.text);
           // Signing in right after verifying saves a step.
@@ -97,10 +109,21 @@ class _SignInScreenState extends State<SignInScreen> {
           return;
         case _Mode.forgot:
           await a.forgotPassword(_email.text);
-          _go(_Mode.reset, info: 'If ${_email.text.trim()} has an account, a reset code is on its way.');
+          _go(
+            _Mode.reset,
+            info:
+                'If ${_email.text.trim()} has an account, a reset code is on its way.',
+          );
         case _Mode.reset:
-          await a.resetPassword(email: _email.text, code: _code.text, newPassword: _password.text);
-          _go(_Mode.signIn, info: 'Password changed. Sign in with the new one.');
+          await a.resetPassword(
+            email: _email.text,
+            code: _code.text,
+            newPassword: _password.text,
+          );
+          _go(
+            _Mode.signIn,
+            info: 'Password changed. Sign in with the new one.',
+          );
       }
     } on AccountError catch (e) {
       if (e.code == 'totp_required') {
@@ -119,7 +142,9 @@ class _SignInScreenState extends State<SignInScreen> {
         a.cancelVerification();
         _go(_Mode.register);
         setState(() => _error = e.message);
-      } else if (_mode == _Mode.verify && e.code != 'invalid_code' && e.code != 'code_expired') {
+      } else if (_mode == _Mode.verify &&
+          e.code != 'invalid_code' &&
+          e.code != 'code_expired') {
         // Verified, but the automatic sign-in failed (e.g. password was
         // re-typed). Let them sign in by hand.
         _go(_Mode.signIn, info: 'Email confirmed. Sign in to continue.');
@@ -149,15 +174,38 @@ class _SignInScreenState extends State<SignInScreen> {
     final AccountProvider a = AccountScope.of(context);
     final ThemeData t = Theme.of(context);
     final (String title, String subtitle, String action) = switch (_mode) {
-      _Mode.signIn => ('Sign in', 'Use your EchoPin account to start live sessions.', 'Sign in'),
-      _Mode.register => ('Create account', 'One account on all your devices.', 'Create account'),
-      _Mode.verify => ('Check your email', 'Enter the 8-digit code we sent.', 'Confirm'),
-      _Mode.forgot => ('Reset password', 'We will email you a code.', 'Send code'),
-      _Mode.reset => ('New password', 'Enter the code and choose a new password.', 'Change password'),
+      _Mode.signIn => (
+        'Sign in',
+        'Use your EchoPin account to start live sessions.',
+        'Sign in',
+      ),
+      _Mode.register => (
+        'Create account',
+        'One account on all your devices.',
+        'Create account',
+      ),
+      _Mode.verify => (
+        'Check your email',
+        'Enter the 8-digit code we sent.',
+        'Confirm',
+      ),
+      _Mode.forgot => (
+        'Reset password',
+        'We will email you a code.',
+        'Send code',
+      ),
+      _Mode.reset => (
+        'New password',
+        'Enter the code and choose a new password.',
+        'Change password',
+      ),
     };
     final bool showEmail = _mode != _Mode.verify;
-    final bool showPassword = _mode == _Mode.signIn || _mode == _Mode.register ||
-        _mode == _Mode.reset || (_mode == _Mode.verify && _password.text.isEmpty);
+    final bool showPassword =
+        _mode == _Mode.signIn ||
+        _mode == _Mode.register ||
+        _mode == _Mode.reset ||
+        (_mode == _Mode.verify && _password.text.isEmpty);
     final bool showCode = _mode == _Mode.verify || _mode == _Mode.reset;
 
     return Scaffold(
@@ -171,10 +219,20 @@ class _SignInScreenState extends State<SignInScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                 children: <Widget>[
-                  Text(subtitle, style: t.textTheme.bodyLarge?.copyWith(color: t.colorScheme.onSurfaceVariant)),
+                  Text(
+                    subtitle,
+                    style: t.textTheme.bodyLarge?.copyWith(
+                      color: t.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   const SizedBox(height: 20),
-                  if (a.signedOutReason != null && _mode == _Mode.signIn) ...<Widget>[
-                    NoticeTray(icon: Icons.shield_outlined, text: a.signedOutReason!, color: EchoTheme.checkIn),
+                  if (a.signedOutReason != null &&
+                      _mode == _Mode.signIn) ...<Widget>[
+                    NoticeTray(
+                      icon: Icons.shield_outlined,
+                      text: a.signedOutReason!,
+                      color: EchoTheme.checkIn,
+                    ),
                     const SizedBox(height: 12),
                   ],
                   AnimatedSize(
@@ -183,7 +241,10 @@ class _SignInScreenState extends State<SignInScreen> {
                         ? const SizedBox(width: double.infinity)
                         : Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: NoticeTray(icon: Icons.mark_email_read_outlined, text: _info!),
+                            child: NoticeTray(
+                              icon: Icons.mark_email_read_outlined,
+                              text: _info!,
+                            ),
                           ),
                   ),
                   if (_mode == _Mode.register) ...<Widget>[
@@ -192,7 +253,11 @@ class _SignInScreenState extends State<SignInScreen> {
                       controller: _name,
                       textCapitalization: TextCapitalization.words,
                       autofillHints: const <String>[AutofillHints.name],
-                      decoration: const InputDecoration(labelText: 'Your name'),
+                      maxLength: ProtocolLimits.maxDisplayName,
+                      decoration: const InputDecoration(
+                        labelText: 'Your name',
+                        counterText: '',
+                      ),
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 12),
@@ -204,7 +269,11 @@ class _SignInScreenState extends State<SignInScreen> {
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const <String>[AutofillHints.email],
                       autocorrect: false,
-                      decoration: const InputDecoration(labelText: 'Email'),
+                      maxLength: ProtocolLimits.maxEmail,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        counterText: '',
+                      ),
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 12),
@@ -220,7 +289,9 @@ class _SignInScreenState extends State<SignInScreen> {
                         LengthLimitingTextInputFormatter(8),
                       ],
                       style: const TextStyle(letterSpacing: 6, fontSize: 20),
-                      decoration: const InputDecoration(labelText: '8-digit code from the email'),
+                      decoration: const InputDecoration(
+                        labelText: '8-digit code from the email',
+                      ),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -230,15 +301,30 @@ class _SignInScreenState extends State<SignInScreen> {
                       controller: _password,
                       obscureText: !_showPassword,
                       autofillHints: <String>[
-                        _mode == _Mode.signIn ? AutofillHints.password : AutofillHints.newPassword,
+                        _mode == _Mode.signIn
+                            ? AutofillHints.password
+                            : AutofillHints.newPassword,
                       ],
+                      maxLength: ProtocolLimits.maxPasswordLength,
                       decoration: InputDecoration(
-                        labelText: _mode == _Mode.reset ? 'New password' : 'Password',
-                        helperText: _mode == _Mode.signIn ? null : 'At least 10 characters. A short phrase works well.',
+                        counterText: '',
+                        labelText: _mode == _Mode.reset
+                            ? 'New password'
+                            : 'Password',
+                        helperText: _mode == _Mode.signIn
+                            ? null
+                            : 'At least 10 characters. A short phrase works well.',
                         suffixIcon: IconButton(
-                          tooltip: _showPassword ? 'Hide password' : 'Show password',
-                          icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
-                          onPressed: () => setState(() => _showPassword = !_showPassword),
+                          tooltip: _showPassword
+                              ? 'Hide password'
+                              : 'Show password',
+                          icon: Icon(
+                            _showPassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () =>
+                              setState(() => _showPassword = !_showPassword),
                         ),
                       ),
                       onSubmitted: (_) => unawaited(_submit()),
@@ -259,7 +345,10 @@ class _SignInScreenState extends State<SignInScreen> {
                               FilteringTextInputFormatter.digitsOnly,
                               LengthLimitingTextInputFormatter(6),
                             ],
-                            style: const TextStyle(letterSpacing: 6, fontSize: 20),
+                            style: const TextStyle(
+                              letterSpacing: 6,
+                              fontSize: 20,
+                            ),
                             decoration: const InputDecoration(
                               labelText: 'Authenticator code',
                               prefixIcon: Icon(Icons.verified_user_outlined),
@@ -273,7 +362,11 @@ class _SignInScreenState extends State<SignInScreen> {
                     key: const Key('signin.submit'),
                     onPressed: _busy ? null : () => unawaited(_submit()),
                     child: _busy
-                        ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4))
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2.4),
+                          )
                         : Text(action),
                   ),
                   const SizedBox(height: 8),
@@ -285,7 +378,9 @@ class _SignInScreenState extends State<SignInScreen> {
                     'for a stated reason, which is logged. Locations are never '
                     'recorded.',
                     textAlign: TextAlign.center,
-                    style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant),
+                    style: t.textTheme.bodySmall?.copyWith(
+                      color: t.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -305,15 +400,24 @@ class _SignInScreenState extends State<SignInScreen> {
             onPressed: () => _go(_Mode.register),
             child: const Text('New here? Create an account'),
           ),
-          TextButton(onPressed: () => _go(_Mode.forgot), child: const Text('Forgot password?')),
+          TextButton(
+            onPressed: () => _go(_Mode.forgot),
+            child: const Text('Forgot password?'),
+          ),
         ];
       case _Mode.register:
         return <Widget>[
-          TextButton(onPressed: () => _go(_Mode.signIn), child: const Text('I already have an account')),
+          TextButton(
+            onPressed: () => _go(_Mode.signIn),
+            child: const Text('I already have an account'),
+          ),
         ];
       case _Mode.verify:
         return <Widget>[
-          TextButton(onPressed: () => unawaited(_resend()), child: const Text('Send a new code')),
+          TextButton(
+            onPressed: () => unawaited(_resend()),
+            child: const Text('Send a new code'),
+          ),
           TextButton(
             onPressed: () {
               AccountScope.read(context).cancelVerification();
@@ -325,7 +429,10 @@ class _SignInScreenState extends State<SignInScreen> {
       case _Mode.forgot:
       case _Mode.reset:
         return <Widget>[
-          TextButton(onPressed: () => _go(_Mode.signIn), child: const Text('Back to sign in')),
+          TextButton(
+            onPressed: () => _go(_Mode.signIn),
+            child: const Text('Back to sign in'),
+          ),
         ];
     }
   }

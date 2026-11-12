@@ -248,14 +248,14 @@ class SessionEngine {
         MessageKind.bye,
         const <String, Object?>{},
       ).timeout(const Duration(seconds: 2));
-    } catch (_) {}
+    } catch (_) {} // best effort: leaving; nothing left to report to
     for (final StreamSubscription<Object?> s in _subs) {
       unawaited(s.cancel());
     }
     for (final MessageTransport t in _transports) {
       try {
         await t.stop();
-      } catch (_) {}
+      } catch (_) {} // best effort: leaving; nothing left to report to
     }
     await _messenger.dispose();
     identity.wipe();

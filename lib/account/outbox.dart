@@ -79,7 +79,9 @@ class OutboxItem {
     body: (j['body'] as Map<String, dynamic>),
     createdAt: DateTime.parse(j['createdAt'] as String),
     attempts: j['attempts'] as int? ?? 0,
-    nextAttemptAt: j['nextAttemptAt'] == null ? null : DateTime.parse(j['nextAttemptAt'] as String),
+    nextAttemptAt: j['nextAttemptAt'] == null
+        ? null
+        : DateTime.parse(j['nextAttemptAt'] as String),
     lastError: j['lastError'] as String?,
   );
 
@@ -177,21 +179,31 @@ class Outbox extends ChangeNotifier {
   }
 
   /// Queues [body]. Returns the item id. Requires a signed-in account.
-  Future<String> enqueue(OutboxKind kind, Map<String, dynamic> body, {String? id}) async {
+  Future<String> enqueue(
+    OutboxKind kind,
+    Map<String, dynamic> body, {
+    String? id,
+  }) async {
     final Account? a = _account.account;
     if (a == null) {
-      throw const AccountError('unauthorized', 'Sign in to send this', status: 401);
+      throw const AccountError(
+        'unauthorized',
+        'Sign in to send this',
+        status: 401,
+      );
     }
     final String itemId = id ?? newUuid();
     Map<String, dynamic> b = body;
     if (kind == OutboxKind.sessionLog) b = await _sealIfPossible(itemId, b);
-    _items.add(OutboxItem(
-      id: itemId,
-      kind: kind,
-      accountId: a.id,
-      body: b,
-      createdAt: _clock().toUtc(),
-    ));
+    _items.add(
+      OutboxItem(
+        id: itemId,
+        kind: kind,
+        accountId: a.id,
+        body: b,
+        createdAt: _clock().toUtc(),
+      ),
+    );
     _trim();
     await _persist();
     _notify();
@@ -235,16 +247,24 @@ class Outbox extends ChangeNotifier {
         final DateTime? next = item.nextAttemptAt;
         if (next != null && next.isAfter(now)) continue;
         OutboxItem current = item;
-        if (current.kind == OutboxKind.sessionLog && current.body.containsKey('plain')) {
+        if (current.kind == OutboxKind.sessionLog &&
+            current.body.containsKey('plain')) {
           await _account.ensureEscrow();
-          final Map<String, dynamic> sealed = await _sealIfPossible(current.id, current.body);
+          final Map<String, dynamic> sealed = await _sealIfPossible(
+            current.id,
+            current.body,
+          );
           if (sealed.containsKey('plain')) continue; // still no key: wait
           current = current.copyWith(body: sealed);
           _replace(current);
           await _persist();
         }
         try {
-          await _account.authed('POST', current.kind.path, body: _wire(current));
+          await _account.authed(
+            'POST',
+            current.kind.path,
+            body: _wire(current),
+          );
           _items.removeWhere((OutboxItem i) => i.id == current.id);
           _lastSentAt = _clock().toUtc();
           await _persist();
@@ -256,12 +276,15 @@ class Outbox extends ChangeNotifier {
           if (e.status == 429 || e.status >= 500) {
             final int attempts = current.attempts + 1;
             final Duration wait =
-                e.retryAfter ?? Duration(minutes: math.min(1 << math.min(attempts, 6), 60));
-            _replace(current.copyWith(
-              attempts: attempts,
-              nextAttemptAt: _clock().toUtc().add(wait),
-              lastError: e.message,
-            ));
+                e.retryAfter ??
+                Duration(minutes: math.min(1 << math.min(attempts, 6), 60));
+            _replace(
+              current.copyWith(
+                attempts: attempts,
+                nextAttemptAt: _clock().toUtc().add(wait),
+                lastError: e.message,
+              ),
+            );
             await _persist();
             return false;
           }
@@ -283,7 +306,10 @@ class Outbox extends ChangeNotifier {
     _ => item.body,
   };
 
-  Future<Map<String, dynamic>> _sealIfPossible(String id, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> _sealIfPossible(
+    String id,
+    Map<String, dynamic> body,
+  ) async {
     final Object? plain = body['plain'];
     final EscrowKey? key = _account.escrow;
     if (plain == null || key == null) return body;
@@ -328,13 +354,17 @@ class Outbox extends ChangeNotifier {
   /// are what someone may need in an emergency.
   void _trim() {
     while (_items.length > maxItems) {
-      final int diag = _items.indexWhere((OutboxItem i) => i.kind == OutboxKind.diagnostics);
+      final int diag = _items.indexWhere(
+        (OutboxItem i) => i.kind == OutboxKind.diagnostics,
+      );
       _items.removeAt(diag >= 0 ? diag : 0);
     }
   }
 
-  Future<void> _persist() =>
-      _kv.write(_kOutbox, jsonEncode(_items.map((OutboxItem i) => i.toJson()).toList()));
+  Future<void> _persist() => _kv.write(
+    _kOutbox,
+    jsonEncode(_items.map((OutboxItem i) => i.toJson()).toList()),
+  );
 
   void _notify() {
     if (!_disposed) notifyListeners();
@@ -355,7 +385,9 @@ String newUuid() {
   final List<int> b = List<int>.generate(16, (_) => r.nextInt(256));
   b[6] = (b[6] & 0x0f) | 0x40;
   b[8] = (b[8] & 0x3f) | 0x80;
-  String hex(int from, int to) =>
-      b.sublist(from, to).map((int x) => x.toRadixString(16).padLeft(2, '0')).join();
+  String hex(int from, int to) => b
+      .sublist(from, to)
+      .map((int x) => x.toRadixString(16).padLeft(2, '0'))
+      .join();
   return '${hex(0, 4)}-${hex(4, 6)}-${hex(6, 8)}-${hex(8, 10)}-${hex(10, 16)}';
 }

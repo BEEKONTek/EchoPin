@@ -40,9 +40,10 @@ class ServerKeys {
        // A separate key for the audit chain, derived from the data key so
        // ECHOPIN_KEYS does not grow. Domain separation ("audit-chain")
        // means it can never collide with how the data key itself is used.
-       auditMacKey = crypto.Hmac(crypto.sha256, dataKeyBytes)
-           .convert(utf8.encode('echopin/v1/audit-chain'))
-           .bytes;
+       auditMacKey = crypto.Hmac(
+         crypto.sha256,
+         dataKeyBytes,
+       ).convert(utf8.encode('echopin/v1/audit-chain')).bytes;
 
   final Map<String, SimpleKeyPair> escrowKeys;
   final Map<String, List<int>> escrowPublicKeys;
@@ -150,8 +151,12 @@ class ServerKeys {
       'escrow': <Object?>[
         for (final File f in files)
           () {
-            final Map<String, dynamic> e = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
-            return <String, Object?>{'private': e['private'], 'created': e['created']};
+            final Map<String, dynamic> e =
+                jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
+            return <String, Object?>{
+              'private': e['private'],
+              'created': e['created'],
+            };
           }(),
       ],
       'data': base64.encode(_readSecret('$dir/data.key')),
@@ -165,8 +170,12 @@ class ServerKeys {
     final Map<String, List<int>> publics = <String, List<int>>{};
     String? current;
     for (final dynamic e in j['escrow'] as List<dynamic>) {
-      final List<int> seed = base64.decode((e as Map<String, dynamic>)['private'] as String);
-      if (seed.length != 32) throw const KeysException('ECHOPIN_KEYS has a bad escrow key');
+      final List<int> seed = base64.decode(
+        (e as Map<String, dynamic>)['private'] as String,
+      );
+      if (seed.length != 32) {
+        throw const KeysException('ECHOPIN_KEYS has a bad escrow key');
+      }
       final SimpleKeyPair kp = await X25519().newKeyPairFromSeed(seed);
       final List<int> pub = (await kp.extractPublicKey()).bytes;
       final String id = SealedBox.keyIdFor(pub);
@@ -174,7 +183,9 @@ class ServerKeys {
       publics[id] = pub;
       current = id;
     }
-    if (current == null) throw const KeysException('ECHOPIN_KEYS has no escrow key');
+    if (current == null) {
+      throw const KeysException('ECHOPIN_KEYS has no escrow key');
+    }
     List<int> secret(String k) {
       final List<int> b = base64.decode(j[k] as String? ?? '');
       if (b.length != 32) throw KeysException('ECHOPIN_KEYS has a bad $k key');
@@ -195,7 +206,8 @@ class ServerKeys {
     'created': DateTime.now().toUtc().toIso8601String(),
   };
 
-  static String _encodeBundle(Map<String, Object?> j) => base64.encode(utf8.encode(jsonEncode(j)));
+  static String _encodeBundle(Map<String, Object?> j) =>
+      base64.encode(utf8.encode(jsonEncode(j)));
 
   /// Undoes the usual copy-paste slips when the bundle is pasted into a
   /// host's secret field: the whole `ECHOPIN_KEYS=…` line instead of just
@@ -207,7 +219,8 @@ class ServerKeys {
     if (s.startsWith('ECHOPIN_KEYS=')) s = s.substring('ECHOPIN_KEYS='.length);
     s = s.trim();
     if (s.length >= 2 &&
-        ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")))) {
+        ((s.startsWith('"') && s.endsWith('"')) ||
+            (s.startsWith("'") && s.endsWith("'")))) {
       s = s.substring(1, s.length - 1);
     }
     return s.replaceAll(RegExp(r'\s+'), '');
@@ -217,7 +230,8 @@ class ServerKeys {
     final String s = normalizeBundle(bundle);
     try {
       final Map<String, dynamic> j =
-          jsonDecode(utf8.decode(base64.decode(base64.normalize(s)))) as Map<String, dynamic>;
+          jsonDecode(utf8.decode(base64.decode(base64.normalize(s))))
+              as Map<String, dynamic>;
       if (j['v'] != 1 || j['escrow'] is! List) throw const FormatException();
       return j;
     } catch (_) {
@@ -225,10 +239,10 @@ class ServerKeys {
       final String hint = s.isEmpty
           ? 'it is empty'
           : s.length < 280
-              ? 'it is only ${s.length} characters long; a real bundle is about 300, '
-                  'so it was probably cut off when copied'
-              : 'it is ${s.length} characters long but does not decode, so part of it '
-                  'was probably lost or changed when copied';
+          ? 'it is only ${s.length} characters long; a real bundle is about 300, '
+                'so it was probably cut off when copied'
+          : 'it is ${s.length} characters long but does not decode, so part of it '
+                'was probably lost or changed when copied';
       throw KeysException(
         'ECHOPIN_KEYS is not a valid key bundle ($hint). Paste only the text after '
         '"ECHOPIN_KEYS=" from `echopin_admin init-keys --print-env`, on one line.',
@@ -237,7 +251,10 @@ class ServerKeys {
   }
 
   /// AES-256-GCM with the data key: nonce(12) ‖ ciphertext ‖ mac(16).
-  Future<Uint8List> encryptData(List<int> clear, {required String context}) async {
+  Future<Uint8List> encryptData(
+    List<int> clear, {
+    required String context,
+  }) async {
     final SecretBox box = await _aes.encrypt(
       clear,
       secretKey: dataKey,
@@ -280,14 +297,10 @@ class ServerKeys {
   static List<File> _escrowFiles(String dir) {
     final Directory d = Directory(dir);
     if (!d.existsSync()) return <File>[];
-    return d
-        .listSync()
-        .whereType<File>()
-        .where((File f) {
-          final String name = f.uri.pathSegments.last;
-          return name.startsWith('escrow-') && name.endsWith('.json');
-        })
-        .toList();
+    return d.listSync().whereType<File>().where((File f) {
+      final String name = f.uri.pathSegments.last;
+      return name.startsWith('escrow-') && name.endsWith('.json');
+    }).toList();
   }
 
   static void _writeSecret(String path, List<int> bytes) {

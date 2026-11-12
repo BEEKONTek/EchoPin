@@ -608,7 +608,7 @@ class SessionProvider extends ChangeNotifier {
     _sessionFull = false;
     try {
       await engine?.stop();
-    } catch (_) {}
+    } catch (_) {} // best effort: tearing down, nothing to report to
     try {
       await crowd?.stop();
     } catch (_) {}
@@ -867,7 +867,7 @@ class SessionProvider extends ChangeNotifier {
     _notify();
     try {
       await _historyService.remove(id);
-    } catch (_) {}
+    } catch (_) {} // best effort: tearing down, nothing to report to
   }
 
   Future<void> clearHistory() async {

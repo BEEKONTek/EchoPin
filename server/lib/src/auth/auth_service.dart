@@ -252,16 +252,18 @@ class AuthService {
     await _issueCode(accountId, norm, 'verify');
   });
 
-  Future<void> resendVerification({required String email, required String ip}) =>
-      _uniformTime(() async {
-        final String norm = normalizeEmail(email);
-        await _limit('resend-ip:$ip', 10, const Duration(hours: 1));
-        await _limit('resend-email:$norm', 3, const Duration(minutes: 15));
-        final Row? a = await _accountByEmail(norm);
-        if (a != null && a['status'] == 'pending') {
-          await _issueCode(a['id'] as String, norm, 'verify');
-        }
-      });
+  Future<void> resendVerification({
+    required String email,
+    required String ip,
+  }) => _uniformTime(() async {
+    final String norm = normalizeEmail(email);
+    await _limit('resend-ip:$ip', 10, const Duration(hours: 1));
+    await _limit('resend-email:$norm', 3, const Duration(minutes: 15));
+    final Row? a = await _accountByEmail(norm);
+    if (a != null && a['status'] == 'pending') {
+      await _issueCode(a['id'] as String, norm, 'verify');
+    }
+  });
 
   /// Activates a pending account. Needs the emailed code *and* the
   /// password chosen at sign-up.
@@ -313,8 +315,11 @@ class AuthService {
         <String, Object?>{'now': _now, 'id': id, 'hash': hash},
       );
       if (n == 0) {
-        throw const ApiException(409, 'password_mismatch',
-            'This sign-up changed while you were confirming it. Create the account again');
+        throw const ApiException(
+          409,
+          'password_mismatch',
+          'This sign-up changed while you were confirming it. Create the account again',
+        );
       }
       await _audit.recordIn(
         tx,
@@ -373,15 +378,23 @@ class AuthService {
     }
 
     final Row? a = await _accountByEmail(norm);
-    final bool knownDevice = a != null &&
+    final bool knownDevice =
+        a != null &&
         await _db.one(
               '''select 1 as x from devices where account_id = @a::uuid
                    and public_key = @k and revoked_at is null''',
-              <String, Object?>{'a': a['id'], 'k': Uint8List.fromList(device.publicKey)},
+              <String, Object?>{
+                'a': a['id'],
+                'k': Uint8List.fromList(device.publicKey),
+              },
             ) !=
             null;
     if (knownDevice) {
-      await _limit('login-device:${base64.encode(device.publicKey)}', 10, const Duration(minutes: 10));
+      await _limit(
+        'login-device:${base64.encode(device.publicKey)}',
+        10,
+        const Duration(minutes: 10),
+      );
     } else {
       await _limit('login-email:$norm', 10, const Duration(minutes: 10));
       final DateTime? lockedUntil = await _lockedUntil(norm);
@@ -421,7 +434,10 @@ class AuthService {
           'Enter the 6-digit code from your authenticator app',
         );
       }
-      final List<int> secret = await _keys.decryptData(totpEnc, context: 'totp:$id');
+      final List<int> secret = await _keys.decryptData(
+        totpEnc,
+        context: 'totp:$id',
+      );
       totpStep = Totp.verify(
         secret,
         totpCode,
@@ -449,8 +465,11 @@ class AuthService {
           <String, Object?>{'step': totpStep, 'id': id},
         );
         if (n == 0) {
-          throw const ApiException(401, 'totp_invalid',
-              'That authenticator code was already used. Wait for the next one');
+          throw const ApiException(
+            401,
+            'totp_invalid',
+            'That authenticator code was already used. Wait for the next one',
+          );
         }
       }
       await tx.execute(
@@ -461,9 +480,17 @@ class AuthService {
       // device leaves it, so the owner signing in on their phone doesn't
       // hand an ongoing attacker a fresh set of guesses.
       if (!knownDevice) {
-        await tx.execute('delete from login_throttle where email = @e', <String, Object?>{'e': norm});
+        await tx.execute(
+          'delete from login_throttle where email = @e',
+          <String, Object?>{'e': norm},
+        );
       }
-      final (String deviceId, bool secure) = await _upsertDevice(tx, id, device, now);
+      final (String deviceId, bool secure) = await _upsertDevice(
+        tx,
+        id,
+        device,
+        now,
+      );
       final IssuedTokens t = await _createSession(
         tx,
         accountId: id,
@@ -539,7 +566,11 @@ class AuthService {
         );
       }
       if (s['revoked_at'] != null) {
-        return const ApiException(401, 'session_revoked', 'Sign in again to continue');
+        return const ApiException(
+          401,
+          'session_revoked',
+          'Sign in again to continue',
+        );
       }
       if ((s['refresh_expires_at'] as DateTime).isBefore(now)) {
         return const ApiException(
@@ -685,7 +716,10 @@ class AuthService {
         <String, Object?>{'hash': hash, 'now': _now, 'id': id},
       );
       // Proving control of the inbox ends any sign-in lock.
-      await tx.execute('delete from login_throttle where email = @e', <String, Object?>{'e': norm});
+      await tx.execute(
+        'delete from login_throttle where email = @e',
+        <String, Object?>{'e': norm},
+      );
       await _revokeAll(tx, id, 'password_reset');
       await _audit.recordIn(
         tx,
@@ -707,7 +741,11 @@ class AuthService {
       <String, Object?>{'id': ctx.accountId},
     ))!;
     if (!await _hasher.verify(current, a['password_hash'] as String)) {
-      throw const ApiException(400, 'wrong_password', 'Your current password is not right');
+      throw const ApiException(
+        400,
+        'wrong_password',
+        'Your current password is not right',
+      );
     }
     final String? weak = passwordProblem(next, email: ctx.email);
     if (weak != null) throw ApiException(400, 'weak_password', weak);
@@ -718,8 +756,18 @@ class AuthService {
         'update accounts set password_hash = @hash, updated_at = @now where id = @id::uuid',
         <String, Object?>{'hash': hash, 'now': _now, 'id': ctx.accountId},
       );
-      await _revokeAll(tx, ctx.accountId, 'password_changed', except: ctx.authSessionId);
-      await _audit.recordIn(tx, ctx.actor, 'auth.password_changed', target: ctx.accountId);
+      await _revokeAll(
+        tx,
+        ctx.accountId,
+        'password_changed',
+        except: ctx.authSessionId,
+      );
+      await _audit.recordIn(
+        tx,
+        ctx.actor,
+        'auth.password_changed',
+        target: ctx.accountId,
+      );
     });
   }
 
@@ -741,7 +789,10 @@ class AuthService {
     await _db.execute(
       'update accounts set totp_pending_enc = @enc where id = @id::uuid',
       <String, Object?>{
-        'enc': await _keys.encryptData(secret, context: 'totp-pending:${ctx.accountId}'),
+        'enc': await _keys.encryptData(
+          secret,
+          context: 'totp-pending:${ctx.accountId}',
+        ),
         'id': ctx.accountId,
       },
     );
@@ -757,18 +808,30 @@ class AuthService {
   /// SECURITY: without the password, anyone who got hold of an access
   /// token for 30 minutes could switch on two-step with *their own*
   /// authenticator and lock the real owner out of every new sign-in.
-  Future<void> totpEnable(AuthContext ctx, String code, {required String password}) async {
+  Future<void> totpEnable(
+    AuthContext ctx,
+    String code, {
+    required String password,
+  }) async {
     await _limit('totp-on:${ctx.accountId}', 5, const Duration(minutes: 15));
     final Row a = (await _db.one(
       'select totp_pending_enc, password_hash from accounts where id = @id::uuid',
       <String, Object?>{'id': ctx.accountId},
     ))!;
     if (!await _hasher.verify(password, a['password_hash'] as String)) {
-      throw const ApiException(400, 'wrong_password', 'Your password is not right');
+      throw const ApiException(
+        400,
+        'wrong_password',
+        'Your password is not right',
+      );
     }
     final Uint8List? pending = a['totp_pending_enc'] as Uint8List?;
     if (pending == null) {
-      throw const ApiException(409, 'totp_not_started', 'Start two-step setup first');
+      throw const ApiException(
+        409,
+        'totp_not_started',
+        'Start two-step setup first',
+      );
     }
     final List<int> secret = await _keys.decryptData(
       pending,
@@ -787,13 +850,21 @@ class AuthService {
         '''update accounts set totp_secret_enc = @enc, totp_pending_enc = null,
              totp_last_step = @step, updated_at = @now where id = @id::uuid''',
         <String, Object?>{
-          'enc': await _keys.encryptData(secret, context: 'totp:${ctx.accountId}'),
+          'enc': await _keys.encryptData(
+            secret,
+            context: 'totp:${ctx.accountId}',
+          ),
           'step': step,
           'now': _now,
           'id': ctx.accountId,
         },
       );
-      await _audit.recordIn(tx, ctx.actor, 'auth.totp_enabled', target: ctx.accountId);
+      await _audit.recordIn(
+        tx,
+        ctx.actor,
+        'auth.totp_enabled',
+        target: ctx.accountId,
+      );
     });
   }
 
@@ -810,11 +881,28 @@ class AuthService {
     final Uint8List? enc = a['totp_secret_enc'] as Uint8List?;
     if (enc == null) return;
     if (!await _hasher.verify(password, a['password_hash'] as String)) {
-      throw const ApiException(400, 'wrong_password', 'Your password is not right');
+      throw const ApiException(
+        400,
+        'wrong_password',
+        'Your password is not right',
+      );
     }
-    final List<int> secret = await _keys.decryptData(enc, context: 'totp:${ctx.accountId}');
-    if (Totp.verify(secret, code, _now, lastUsedStep: a['totp_last_step'] as int?) == null) {
-      throw const ApiException(400, 'totp_invalid', 'That authenticator code is not right');
+    final List<int> secret = await _keys.decryptData(
+      enc,
+      context: 'totp:${ctx.accountId}',
+    );
+    if (Totp.verify(
+          secret,
+          code,
+          _now,
+          lastUsedStep: a['totp_last_step'] as int?,
+        ) ==
+        null) {
+      throw const ApiException(
+        400,
+        'totp_invalid',
+        'That authenticator code is not right',
+      );
     }
     await _db.tx((DbSession tx) async {
       await tx.execute(
@@ -822,7 +910,12 @@ class AuthService {
              updated_at = @now where id = @id::uuid''',
         <String, Object?>{'now': _now, 'id': ctx.accountId},
       );
-      await _audit.recordIn(tx, ctx.actor, 'auth.totp_disabled', target: ctx.accountId);
+      await _audit.recordIn(
+        tx,
+        ctx.actor,
+        'auth.totp_disabled',
+        target: ctx.accountId,
+      );
     });
   }
 
@@ -848,7 +941,10 @@ class AuthService {
     };
   }
 
-  Future<void> updateProfile(AuthContext ctx, {required String displayName}) async {
+  Future<void> updateProfile(
+    AuthContext ctx, {
+    required String displayName,
+  }) async {
     await _db.execute(
       'update accounts set display_name = @n, updated_at = @now where id = @id::uuid',
       <String, Object?>{
@@ -883,7 +979,11 @@ class AuthService {
         .toList();
   }
 
-  Future<void> revokeDevice(String accountId, String deviceId, AuditActor actor) async {
+  Future<void> revokeDevice(
+    String accountId,
+    String deviceId,
+    AuditActor actor,
+  ) async {
     await _db.tx((DbSession tx) async {
       final int n = await tx.execute(
         '''update devices set revoked_at = @now
@@ -896,8 +996,13 @@ class AuthService {
            where device_id = @d::uuid and revoked_at is null''',
         <String, Object?>{'now': _now, 'd': deviceId},
       );
-      await _audit.recordIn(tx, actor, 'device.revoked', target: deviceId,
-          detail: <String, Object?>{'account': accountId});
+      await _audit.recordIn(
+        tx,
+        actor,
+        'device.revoked',
+        target: deviceId,
+        detail: <String, Object?>{'account': accountId},
+      );
     });
   }
 
@@ -908,7 +1013,11 @@ class AuthService {
   // ── Internals ──────────────────────────────────────────────────────────
 
   Future<void> _limit(String key, int limit, Duration window) async {
-    final Duration? wait = await _limiter.hit(key, limit: limit, window: window);
+    final Duration? wait = await _limiter.hit(
+      key,
+      limit: limit,
+      window: window,
+    );
     if (wait != null) throw ApiException.tooMany(wait);
   }
 
@@ -966,7 +1075,9 @@ class AuthService {
   /// "locked" answer identical to a real account's.
   Future<void> _recordFailure(String norm, String? accountId, String ip) async {
     final DateTime now = _now;
-    final (int failures, DateTime? lockUntil) = await _db.tx((DbSession tx) async {
+    final (int failures, DateTime? lockUntil) = await _db.tx((
+      DbSession tx,
+    ) async {
       await tx.execute(
         '''insert into login_throttle (email, failures, updated_at) values (@e, 0, @now)
            on conflict (email) do nothing''',
@@ -976,7 +1087,8 @@ class AuthService {
         'select failures, updated_at from login_throttle where email = @e for update',
         <String, Object?>{'e': norm},
       ))!;
-      final bool stale = now.difference(r['updated_at'] as DateTime) > const Duration(days: 1);
+      final bool stale =
+          now.difference(r['updated_at'] as DateTime) > const Duration(days: 1);
       final int failures = (stale ? 0 : r['failures'] as int) + 1;
       DateTime? lockUntil;
       if (failures >= lockAfterFailures) {
@@ -997,7 +1109,10 @@ class AuthService {
         AuditActor(id: accountId, label: 'login', ip: ip),
         'auth.locked',
         target: accountId,
-        detail: <String, Object?>{'failures': failures, 'until': lockUntil.toIso8601String()},
+        detail: <String, Object?>{
+          'failures': failures,
+          'until': lockUntil.toIso8601String(),
+        },
       );
     }
   }
@@ -1080,7 +1195,9 @@ class AuthService {
     final DateTime accessExp = now.add(accessTtl);
     // A key in plain storage is easier to copy off the device, so its
     // sessions expire sooner and need a fresh password more often.
-    final DateTime refreshExp = now.add(secureStorage ? refreshTtl : plainStorageRefreshTtl);
+    final DateTime refreshExp = now.add(
+      secureStorage ? refreshTtl : plainStorageRefreshTtl,
+    );
     final Row row = (await tx.one(
       '''insert into auth_sessions
            (account_id, device_id, family, access_hash, refresh_hash,
@@ -1125,7 +1242,12 @@ class AuthService {
       '''update auth_sessions set revoked_at = @now, revoked_reason = @r
          where account_id = @a::uuid and revoked_at is null
            and (@except::uuid is null or id <> @except::uuid)''',
-      <String, Object?>{'now': _now, 'r': reason, 'a': accountId, 'except': except},
+      <String, Object?>{
+        'now': _now,
+        'r': reason,
+        'a': accountId,
+        'except': except,
+      },
     );
   }
 
@@ -1142,16 +1264,26 @@ class AuthService {
   /// against a one-in-a-million code. When the cap is reached, nothing is
   /// sent, silently, so the endpoints still don't reveal which emails have
   /// accounts.
-  Future<void> _issueCode(String accountId, String email, String purpose) async {
+  Future<void> _issueCode(
+    String accountId,
+    String email,
+    String purpose,
+  ) async {
     final String code = Tokens.emailCode();
     final DateTime now = _now;
     final Row recent = (await _db.one(
       '''select count(*)::int as n from email_codes
           where account_id = @a::uuid and purpose = @p and created_at > @since''',
-      <String, Object?>{'a': accountId, 'p': purpose, 'since': now.subtract(const Duration(days: 1))},
+      <String, Object?>{
+        'a': accountId,
+        'p': purpose,
+        'since': now.subtract(const Duration(days: 1)),
+      },
     ))!;
     if ((recent['n'] as int) >= maxCodesPerDay) {
-      _log.warning('Daily $purpose code limit reached for account $accountId; not sending');
+      _log.warning(
+        'Daily $purpose code limit reached for account $accountId; not sending',
+      );
       return;
     }
     await _db.tx((DbSession tx) async {
@@ -1197,7 +1329,11 @@ class AuthService {
   /// same [_badCode] answer. Saying "4 tries left" would confirm to anyone
   /// who triggered a reset that the address has an account. Attempts are
   /// still counted and enforced; the person just isn't told the number.
-  Future<void> _consumeCode(String accountId, String purpose, String code) async {
+  Future<void> _consumeCode(
+    String accountId,
+    String purpose,
+    String code,
+  ) async {
     final String clean = code.replaceAll(RegExp(r'\s'), '');
     final DateTime now = _now;
     final bool ok = await _db.tx((DbSession tx) async {
@@ -1237,7 +1373,8 @@ class AuthService {
   /// is logged and audited (Console → Audit, `mail.failed`) so admins can
   /// see that mail is broken.
   Future<void> _mail(String to, String subject, String text) async {
-    Future<void> send() => _mailer.send(OutgoingMail(to: to, subject: subject, text: text));
+    Future<void> send() =>
+        _mailer.send(OutgoingMail(to: to, subject: subject, text: text));
     if (!mailInBackground) {
       try {
         await send();
@@ -1251,13 +1388,22 @@ class AuthService {
       }
       return;
     }
-    unawaited(send().catchError((Object e) async {
-      _log.severe('Mail to $to failed', e);
-      try {
-        await _audit.record(_db, const AuditActor.system('mail'), 'mail.failed',
-            detail: <String, Object?>{'to': to, 'error': '$e'.split('\n').first});
-      } catch (_) {}
-    }));
+    unawaited(
+      send().catchError((Object e) async {
+        _log.severe('Mail to $to failed', e);
+        try {
+          await _audit.record(
+            _db,
+            const AuditActor.system('mail'),
+            'mail.failed',
+            detail: <String, Object?>{
+              'to': to,
+              'error': '$e'.split('\n').first,
+            },
+          );
+        } catch (_) {}
+      }),
+    );
   }
 
   static const ApiException _badCode = ApiException(
@@ -1306,14 +1452,21 @@ final RegExp _emailShape = RegExp(
 String normalizeEmail(String raw) {
   final String e = raw.trim().toLowerCase();
   if (e.length > 254 || !_emailShape.hasMatch(e)) {
-    throw const ApiException(400, 'invalid_email', 'Enter a valid email address');
+    throw const ApiException(
+      400,
+      'invalid_email',
+      'Enter a valid email address',
+    );
   }
   return e;
 }
 
 String cleanDisplayName(String raw) {
   final String clean = raw
-      .replaceAll(RegExp(r'[\u0000-\u001F\u007F\u202A-\u202E\u2066-\u2069\u200E\u200F]'), '')
+      .replaceAll(
+        RegExp(r'[\u0000-\u001F\u007F\u202A-\u202E\u2066-\u2069\u200E\u200F]'),
+        '',
+      )
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
   if (clean.isEmpty) {

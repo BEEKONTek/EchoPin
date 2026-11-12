@@ -27,8 +27,17 @@ class TestClock {
 
 /// One isolated database, key set and server per test file.
 class TestEnv {
-  TestEnv._(this.dbName, this.url, this.db, this.keysDir, this.backupsDir,
-      this.server, this.mailer, this.clock, this.custodian);
+  TestEnv._(
+    this.dbName,
+    this.url,
+    this.db,
+    this.keysDir,
+    this.backupsDir,
+    this.server,
+    this.mailer,
+    this.clock,
+    this.custodian,
+  );
 
   /// The custodian key pair this server accepts (private half = what a
   /// responder's console would hold).
@@ -45,14 +54,17 @@ class TestEnv {
 
   static Future<TestEnv> create() async {
     final String admin = testAdminUrl!;
-    final String name = 'echopin_test_${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(1 << 20)}';
+    final String name =
+        'echopin_test_${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(1 << 20)}';
     final Db adminDb = Db.connect(admin);
     await adminDb.execute('create database $name');
     await adminDb.close();
     final String url = Uri.parse(admin).replace(path: '/$name').toString();
     final Db db = Db.connect(url);
     await migrate(db);
-    final Directory tmp = await Directory.systemTemp.createTemp('echopin-test-');
+    final Directory tmp = await Directory.systemTemp.createTemp(
+      'echopin-test-',
+    );
     final Directory keysDir = Directory('${tmp.path}/keys');
     final Directory backupsDir = Directory('${tmp.path}/backups');
     await ServerKeys.create(keysDir.path);
@@ -74,6 +86,10 @@ class TestEnv {
       requireStaffTwoStep: false,
       passwordBreachCheck: false,
       custodianPublicKeys: custodianPublicKeys,
+      // CI pins these to the service's PostgreSQL major; locally the
+      // defaults on PATH are used.
+      pgDump: Platform.environment['PG_DUMP'] ?? 'pg_dump',
+      pgRestore: Platform.environment['PG_RESTORE'] ?? 'pg_restore',
     );
     final EchoPinServer server = EchoPinServer.create(
       config: config,
@@ -86,7 +102,17 @@ class TestEnv {
       minPublicResponse: Duration.zero,
       clock: clock.call,
     );
-    return TestEnv._(name, url, db, keysDir, backupsDir, server, mailer, clock, custodian);
+    return TestEnv._(
+      name,
+      url,
+      db,
+      keysDir,
+      backupsDir,
+      server,
+      mailer,
+      clock,
+      custodian,
+    );
   }
 
   Future<void> dispose() async {
@@ -126,13 +152,31 @@ class TestEnv {
   }
 
   /// Registers, verifies and returns a signed-in user.
-  Future<TestUser> signUp(String email, {String password = 'correct horse battery', String name = 'Test'}) async {
-    final ApiResult r = await call('POST', '/v1/auth/register',
-        body: <String, Object?>{'email': email, 'password': password, 'displayName': name});
+  Future<TestUser> signUp(
+    String email, {
+    String password = 'correct horse battery',
+    String name = 'Test',
+  }) async {
+    final ApiResult r = await call(
+      'POST',
+      '/v1/auth/register',
+      body: <String, Object?>{
+        'email': email,
+        'password': password,
+        'displayName': name,
+      },
+    );
     if (r.status != 202) throw StateError('register: ${r.body}');
     final String code = mailer.lastCodeFor(email)!;
-    final ApiResult v = await call('POST', '/v1/auth/verify-email',
-        body: <String, Object?>{'email': email, 'code': code, 'password': password});
+    final ApiResult v = await call(
+      'POST',
+      '/v1/auth/verify-email',
+      body: <String, Object?>{
+        'email': email,
+        'code': code,
+        'password': password,
+      },
+    );
     if (v.status != 200) throw StateError('verify: ${v.body}');
     final TestDevice device = await TestDevice.create();
     final ApiResult l = await login(email, password, device);
@@ -140,41 +184,60 @@ class TestEnv {
     return TestUser(email, password, device, l.map);
   }
 
-  Future<ApiResult> login(String email, String password, TestDevice device, {String? totp}) async {
+  Future<ApiResult> login(
+    String email,
+    String password,
+    TestDevice device, {
+    String? totp,
+  }) async {
     final int ts = clock.now.millisecondsSinceEpoch;
-    return call('POST', '/v1/auth/login', body: <String, Object?>{
-      'email': email,
-      'password': password,
-      'totp': ?totp,
-      'device': <String, Object?>{
-        'publicKey': base64.encode(device.publicKey),
-        'label': 'Test phone',
-        'platform': 'Android',
-        'appVersion': '0.4.0',
+    return call(
+      'POST',
+      '/v1/auth/login',
+      body: <String, Object?>{
+        'email': email,
+        'password': password,
+        'totp': ?totp,
+        'device': <String, Object?>{
+          'publicKey': base64.encode(device.publicKey),
+          'label': 'Test phone',
+          'platform': 'Android',
+          'appVersion': '0.4.0',
+        },
+        'proofTimestamp': ts,
+        'proofSignature': base64.encode(
+          await device.sign('login', email.toLowerCase(), ts),
+        ),
       },
-      'proofTimestamp': ts,
-      'proofSignature': base64.encode(await device.sign('login', email.toLowerCase(), ts)),
-    });
+    );
   }
 
-  Future<ApiResult> refresh(TestUser u, {String? refreshToken, TestDevice? device}) async {
+  Future<ApiResult> refresh(
+    TestUser u, {
+    String? refreshToken,
+    TestDevice? device,
+  }) async {
     final String token = refreshToken ?? u.refreshToken;
     final int ts = clock.now.millisecondsSinceEpoch;
     final TestDevice d = device ?? u.device;
-    return call('POST', '/v1/auth/refresh', body: <String, Object?>{
-      'refreshToken': token,
-      'deviceId': u.deviceId,
-      'proofTimestamp': ts,
-      'proofSignature': base64.encode(
-        await d.sign('refresh', AuthService.refreshSubject(token), ts),
-      ),
-    });
+    return call(
+      'POST',
+      '/v1/auth/refresh',
+      body: <String, Object?>{
+        'refreshToken': token,
+        'deviceId': u.deviceId,
+        'proofTimestamp': ts,
+        'proofSignature': base64.encode(
+          await d.sign('refresh', AuthService.refreshSubject(token), ts),
+        ),
+      },
+    );
   }
 
   Future<void> setRole(String email, AccountRole role) => db.execute(
-        'update accounts set role = @r where email_normalized = @e',
-        <String, Object?>{'r': role.wire, 'e': email.toLowerCase()},
-      );
+    'update accounts set role = @r where email_normalized = @e',
+    <String, Object?>{'r': role.wire, 'e': email.toLowerCase()},
+  );
 }
 
 class ApiResult {
@@ -197,7 +260,8 @@ class TestDevice {
     return TestDevice(kp, (await kp.extractPublicKey()).bytes);
   }
 
-  Future<List<int>> sign(String purpose, String subject, int ts) => DeviceProof.sign(
+  Future<List<int>> sign(String purpose, String subject, int ts) =>
+      DeviceProof.sign(
         deviceKey: keyPair,
         purpose: purpose,
         subject: subject,
@@ -207,10 +271,10 @@ class TestDevice {
 
 class TestUser {
   TestUser(this.email, this.password, this.device, Map<String, dynamic> login)
-      : accessToken = login['accessToken'] as String,
-        refreshToken = login['refreshToken'] as String,
-        deviceId = login['deviceId'] as String,
-        accountId = (login['account'] as Map<String, dynamic>)['id'] as String;
+    : accessToken = login['accessToken'] as String,
+      refreshToken = login['refreshToken'] as String,
+      deviceId = login['deviceId'] as String,
+      accountId = (login['account'] as Map<String, dynamic>)['id'] as String;
 
   final String email;
   final String password;

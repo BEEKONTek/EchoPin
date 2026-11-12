@@ -10,7 +10,11 @@ import '../db/database.dart';
 
 /// Records a hit for [key] and says how long to wait, or null if allowed.
 abstract interface class Limiter {
-  Future<Duration?> hit(String key, {required int limit, required Duration window});
+  Future<Duration?> hit(
+    String key, {
+    required int limit,
+    required Duration window,
+  });
 
   /// Forgets a key, e.g. after a successful sign-in or an admin unlock.
   Future<void> reset(String key);
@@ -22,13 +26,18 @@ abstract interface class Limiter {
 /// for the limits used here (attempts per minutes) that is harmless, and
 /// it keeps each check to one statement with no read-modify-write race.
 class DbRateLimiter implements Limiter {
-  DbRateLimiter(this._db, {DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
+  DbRateLimiter(this._db, {DateTime Function()? clock})
+    : _clock = clock ?? DateTime.now;
 
   final Db _db;
   final DateTime Function() _clock;
 
   @override
-  Future<Duration?> hit(String key, {required int limit, required Duration window}) async {
+  Future<Duration?> hit(
+    String key, {
+    required int limit,
+    required Duration window,
+  }) async {
     final DateTime now = _clock().toUtc();
     final int w = window.inMilliseconds;
     final DateTime start = DateTime.fromMillisecondsSinceEpoch(
@@ -48,8 +57,10 @@ class DbRateLimiter implements Limiter {
   }
 
   @override
-  Future<void> reset(String key) =>
-      _db.execute('delete from rate_hits where key = @k', <String, Object?>{'k': key});
+  Future<void> reset(String key) => _db.execute(
+    'delete from rate_hits where key = @k',
+    <String, Object?>{'k': key},
+  );
 
   /// Drops counters whose window ended long ago (run by the retention job).
   static Future<int> prune(Db db, DateTime now) => db.execute(
@@ -68,7 +79,11 @@ class RateLimiter implements Limiter {
   int _calls = 0;
 
   @override
-  Future<Duration?> hit(String key, {required int limit, required Duration window}) async {
+  Future<Duration?> hit(
+    String key, {
+    required int limit,
+    required Duration window,
+  }) async {
     final DateTime now = _clock();
     if (++_calls % 1000 == 0) _prune(now);
     final List<DateTime> list = _hits.putIfAbsent(key, () => <DateTime>[]);

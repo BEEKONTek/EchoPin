@@ -27,6 +27,8 @@ abstract final class Tokens {
 
   static Uint8List codeHash(String accountId, String purpose, String code) =>
       Uint8List.fromList(
-        sha256.convert(utf8.encode('echopin/v1/code|$accountId|$purpose|$code')).bytes,
+        sha256
+            .convert(utf8.encode('echopin/v1/code|$accountId|$purpose|$code'))
+            .bytes,
       );
 }

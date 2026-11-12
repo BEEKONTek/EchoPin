@@ -21,7 +21,10 @@ class AccountLockScope extends InheritedNotifier<AccountLockProvider> {
   static AccountLockProvider read(BuildContext context) {
     final InheritedElement? element = context
         .getElementForInheritedWidgetOfExactType<AccountLockScope>();
-    assert(element != null, 'AccountLockScope.read: no AccountLockScope in tree');
+    assert(
+      element != null,
+      'AccountLockScope.read: no AccountLockScope in tree',
+    );
     return (element!.widget as AccountLockScope).notifier!;
   }
 }

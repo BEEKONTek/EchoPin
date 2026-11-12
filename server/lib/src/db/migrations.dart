@@ -307,17 +307,23 @@ Future<void> lockDownPublicApi(DbSession tx) async {
     'and tableowner = current_user and not rowsecurity order by 1',
   )).map((Row r) => r['tablename'] as String).toList();
   for (final String t in open) {
-    await tx.execute('alter table public."${t.replaceAll('"', '""')}" enable row level security');
+    await tx.execute(
+      'alter table public."${t.replaceAll('"', '""')}" enable row level security',
+    );
   }
 
   final String who = roles.join(', ');
   for (final String kind in <String>['tables', 'sequences', 'functions']) {
     await tx.execute('revoke all on all $kind in schema public from $who');
     // Objects this role creates later (future migrations) start closed too.
-    await tx.execute('alter default privileges in schema public revoke all on $kind from $who');
+    await tx.execute(
+      'alter default privileges in schema public revoke all on $kind from $who',
+    );
   }
   if (open.isNotEmpty) {
-    _log.warning('Closed the Supabase data API on ${open.length} table(s): ${open.join(', ')}');
+    _log.warning(
+      'Closed the Supabase data API on ${open.length} table(s): ${open.join(', ')}',
+    );
   }
 }
 
@@ -368,5 +374,7 @@ List<String> splitStatements(String sql) {
   return out;
 }
 
-String _stripComments(String s) =>
-    s.split('\n').where((String l) => !l.trimLeft().startsWith('--')).join('\n');
+String _stripComments(String s) => s
+    .split('\n')
+    .where((String l) => !l.trimLeft().startsWith('--'))
+    .join('\n');

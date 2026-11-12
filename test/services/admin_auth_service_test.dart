@@ -151,29 +151,43 @@ void main() {
       expect((await svc().verify('1234')).ok, isFalse);
     });
 
-    test('a lock record from before lockouts were counted still reads', () async {
-      await svc().setPin('1234');
-      await kv.write('echo_pin.admin_lock_v1', '2|0'); // 0.4.0 format
-      final AdminAuthResult r = await svc().verify('0000');
-      expect(r.status, AdminAuthStatus.lockedOut, reason: '2 earlier failures + this one');
-      expect(r.lockouts, 1);
-    });
+    test(
+      'a lock record from before lockouts were counted still reads',
+      () async {
+        await svc().setPin('1234');
+        await kv.write('echo_pin.admin_lock_v1', '2|0'); // 0.4.0 format
+        final AdminAuthResult r = await svc().verify('0000');
+        expect(
+          r.status,
+          AdminAuthStatus.lockedOut,
+          reason: '2 earlier failures + this one',
+        );
+        expect(r.lockouts, 1);
+      },
+    );
 
-    test('lockouts in a row are counted, and a correct PIN resets them', () async {
-      await svc().setPin('1234');
-      for (int round = 1; round <= 2; round++) {
-        AdminAuthResult r = await svc().verify('0000');
-        r = await svc().verify('0000');
-        r = await svc().verify('0000');
-        expect(r.lockouts, round);
-        now = now.add(const Duration(seconds: 31));
-      }
-      expect((await svc().verify('1234')).ok, isTrue);
-      expect((await svc().verify('0000')).lockouts, 0);
-    });
+    test(
+      'lockouts in a row are counted, and a correct PIN resets them',
+      () async {
+        await svc().setPin('1234');
+        for (int round = 1; round <= 2; round++) {
+          AdminAuthResult r = await svc().verify('0000');
+          r = await svc().verify('0000');
+          r = await svc().verify('0000');
+          expect(r.lockouts, round);
+          now = now.add(const Duration(seconds: 31));
+        }
+        expect((await svc().verify('1234')).ok, isTrue);
+        expect((await svc().verify('0000')).lockouts, 0);
+      },
+    );
 
     test('the account PIN is stored apart from the admin PIN', () async {
-      final AdminAuthService account = AdminAuthService.account(kv: kv, iterations: 10, useIsolate: false);
+      final AdminAuthService account = AdminAuthService.account(
+        kv: kv,
+        iterations: 10,
+        useIsolate: false,
+      );
       await account.setPin('2468');
       expect(await svc().hasPin(), isFalse);
       expect(kv.data.keys, contains('echo_pin.account_pin_v1'));

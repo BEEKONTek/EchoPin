@@ -1,6 +1,6 @@
 # EchoPin security review: authentication, verification and the central server
 
-Reviewed 2026-11-08 against the 0.4.0 work (branch `update`, then `deepseek-mvp`).
+Reviewed 2026-11-08 against the 0.4.0 work; input-handling pass added 2026-11-12 (0.5.0).
 It covers the optional central server (`server/`), the shared wire code
 (`packages/echopin_protocol`), the app's account, outbox and recorder code
 (`lib/account/`), the console, and the hosted deployment (`render.yaml`,
@@ -305,6 +305,17 @@ this review, ⚠️ accepted (see below).
 | Junk or fake logs in someone's session | 🔧 session tag flags uploads from non-members; a real member's junk stays attributed to them |
 | Downgrade a safety report | ✅ server never stores a safety report below *high* |
 | Server reads sealed logs on ingest | ✅ only shape and key id are checked |
+
+### Input handling (every endpoint, 0.5.0)
+| Fault | Status |
+| --- | --- |
+| Non-JSON or non-object body | ✅ 400 "must be a JSON object"; bodies over 64 KB → 413 before parsing |
+| Wrong type, missing or over-long field | ✅ typed accessors (`str`, `integer`, `b64`, `time`) give precise 400s; limits shared with the app via `ProtocolLimits` |
+| Malformed id in a URL (`/reports/42`, injection text) | ✅ `uuidParam`/`idParam` answer 404 before any query |
+| `?limit=999999`, negative offsets, bad cursors | ✅ clamped (`queryInt`, max page 500) |
+| Over-long search text | ✅ 400 at 200 characters |
+| A value PostgreSQL itself refuses (SQLSTATE 22xxx) | ✅ mapped to a 400 without the database's wording; unique clashes → 409; anything else → 500 with a generic message and a server-side log |
+| Email shape, name length, password policy | ✅ checked in the app first (instant), then again on the server |
 
 ### Keys, backups, deployment
 | Fault | Status |

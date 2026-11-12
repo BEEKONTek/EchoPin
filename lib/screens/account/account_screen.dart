@@ -14,6 +14,7 @@ import 'package:echo_pin/screens/report_screen.dart';
 import 'package:echo_pin/ui/format.dart';
 import 'package:echo_pin/widgets/pin_field.dart';
 import 'package:echo_pin/widgets/ui_bits.dart';
+import 'package:echopin_protocol/echopin_protocol.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -99,18 +100,29 @@ class _AccountScreenState extends State<AccountScreen> {
                   Tray(
                     child: Row(
                       children: <Widget>[
-                        CircleAvatar(radius: 26, child: Text(Fmt.initials(me.displayName))),
+                        CircleAvatar(
+                          radius: 26,
+                          child: Text(Fmt.initials(me.displayName)),
+                        ),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              Text(me.displayName, style: t.textTheme.titleMedium),
+                              Text(
+                                me.displayName,
+                                style: t.textTheme.titleMedium,
+                              ),
                               Text(me.email, style: t.textTheme.bodySmall),
                             ],
                           ),
                         ),
-                        Pill(me.role.wire, color: me.canUseConsole ? t.colorScheme.primary : null),
+                        Pill(
+                          me.role.wire,
+                          color: me.canUseConsole
+                              ? t.colorScheme.primary
+                              : null,
+                        ),
                       ],
                     ),
                   ),
@@ -131,7 +143,8 @@ class _AccountScreenState extends State<AccountScreen> {
                       padding: EdgeInsets.only(bottom: 8),
                       child: NoticeTray(
                         icon: Icons.warning_amber_outlined,
-                        text: 'This device has no secure key storage, so your sign-in key is '
+                        text:
+                            'This device has no secure key storage, so your sign-in key is '
                             'kept in ordinary app storage. You will be asked to sign in again '
                             'every 7 days. Avoid shared computers.',
                       ),
@@ -141,13 +154,23 @@ class _AccountScreenState extends State<AccountScreen> {
                     child: Column(
                       children: <Widget>[
                         ListTile(
-                          leading: Icon(me.totpEnabled ? Icons.verified_user : Icons.shield_outlined),
+                          leading: Icon(
+                            me.totpEnabled
+                                ? Icons.verified_user
+                                : Icons.shield_outlined,
+                          ),
                           title: const Text('Two-step sign-in'),
-                          subtitle: Text(me.totpEnabled
-                              ? 'On. Sign-in asks for a code from your authenticator app'
-                              : 'Off. Add a code from an authenticator app to sign-in'),
-                          trailing: Text(me.totpEnabled ? 'Turn off' : 'Set up'),
-                          onTap: () => unawaited(me.totpEnabled ? _disableTotp() : _setupTotp()),
+                          subtitle: Text(
+                            me.totpEnabled
+                                ? 'On. Sign-in asks for a code from your authenticator app'
+                                : 'Off. Add a code from an authenticator app to sign-in',
+                          ),
+                          trailing: Text(
+                            me.totpEnabled ? 'Turn off' : 'Set up',
+                          ),
+                          onTap: () => unawaited(
+                            me.totpEnabled ? _disableTotp() : _setupTotp(),
+                          ),
                         ),
                         const Divider(),
                         ListTile(
@@ -179,11 +202,21 @@ class _AccountScreenState extends State<AccountScreen> {
                       padding: EdgeInsets.zero,
                       child: Column(
                         children: <Widget>[
-                          for (final Map<String, dynamic> d in devices.where((Map<String, dynamic> d) => d['revokedAt'] == null))
+                          for (final Map<String, dynamic> d in devices.where(
+                            (Map<String, dynamic> d) => d['revokedAt'] == null,
+                          ))
                             ListTile(
-                              leading: Icon(d['current'] == true ? Icons.smartphone : Icons.devices_other),
-                              title: Text('${d['label']}${d['current'] == true ? ' (this one)' : ''}'),
-                              subtitle: Text('EchoPin ${d['appVersion'] ?? '?'} · seen ${_ago(d['lastSeenAt'])}'),
+                              leading: Icon(
+                                d['current'] == true
+                                    ? Icons.smartphone
+                                    : Icons.devices_other,
+                              ),
+                              title: Text(
+                                '${d['label']}${d['current'] == true ? ' (this one)' : ''}',
+                              ),
+                              subtitle: Text(
+                                'EchoPin ${d['appVersion'] ?? '?'} · seen ${_ago(d['lastSeenAt'])}',
+                              ),
                               trailing: d['current'] == true
                                   ? null
                                   : IconButton(
@@ -211,7 +244,8 @@ class _AccountScreenState extends State<AccountScreen> {
                   _Loader<List<Map<String, dynamic>>>(
                     future: _reports,
                     onRetry: _reload,
-                    builder: (List<Map<String, dynamic>> reports) => reports.isEmpty
+                    builder: (List<Map<String, dynamic>> reports) =>
+                        reports.isEmpty
                         ? const Tray(child: Text('No reports yet.'))
                         : Tray(
                             padding: EdgeInsets.zero,
@@ -220,8 +254,17 @@ class _AccountScreenState extends State<AccountScreen> {
                                 for (final Map<String, dynamic> r in reports)
                                   ListTile(
                                     title: Text(r['subject'] as String),
-                                    subtitle: Text(r['resolution'] as String? ?? 'Sent ${_ago(r['createdAt'])}'),
-                                    trailing: Pill(r['status'] as String, color: statusColor(context, r['status'] as String)),
+                                    subtitle: Text(
+                                      r['resolution'] as String? ??
+                                          'Sent ${_ago(r['createdAt'])}',
+                                    ),
+                                    trailing: Pill(
+                                      r['status'] as String,
+                                      color: statusColor(
+                                        context,
+                                        r['status'] as String,
+                                      ),
+                                    ),
                                   ),
                               ],
                             ),
@@ -231,12 +274,18 @@ class _AccountScreenState extends State<AccountScreen> {
                   Tray(
                     child: Row(
                       children: <Widget>[
-                        Icon(outbox.pendingCount == 0 ? Icons.cloud_done_outlined : Icons.cloud_upload_outlined),
+                        Icon(
+                          outbox.pendingCount == 0
+                              ? Icons.cloud_done_outlined
+                              : Icons.cloud_upload_outlined,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Text(outbox.pendingCount == 0
-                              ? 'Everything is sent${outbox.lastSentAt == null ? '' : ' (last ${Fmt.ago(outbox.lastSentAt!.toLocal())})'}.'
-                              : '${outbox.pendingCount} waiting to send. They go automatically when you are online.'),
+                          child: Text(
+                            outbox.pendingCount == 0
+                                ? 'Everything is sent${outbox.lastSentAt == null ? '' : ' (last ${Fmt.ago(outbox.lastSentAt!.toLocal())})'}.'
+                                : '${outbox.pendingCount} waiting to send. They go automatically when you are online.',
+                          ),
                         ),
                         if (outbox.pendingCount > 0)
                           TextButton(
@@ -244,7 +293,9 @@ class _AccountScreenState extends State<AccountScreen> {
                                 ? null
                                 : () async {
                                     final bool done = await outbox.flush();
-                                    if (mounted && !done) _snack('Still offline. Will keep trying');
+                                    if (mounted && !done) {
+                                      _snack('Still offline. Will keep trying');
+                                    }
                                   },
                             child: const Text('Send now'),
                           ),
@@ -316,7 +367,8 @@ class _AccountScreenState extends State<AccountScreen> {
       builder: (_) => _TotpDialog(
         uri: setup['otpauthUri'] as String,
         secret: setup['secret'] as String,
-        onCode: (String code, String password) => a.totpEnable(code, password: password),
+        onCode: (String code, String password) =>
+            a.totpEnable(code, password: password),
       ),
     );
     if (done == true) _snack('Two-step sign-in is on');
@@ -362,17 +414,28 @@ class _AccountScreenState extends State<AccountScreen> {
         title: Text(title),
         content: Text(body),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(action)),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(action),
+          ),
         ],
       ),
     );
     return ok ?? false;
   }
 
-  Future<List<String>?> _askFields(String title, List<String> labels, {required List<bool> obscure}) {
-    final List<TextEditingController> controllers =
-        labels.map((_) => TextEditingController()).toList();
+  Future<List<String>?> _askFields(
+    String title,
+    List<String> labels, {
+    required List<bool> obscure,
+  }) {
+    final List<TextEditingController> controllers = labels
+        .map((_) => TextEditingController())
+        .toList();
     return showDialog<List<String>>(
       context: context,
       builder: (BuildContext c) => AlertDialog(
@@ -387,15 +450,25 @@ class _AccountScreenState extends State<AccountScreen> {
                   controller: controllers[i],
                   obscureText: obscure[i],
                   autofocus: i == 0,
-                  decoration: InputDecoration(labelText: labels[i]),
+                  maxLength: ProtocolLimits.maxPasswordLength,
+                  decoration: InputDecoration(
+                    labelText: labels[i],
+                    counterText: '',
+                  ),
                 ),
               ),
           ],
         ),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-            onPressed: () => Navigator.pop(c, controllers.map((TextEditingController x) => x.text).toList()),
+            onPressed: () => Navigator.pop(
+              c,
+              controllers.map((TextEditingController x) => x.text).toList(),
+            ),
             child: const Text('Continue'),
           ),
         ],
@@ -409,7 +482,11 @@ class _AccountScreenState extends State<AccountScreen> {
 }
 
 class _TotpDialog extends StatefulWidget {
-  const _TotpDialog({required this.uri, required this.secret, required this.onCode});
+  const _TotpDialog({
+    required this.uri,
+    required this.secret,
+    required this.onCode,
+  });
   final String uri;
   final String secret;
 
@@ -458,8 +535,10 @@ class _TotpDialogState extends State<_TotpDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Text('Scan this with an authenticator app (Google Authenticator, '
-                '1Password, Aegis…), then enter the 6-digit code it shows.'),
+            const Text(
+              'Scan this with an authenticator app (Google Authenticator, '
+              '1Password, Aegis…), then enter the 6-digit code it shows.',
+            ),
             const SizedBox(height: 16),
             Container(
               color: Colors.white,
@@ -473,9 +552,14 @@ class _TotpDialogState extends State<_TotpDialog> {
               ),
             ),
             const SizedBox(height: 8),
-            SelectableText(widget.secret, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            SelectableText(
+              widget.secret,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
             TextButton.icon(
-              onPressed: () => unawaited(Clipboard.setData(ClipboardData(text: widget.secret))),
+              onPressed: () => unawaited(
+                Clipboard.setData(ClipboardData(text: widget.secret)),
+              ),
               icon: const Icon(Icons.copy, size: 16),
               label: const Text('Copy key'),
             ),
@@ -492,7 +576,11 @@ class _TotpDialogState extends State<_TotpDialog> {
               key: const ValueKey<String>('totp.password'),
               controller: _password,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Your password'),
+              maxLength: ProtocolLimits.maxPasswordLength,
+              decoration: const InputDecoration(
+                labelText: 'Your password',
+                counterText: '',
+              ),
               onSubmitted: (_) => unawaited(_submit()),
             ),
             ErrorLine(_error),
@@ -500,8 +588,14 @@ class _TotpDialogState extends State<_TotpDialog> {
         ),
       ),
       actions: <Widget>[
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-        FilledButton(onPressed: _busy ? null : () => unawaited(_submit()), child: const Text('Turn on')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _busy ? null : () => unawaited(_submit()),
+          child: const Text('Turn on'),
+        ),
       ],
     );
   }
@@ -509,7 +603,11 @@ class _TotpDialogState extends State<_TotpDialog> {
 
 /// FutureBuilder with a loading state and a retry on failure.
 class _Loader<T> extends StatelessWidget {
-  const _Loader({required this.future, required this.builder, required this.onRetry});
+  const _Loader({
+    required this.future,
+    required this.builder,
+    required this.onRetry,
+  });
   final Future<T>? future;
   final Widget Function(T data) builder;
   final VoidCallback onRetry;
@@ -576,14 +674,19 @@ class _ChangePinDialogState extends State<_ChangePinDialog> {
       _error = null;
     });
     try {
-      final AdminAuthResult r = await AccountLockScope.read(context).changePin(_current.text, _next.text);
+      final AdminAuthResult r = await AccountLockScope.read(
+        context,
+      ).changePin(_current.text, _next.text);
       if (!mounted) return;
       switch (r.status) {
         case AdminAuthStatus.success:
           Navigator.pop(context, true);
         case AdminAuthStatus.wrongPin:
           _current.clear();
-          setState(() => _error = 'Current PIN is wrong. ${r.attemptsRemaining} attempt(s) left.');
+          setState(
+            () => _error =
+                'Current PIN is wrong. ${r.attemptsRemaining} attempt(s) left.',
+          );
         case AdminAuthStatus.lockedOut:
         case AdminAuthStatus.noPin:
           // The account is locked now; its lock screen takes over.
@@ -603,9 +706,19 @@ class _ChangePinDialogState extends State<_ChangePinDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          PinField(key: const Key('changePin.current'), controller: _current, label: 'Current PIN', enabled: !_busy),
+          PinField(
+            key: const Key('changePin.current'),
+            controller: _current,
+            label: 'Current PIN',
+            enabled: !_busy,
+          ),
           const SizedBox(height: 12),
-          PinField(key: const Key('changePin.new'), controller: _next, label: 'New PIN', enabled: !_busy),
+          PinField(
+            key: const Key('changePin.new'),
+            controller: _next,
+            label: 'New PIN',
+            enabled: !_busy,
+          ),
           const SizedBox(height: 12),
           PinField(
             key: const Key('changePin.confirm'),
@@ -616,12 +729,18 @@ class _ChangePinDialogState extends State<_ChangePinDialog> {
           ),
           if (_error != null) ...<Widget>[
             const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ],
         ],
       ),
       actions: <Widget>[
-        TextButton(onPressed: _busy ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           key: const Key('changePin.submit'),
           onPressed: _busy ? null : () => unawaited(_submit()),

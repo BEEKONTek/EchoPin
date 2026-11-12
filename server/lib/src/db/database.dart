@@ -29,15 +29,26 @@ class Db implements DbSession {
   static String withDefaults(String url, {int poolSize = 5}) {
     final Uri uri = Uri.parse(url);
     final Map<String, String> q = Map<String, String>.of(uri.queryParameters);
-    const Set<String> local = <String>{'localhost', '127.0.0.1', '::1', 'db', 'postgres'};
-    q.putIfAbsent('sslmode', () => local.contains(uri.host) ? 'disable' : 'require');
+    const Set<String> local = <String>{
+      'localhost',
+      '127.0.0.1',
+      '::1',
+      'db',
+      'postgres',
+    };
+    q.putIfAbsent(
+      'sslmode',
+      () => local.contains(uri.host) ? 'disable' : 'require',
+    );
     q.putIfAbsent('max_connection_count', () => '$poolSize');
     return uri.replace(queryParameters: q).toString();
   }
 
   @override
-  Future<List<Row>> query(String sql, [Map<String, Object?> params = const {}]) =>
-      _query(_pool, sql, params);
+  Future<List<Row>> query(
+    String sql, [
+    Map<String, Object?> params = const {},
+  ]) => _query(_pool, sql, params);
 
   @override
   Future<Row?> one(String sql, [Map<String, Object?> params = const {}]) async {
@@ -46,7 +57,10 @@ class Db implements DbSession {
   }
 
   @override
-  Future<int> execute(String sql, [Map<String, Object?> params = const {}]) async {
+  Future<int> execute(
+    String sql, [
+    Map<String, Object?> params = const {},
+  ]) async {
     final Result r = await _pool.execute(Sql.named(sql), parameters: params);
     return r.affectedRows;
   }
@@ -72,8 +86,10 @@ class _Tx implements DbSession {
   final TxSession _s;
 
   @override
-  Future<List<Row>> query(String sql, [Map<String, Object?> params = const {}]) =>
-      Db._query(_s, sql, params);
+  Future<List<Row>> query(
+    String sql, [
+    Map<String, Object?> params = const {},
+  ]) => Db._query(_s, sql, params);
 
   @override
   Future<Row?> one(String sql, [Map<String, Object?> params = const {}]) async {
@@ -82,7 +98,10 @@ class _Tx implements DbSession {
   }
 
   @override
-  Future<int> execute(String sql, [Map<String, Object?> params = const {}]) async {
+  Future<int> execute(
+    String sql, [
+    Map<String, Object?> params = const {},
+  ]) async {
     final Result r = await _s.execute(Sql.named(sql), parameters: params);
     return r.affectedRows;
   }

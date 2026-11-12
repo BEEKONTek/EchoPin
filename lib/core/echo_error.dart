@@ -234,7 +234,12 @@ final class SecurityError extends EchoError {
 /// `totp_required`, `weak_password`, …) so screens can react to specific
 /// cases; [message] is the server's human sentence.
 final class AccountError extends EchoError {
-  const AccountError(this.code, this.message, {this.status = 400, this.retryAfter});
+  const AccountError(
+    this.code,
+    this.message, {
+    this.status = 400,
+    this.retryAfter,
+  });
 
   final String code;
   @override
@@ -244,7 +249,9 @@ final class AccountError extends EchoError {
 
   /// The session on this device is no longer valid; sign in again.
   bool get signedOut =>
-      status == 401 && code != 'totp_required' && code != 'totp_invalid' &&
+      status == 401 &&
+      code != 'totp_required' &&
+      code != 'totp_invalid' &&
       code != 'invalid_credentials';
 }
 

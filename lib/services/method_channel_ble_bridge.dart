@@ -124,7 +124,7 @@ class MethodChannelBleBridge implements PlatformBleBridge {
   Future<void> stop() async {
     try {
       await _methods.invokeMethod<void>('stop');
-    } catch (_) {}
+    } catch (_) {} // best effort: the plugin may already be gone
   }
 
   @override

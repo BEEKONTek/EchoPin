@@ -37,6 +37,6 @@ class SecureStorageKvStore implements KeyValueStore {
   Future<void> delete(String key) async {
     try {
       await _storage.delete(key: key);
-    } catch (_) {}
+    } catch (_) {} // best effort: the key may not exist
   }
 }

@@ -23,9 +23,12 @@ import 'package:echopin_protocol/echopin_protocol.dart';
 class CustodianKeys {
   CustodianKeys(List<String> base64Keys)
     : publicKeys = <String, List<int>>{
-        for (final String k in base64Keys) SealedBox.keyIdFor(base64.decode(k)): base64.decode(k),
+        for (final String k in base64Keys)
+          SealedBox.keyIdFor(base64.decode(k)): base64.decode(k),
       },
-      currentId = base64Keys.isEmpty ? null : SealedBox.keyIdFor(base64.decode(base64Keys.first));
+      currentId = base64Keys.isEmpty
+          ? null
+          : SealedBox.keyIdFor(base64.decode(base64Keys.first));
 
   /// Accepted custodian keys by id (old ones stay so queued uploads work).
   final Map<String, List<int>> publicKeys;
