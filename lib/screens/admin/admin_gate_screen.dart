@@ -110,7 +110,7 @@ class _AdminGateScreenState extends State<AdminGateScreen> {
             _setLockout(r.lockedUntil);
             return;
           case AdminAuthStatus.noPin:
-            setState(() => _error = 'No PIN set — create one.');
+            setState(() => _error = 'No PIN set. Create one.');
             return;
         }
       }

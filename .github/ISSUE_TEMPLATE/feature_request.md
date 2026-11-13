@@ -1,38 +1,20 @@
 ---
-name: Feature Request
-about: Suggest an idea for EchoPin
-title: "[FEATURE] "
+name: Feature request
+about: Suggest a change or an addition
+title: ""
 labels: enhancement
 assignees: ''
 ---
 
-## Is your feature request related to a problem?
+## The problem
 
-A clear and concise description of what the problem is. (e.g., "I'm always frustrated when...")
+What is hard or impossible today, and for whom.
 
-## Describe the Solution You'd Like
+## The proposal
 
-A clear and concise description of what you want to happen.
+What you would like EchoPin to do.
 
-## Describe Alternatives You've Considered
+## Fit
 
-A clear and concise description of any alternative solutions or features you've considered.
-
-## Use Case
-
-Explain why this feature would be useful. Who would benefit? When would they use it?
-
-**Example:**
-- User persona: outdoor hikers
-- Scenario: group hike in bad GPS coverage (canyon)
-- Benefit: fall back to BLE for proximity awareness even without GPS
-
-## Additional Context
-
-Add any other context, mockups, or examples here.
-
-## Checklist
-
-- [ ] I have searched for existing feature requests (no duplicates)
-- [ ] This feature aligns with EchoPin's privacy-first mission
-- [ ] I have provided a clear use case
+EchoPin never records or sends anything location-like, and it must keep
+working with no server. Say how the proposal fits those two rules.

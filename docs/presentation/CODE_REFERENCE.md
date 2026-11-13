@@ -206,7 +206,7 @@ anything.
 | `sessions` | 608 | responder+ | One row per session from each phone's newest upload; shared events use **max**, not sum; flags `unproven`; **person searches are audited** (`sessions.searched`) |
 | `session` | 694 | responder+ | Every upload + who opened what; **audited** (`session.viewed`); **session tag check**: a tag counts as proven only if a strict majority of *people* share it; ties show as unknown |
 | `unseal` | 788 | responder+ | Reason ≥ 10 characters → 30 per hour limit → **grant and audit row committed before decryption** → peel the server layer → return content, or the inner seal if double-sealed |
-| `_alertAdmins` | 883 | — | Emails every active admin: who, which session, reason, case number |
+| `_alertAdmins` | 883 | none | Emails every active admin: who, which session, reason, case number |
 | `auditEntries` / `verifyAudit` | 912 / 948 | admin | Audit list; chain check including the backup anchor |
 
 Uploads arrive through `server/lib/src/telemetry_service.dart`:

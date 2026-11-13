@@ -1,215 +1,85 @@
 # Contributing to EchoPin
 
-Thank you for your interest in contributing to EchoPin! We welcome contributions from developers, designers, researchers, and testers.
+Bug reports, fixes, tests, documentation and hardware testing are all
+welcome. Please read the [code of conduct](CODE_OF_CONDUCT.md) first.
 
-## Code of Conduct
+## Reporting a bug
 
-Please read our [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) before contributing. We are committed to fostering an inclusive and respectful community.
+[Open an issue](https://github.com/BEEKONTek/EchoPin/issues/new?labels=bug)
+with what you did, what you expected, what happened, the phone and OS
+version, and the app version from the admin panel's diagnostics page.
+Screenshots and logs help.
 
----
+For a security problem, do not open an issue; see [SECURITY.md](SECURITY.md).
 
-## How to Contribute
+## Proposing a feature
 
-### 1. Report a Bug
-**Found a bug?** [Open an issue](https://github.com/BEEKONTek/EchoPin/issues/new?labels=bug) with:
-- Clear description of the problem
-- Steps to reproduce
-- Expected vs. actual behaviour
-- Device info (Android/iOS version, device model)
-- Screenshots or logs if applicable
+[Open an issue](https://github.com/BEEKONTek/EchoPin/issues/new?labels=enhancement)
+that says what problem the feature solves and who would use it. Two rules
+shape every decision in EchoPin:
 
-### 2. Request a Feature
-**Have an idea?** [Open an issue](https://github.com/BEEKONTek/EchoPin/issues/new?labels=enhancement) with:
-- Clear description of the feature
-- Why it would be useful
-- Example use case
-- Rough implementation idea (optional)
+- nothing location-like is ever recorded or sent, not even on the server;
+- the app must work completely with no server at all.
 
-### 3. Submit Code
+A proposal that needs either rule to bend will not be accepted.
 
-#### Fork & Clone
-```bash
-git clone https://github.com/BEEKONTek/EchoPin.git
-cd EchoPin
-git checkout -b feature/your-feature-name
-```
+## Working on the code
 
-#### Style Guide
+Set up a machine with [docs/SETUP.md](docs/SETUP.md). Then:
 
-**Dart/Flutter Code:**
-- Follow [Effective Dart](https://dart.dev/guides/language/effective-dart) conventions
-- Use `flutter analyze` to check for issues
-- Run `dart format lib test` (and `dart format .` inside `server/`) to auto-format code; CI checks it
-- Keep lines < 80 characters where possible
-- Use meaningful variable names (avoid `a`, `b`, `temp`)
-- Add comments for complex logic
+    git checkout -b fix/short-description
+    # make the change, with a test that fails without it
+    flutter analyze
+    dart format lib test integration_test
+    (cd server && dart format .)
+    flutter test
+    (cd server && tool/test.sh)
 
-**Naming Conventions:**
-- Classes: `PascalCase` (e.g., `LocationEngine`, `MeshService`)
-- Functions/methods: `camelCase` (e.g., `computeBearing()`)
-- Constants: `camelCase` with `const` keyword (e.g., `const double _epsilon = 0.5`)
-- Private members: prefix with `_` (e.g., `_lastPosition`)
+[docs/CODE_MAP.md](docs/CODE_MAP.md) says what every file does and where
+to look when something breaks. [docs/HANDOFF.md](docs/HANDOFF.md) lists
+the rules that must hold and the work that is still open.
 
-**Comments:**
-```dart
-/// Public API documentation (triple slash for public methods/classes)
-///
-/// Explains what this does, parameters, return value, and edge cases.
-void myPublicFunction() {}
+### Style
 
-// Regular comments for implementation details
-final x = value; // inline comments are okay too
-```
+- `flutter analyze` must be clean and `dart format` must make no change;
+  CI checks both.
+- Follow [Effective Dart](https://dart.dev/effective-dart). Public
+  classes and methods get a `///` comment that says what they do and what
+  they refuse.
+- Every failure the user can see goes through `EchoError` (app) or
+  `ApiException` (server) with a plain sentence. No stack traces or
+  database wording reach a client.
+- Text limits come from `ProtocolLimits` in `packages/echopin_protocol`;
+  do not hard-code a number in a widget or a route.
 
-#### Write Tests
-- Add **unit tests** for business logic (location, encryption, mesh)
-- Add **widget tests** for UI components
-- Add **integration tests** for end-to-end flows
-- Aim for >80% code coverage on core services
+### Tests
 
-```bash
-# Run all tests
-flutter test
+- Unit tests for logic, widget tests for screens, server tests against a
+  real PostgreSQL (`server/tool/test.sh` starts a throwaway cluster).
+- A bug fix includes a test that reproduces the bug.
+- A change to the wire format updates `docs/PROTOCOL.md` in the same
+  commit.
 
-# Run with coverage
-flutter test --coverage
+### Commits and pull requests
 
-# Run a specific test file
-flutter test test/services/location_engine_noise_test.dart
-```
+Use [Conventional Commits](https://www.conventionalcommits.org/):
 
-#### Lint & Format
-```bash
-# Check for issues
-flutter analyze
+    feat(radar): show unconfirmed sightings in grey
+    fix(server): map PostgreSQL value errors to 400
+    docs(setup): add the Linux desktop packages
 
-# Auto-format code
-dart format lib/ test/
+Open the pull request against `main`. The template asks for what changed,
+how it was tested and which issue it closes. CI must pass.
 
-# Fix common issues
-dart fix --apply
-```
+## Hardware testing
 
-#### Create a Pull Request
-1. **Push your branch:**
-```bash
-   git add .
-   git commit -m "feat: add feature description"
-   git push origin feature/your-feature-name
-```
+Bluetooth between phones can only be tested on phones. If you have two or
+more Android or iOS devices, the most useful report is: both device
+models and OS versions, whether they found each other, whether check-ins
+and SOS arrived, and how the radar's distance compared with a tape
+measure at 5, 10 and 25 m.
 
-2. **Open a PR on GitHub** with:
-   - Clear title: `feat: ...` or `fix: ...` (follow [Conventional Commits](https://www.conventionalcommits.org/))
-   - Description of changes
-   - Link to related issue (e.g., `Closes #42`)
-   - Screenshots for UI changes
-   - Any breaking changes clearly noted
+## Questions
 
-3. **Address review feedback** gracefully and update your PR
-
-4. **Merge** once approved
-
----
-
-## Commit Message Format
-
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-<type>(<scope>): <subject>
-<body>
-<footer>
-````
-Types:
-
-feat: New feature
-fix: Bug fix
-docs: Documentation
-refactor: Code refactoring (no feature change)
-test: Add/update tests
-chore: Build, CI, dependency updates
-perf: Performance improvement
-
-Examples:
-feat(mesh): add rate limiting per peer
-
-Implement token-bucket rate limiter to prevent DoS via update flooding.
-Max 2 updates/second per peer. Adds _RateLimiter class.
-
-Closes #15
-fix(ui): pinwheel not updating when peer moves
-
-The pinwheel was caching peer positions. Now rebuilds on every presence
-update. Added shouldRepaint override to PinwheelPainter.
-
-Closes #8
-
-Areas We Need Help
-UI/UX
-
-Test the pinwheel on different screen sizes
-Suggest design improvements for accessibility
-Help with dark mode, high-contrast mode
-Improve icon/emoji choices
-
-Testing
-
-Test on Android devices (especially API 24–28)
-Test on iOS devices
-Find edge cases (GPS loss, sudden disconnections)
-Battery drain profiling
-
-Documentation
-
-Improve code comments
-Add more API examples
-Create video tutorials
-Expand troubleshooting guide
-
-Security
-
-Review threat model and privacy guarantees
-Audit the Noise XX handshake
-Test against known attacks
-Suggest hardening measures
-
-Localization
-
-Translate UI strings to other languages
-Adapt for regional requirements
-
-
-Development Setup
-Requirements
-
-Flutter 3.3+ (install guide)
-Dart 3.3+ (bundled with Flutter)
-Android Studio or VS Code
-2+ test devices
-
-Running the App
-bashflutter pub get
-flutter run
-Running Tests
-bashflutter test              # All tests
-flutter test test/unit/  # Only unit tests
-Checking Code Quality
-bashflutter analyze
-dart format lib/
-dart fix --apply
-
-Questions?
-
-Check the docs/ folder for architecture, API, setup guides
-Read the README.md for overview
-Open an issue to discuss ideas
-Contact: @botlhalepono
-
-
-Attribution
-When we merge your PR, we'll add your name to:
-
-The README.md acknowledgments
-The CHANGELOG.md release notes
-GitHub contributors graph
-
-Thank you for making EchoPin better! 🎉
+Open an issue, or email
+[402307375@my.richfield.ac.za](mailto:402307375@my.richfield.ac.za).

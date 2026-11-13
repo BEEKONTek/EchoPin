@@ -628,7 +628,7 @@ class _AuditLogCard extends StatelessWidget {
                 ),
                 Expanded(
                   child: Text(
-                    e.detail.isEmpty ? e.title : '${e.title} — ${e.detail}',
+                    e.detail.isEmpty ? e.title : '${e.title}: ${e.detail}',
                     style: text.bodyMedium,
                   ),
                 ),

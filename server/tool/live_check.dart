@@ -463,7 +463,7 @@ Future<void> main() async {
     },
   );
   check(
-    'unseal returns only the inner seal — the server cannot read it',
+    'unseal returns only the inner seal; the server cannot read it',
     open.status == 200 &&
         !open.body.containsKey('content') &&
         open.body['sealedInner'] != null,

@@ -212,10 +212,10 @@ own proofs fail.
 | Fake session uploads | **Session tag:** each member sends a 16-byte value derived from the invite code. Outsiders who only know the public session id can't produce it, so the console marks their uploads *not proven a member* | A genuine member can still upload junk, attributed to their account |
 | No retention | Daily job deletes session records (365 days), diagnostics (90) and closed reports (730), plus expired codes, sessions and counters; configurable; one audit entry per run | The audit log is kept forever by design |
 | No breached-password check | **Have I Been Pwned range API** at sign-up, reset and change. Only 5 hex characters of the SHA-1 leave the server; padded responses | Fails open if HIBP is down (logged), so sign-ups never depend on a third party |
-| Email-code guessing ≈1.8 %/year | **8-digit codes:** about 0.02 % a year at the daily cap | — |
+| Email-code guessing ≈1.8 %/year | **8-digit codes:** about 0.02 % a year at the daily cap | none |
 | Audit tail truncation | Each backup stores the chain tip next to the backups; *Check chain* fails if that entry is missing or changed | Store the backups in a separate project so one login can't change both |
 | Device keys in plain storage | The app reports it; those devices get **7-day** sessions instead of 30, and the Account screen warns | The key is still copyable from such a device |
-| Unsafe configuration | `ECHOPIN_DEV` is refused unless the database is local; `CORS_ORIGINS=*` is refused outside development | — |
+| Unsafe configuration | `ECHOPIN_DEV` is refused unless the database is local; `CORS_ORIGINS=*` is refused outside development | none |
 | Data in the EU | The guide documents running the same image in a South African region (Azure South Africa North, AWS af-south-1) | A hosting decision, not code |
 
 Tests for all of this: the `hardening` group in `server/test/api_test.dart`,
@@ -225,115 +225,114 @@ session-tag checks in the app's account tests.
 
 ## Fault catalogue: authentication and verification
 
-Every way each step can go wrong, and what stops it. ✅ handled, 🔧 fixed in
-this review, ⚠️ accepted (see below).
+Every way each step can go wrong, and what stops it. "Handled" was already right, "Fixed" was changed in this review, "Accepted" is a known residual risk (see below).
 
 ### Registration
 | Fault | Status |
 | --- | --- |
-| Discover who has an account | ✅ same 202, same timing (always hashes, background mail, 600 ms floor); existing owner gets a "someone tried" email |
-| Squat a victim's email | ✅ stays pending; can't sign in; victim re-registering takes it over |
-| Hijack a pending sign-up | 🔧 #2 |
-| Weak password | ✅ length 10–256, repetition, common words, contains email; 🔧 breached passwords refused (HIBP k-anonymity) |
-| Hostile display names (bidi, control chars) | ✅ stripped, length-capped |
-| Email bombing a victim | ✅ per-email and per-IP limits; 🔧 daily code cap in database |
+| Discover who has an account | Handled: same 202, same timing (always hashes, background mail, 600 ms floor); existing owner gets a "someone tried" email |
+| Squat a victim's email | Handled: stays pending; can't sign in; victim re-registering takes it over |
+| Hijack a pending sign-up | Fixed: #2 |
+| Weak password | Handled: length 10–256, repetition, common words, contains email; Fixed: breached passwords refused (HIBP k-anonymity) |
+| Hostile display names (bidi, control chars) | Handled: stripped, length-capped |
+| Email bombing a victim | Handled: per-email and per-IP limits; Fixed: daily code cap in database |
 
 ### Email codes (verify, reset)
 | Fault | Status |
 | --- | --- |
-| Guessing | ✅ 5 tries per code, 15 min; 🔧 10 codes per day in database; 🔧 8 digits |
-| Learning an account exists from the error | 🔧 one generic answer for wrong, expired, used-up and missing codes |
-| Old code still works | ✅ issuing a code retires earlier unused ones; used codes can't be reused |
-| Code readable from a database leak | ✅ stored as SHA-256 over account + purpose + code; useless after 15 min anyway |
-| Timing comparison | ✅ constant-time compare |
-| Code for one purpose used for another | ✅ purpose is part of the hash and the lookup |
+| Guessing | Handled: 5 tries per code, 15 min; Fixed: 10 codes per day in database; Fixed: 8 digits |
+| Learning an account exists from the error | Fixed: one generic answer for wrong, expired, used-up and missing codes |
+| Old code still works | Handled: issuing a code retires earlier unused ones; used codes can't be reused |
+| Code readable from a database leak | Handled: stored as SHA-256 over account + purpose + code; useless after 15 min anyway |
+| Timing comparison | Handled: constant-time compare |
+| Code for one purpose used for another | Handled: purpose is part of the hash and the lookup |
 
 ### Sign-in
 | Fault | Status |
 | --- | --- |
-| Password guessing | ✅ Argon2id 19 MiB; 🔧 per-IP and per-email limits in the database; 🔧 lockout 15 min → 24 h, counted under a row lock |
-| Credential stuffing across many accounts | ✅ per-IP limit (unspoofable, shared across instances); 🔧 breached passwords refused up front; per-account limits bound distributed attempts |
-| Timing reveals unknown emails | ✅ dummy Argon2 run for unknown emails |
-| Lockout used to block a real user | 🔧 the owner's registered devices skip the lock; only new-device sign-ins wait; reset or admin *Unlock* clears it |
-| "Locked" reveals an account | 🔧 unknown emails lock identically (per-email throttle table) |
-| Unverified or disabled accounts sign in | ✅ checked after password |
-| Device proof replay | ✅ purpose + email + timestamp signed; ±5 min window; refresh proofs bound to the token digest |
-| Wrong phone clock | 🔧 #10 |
-| Second factor bypass | ✅ required whenever enabled; failures count toward lockout; 🔧 replay race #7 |
-| Revoked device signs back in silently | ✅ refused for that key; app makes a new key, which shows as a new device |
-| Unlimited devices | ✅ 20 active devices per account |
+| Password guessing | Handled: Argon2id 19 MiB; Fixed: per-IP and per-email limits in the database; Fixed: lockout 15 min → 24 h, counted under a row lock |
+| Credential stuffing across many accounts | Handled: per-IP limit (unspoofable, shared across instances); Fixed: breached passwords refused up front; per-account limits bound distributed attempts |
+| Timing reveals unknown emails | Handled: dummy Argon2 run for unknown emails |
+| Lockout used to block a real user | Fixed: the owner's registered devices skip the lock; only new-device sign-ins wait; reset or admin *Unlock* clears it |
+| "Locked" reveals an account | Fixed: unknown emails lock identically (per-email throttle table) |
+| Unverified or disabled accounts sign in | Handled: checked after password |
+| Device proof replay | Handled: purpose + email + timestamp signed; ±5 min window; refresh proofs bound to the token digest |
+| Wrong phone clock | Fixed: #10 |
+| Second factor bypass | Handled: required whenever enabled; failures count toward lockout; Fixed: replay race #7 |
+| Revoked device signs back in silently | Handled: refused for that key; app makes a new key, which shows as a new device |
+| Unlimited devices | Handled: 20 active devices per account |
 
 ### Tokens and sessions
 | Fault | Status |
 | --- | --- |
-| Token theft from the database | ✅ only SHA-256 hashes stored |
-| Stolen refresh token | ✅ useless without the device key; rotation with family revocation on reuse (audited) |
-| Two refreshes racing on one phone | ✅ app does one at a time; server locks the row |
-| Revoked or role-changed user keeps access | ✅ every request reads session, device, account status and role from the database; revocation is immediate |
-| Access token leaks (logs, proxies) | ✅ never logged (one line per request: method, path, status); 30 min lifetime |
-| Logout incomplete | ✅ revokes this session; *Sign out everywhere* for all |
-| Someone picks up a signed-in phone | ✅ account PIN guards Account, reports and the console; idle auto-lock; sign-out after 3 lockouts in a row; never blocks sessions or SOS (`providers/account_lock_provider.dart`) |
-| Password change leaves other devices in | ✅ other sessions revoked; reset revokes all |
+| Token theft from the database | Handled: only SHA-256 hashes stored |
+| Stolen refresh token | Handled: useless without the device key; rotation with family revocation on reuse (audited) |
+| Two refreshes racing on one phone | Handled: app does one at a time; server locks the row |
+| Revoked or role-changed user keeps access | Handled: every request reads session, device, account status and role from the database; revocation is immediate |
+| Access token leaks (logs, proxies) | Handled: never logged (one line per request: method, path, status); 30 min lifetime |
+| Logout incomplete | Handled: revokes this session; *Sign out everywhere* for all |
+| Someone picks up a signed-in phone | Handled: account PIN guards Account, reports and the console; idle auto-lock; sign-out after 3 lockouts in a row; never blocks sessions or SOS (`providers/account_lock_provider.dart`) |
+| Password change leaves other devices in | Handled: other sessions revoked; reset revokes all |
 
 ### Two-step (TOTP)
 | Fault | Status |
 | --- | --- |
-| Secret leaks with the database | ✅ AES-GCM encrypted with the data key, bound to the account id |
-| Attacker enables it with a stolen session | 🔧 password required |
-| Lost authenticator | 🔧 admin reset (audited, signs out everywhere) |
-| Disable without proof | ✅ password + current code + rate limit |
-| Code replay | ✅ last-used step; 🔧 now atomic |
+| Secret leaks with the database | Handled: AES-GCM encrypted with the data key, bound to the account id |
+| Attacker enables it with a stolen session | Fixed: password required |
+| Lost authenticator | Fixed: admin reset (audited, signs out everywhere) |
+| Disable without proof | Handled: password + current code + rate limit |
+| Code replay | Handled: last-used step; Fixed: now atomic |
 
 ### Roles, console and break-glass
 | Fault | Status |
 | --- | --- |
-| Member reaches console APIs | ✅ every service method checks the role itself, independent of routing (tested) |
-| Admin locks everyone out | ✅ can't change own role or status; last active admin can't be demoted or disabled |
-| Responder reads records casually | ✅ needs a reason of 10+ characters; grant and audit row committed *before* decryption; 30 opens per hour (database-backed); 🔧 every admin emailed at once; 🔧 two-step required for staff |
-| Server operator reads records | 🔧 custodian second seal: server alone can't open (when configured) |
-| Responder browses people | 🔧 person lookups and session views audited; emails hidden from responders |
-| Sealed blob moved to another record | ✅ AAD binds key id and record id |
-| SQL injection | ✅ every query uses named parameters; `LIKE` input escaped; no string-built SQL with user input |
-| Mass assignment via PATCH | ✅ only `role`, `status`, `unlock`, `resetTwoStep` (accounts) and `status`, `severity`, `assignToMe`, `unassign`, `resolution` (reports) are read |
-| Cross-site attacks on the web console | ✅ bearer tokens (no cookies), so CSRF can't ride a session; Flutter renders text, not HTML |
+| Member reaches console APIs | Handled: every service method checks the role itself, independent of routing (tested) |
+| Admin locks everyone out | Handled: can't change own role or status; last active admin can't be demoted or disabled |
+| Responder reads records casually | Handled: needs a reason of 10+ characters; grant and audit row committed *before* decryption; 30 opens per hour (database-backed); Fixed: every admin emailed at once; Fixed: two-step required for staff |
+| Server operator reads records | Fixed: custodian second seal: server alone can't open (when configured) |
+| Responder browses people | Fixed: person lookups and session views audited; emails hidden from responders |
+| Sealed blob moved to another record | Handled: AAD binds key id and record id |
+| SQL injection | Handled: every query uses named parameters; `LIKE` input escaped; no string-built SQL with user input |
+| Mass assignment via PATCH | Handled: only `role`, `status`, `unlock`, `resetTwoStep` (accounts) and `status`, `severity`, `assignToMe`, `unassign`, `resolution` (reports) are read |
+| Cross-site attacks on the web console | Handled: bearer tokens (no cookies), so CSRF can't ride a session; Flutter renders text, not HTML |
 
 ### Uploads (diagnostics, logs, reports)
 | Fault | Status |
 | --- | --- |
-| Oversized bodies | ✅ 64 KiB default, sealed logs capped; checked while streaming |
-| Overwrite someone else's log | ✅ `on conflict (id) do nothing`; ids are random UUIDs |
-| Junk or fake logs in someone's session | 🔧 session tag flags uploads from non-members; a real member's junk stays attributed to them |
-| Downgrade a safety report | ✅ server never stores a safety report below *high* |
-| Server reads sealed logs on ingest | ✅ only shape and key id are checked |
+| Oversized bodies | Handled: 64 KiB default, sealed logs capped; checked while streaming |
+| Overwrite someone else's log | Handled: `on conflict (id) do nothing`; ids are random UUIDs |
+| Junk or fake logs in someone's session | Fixed: session tag flags uploads from non-members; a real member's junk stays attributed to them |
+| Downgrade a safety report | Handled: server never stores a safety report below *high* |
+| Server reads sealed logs on ingest | Handled: only shape and key id are checked |
 
 ### Input handling (every endpoint, 0.5.0)
 | Fault | Status |
 | --- | --- |
-| Non-JSON or non-object body | ✅ 400 "must be a JSON object"; bodies over 64 KB → 413 before parsing |
-| Wrong type, missing or over-long field | ✅ typed accessors (`str`, `integer`, `b64`, `time`) give precise 400s; limits shared with the app via `ProtocolLimits` |
-| Malformed id in a URL (`/reports/42`, injection text) | ✅ `uuidParam`/`idParam` answer 404 before any query |
-| `?limit=999999`, negative offsets, bad cursors | ✅ clamped (`queryInt`, max page 500) |
-| Over-long search text | ✅ 400 at 200 characters |
-| A value PostgreSQL itself refuses (SQLSTATE 22xxx) | ✅ mapped to a 400 without the database's wording; unique clashes → 409; anything else → 500 with a generic message and a server-side log |
-| Email shape, name length, password policy | ✅ checked in the app first (instant), then again on the server |
+| Non-JSON or non-object body | Handled: 400 "must be a JSON object"; bodies over 64 KB → 413 before parsing |
+| Wrong type, missing or over-long field | Handled: typed accessors (`str`, `integer`, `b64`, `time`) give precise 400s; limits shared with the app via `ProtocolLimits` |
+| Malformed id in a URL (`/reports/42`, injection text) | Handled: `uuidParam`/`idParam` answer 404 before any query |
+| `?limit=999999`, negative offsets, bad cursors | Handled: clamped (`queryInt`, max page 500) |
+| Over-long search text | Handled: 400 at 200 characters |
+| A value PostgreSQL itself refuses (SQLSTATE 22xxx) | Handled: mapped to a 400 without the database's wording; unique clashes → 409; anything else → 500 with a generic message and a server-side log |
+| Email shape, name length, password policy | Handled: checked in the app first (instant), then again on the server |
 
 ### Keys, backups, deployment
 | Fault | Status |
 | --- | --- |
-| Keys lost on a free host's wiped disk | ✅ keys only from `ECHOPIN_KEYS` or `KEYS_DIR`; refuses to invent keys for an existing database |
-| Backup tampering or truncation | ✅ per-frame AES-GCM with index and final flag; verify before restore |
-| Restore clobbers host schemas | ✅ public schema only; filtered restore list (tested with a Supabase-like `auth` schema) |
-| Two backups at once | ✅ unique index on running backups |
-| Database traffic sniffed | ✅ TLS required for every non-local database |
-| Secrets in the image or repository | ✅ `.dockerignore` and `.gitignore` exclude keys, backups and `.env`; Render secrets are `sync: false` |
+| Keys lost on a free host's wiped disk | Handled: keys only from `ECHOPIN_KEYS` or `KEYS_DIR`; refuses to invent keys for an existing database |
+| Backup tampering or truncation | Handled: per-frame AES-GCM with index and final flag; verify before restore |
+| Restore clobbers host schemas | Handled: public schema only; filtered restore list (tested with a Supabase-like `auth` schema) |
+| Two backups at once | Handled: unique index on running backups |
+| Database traffic sniffed | Handled: TLS required for every non-local database |
+| Secrets in the image or repository | Handled: `.dockerignore` and `.gitignore` exclude keys, backups and `.env`; Render secrets are `sync: false` |
 
 ### App storage and transport
 | Fault | Status |
 | --- | --- |
-| Device key or tokens copied off the phone | ✅ OS keystore where available; 🔧 plain-storage devices get 7-day sessions and a warning |
-| Cleartext transport | 🔧 #9 |
-| Offline queue leaks history | ✅ logs sealed before they are queued |
-| Signing in as someone else uploads old data | ✅ outbox items are bound to the account that made them |
+| Device key or tokens copied off the phone | Handled: OS keystore where available; Fixed: plain-storage devices get 7-day sessions and a warning |
+| Cleartext transport | Fixed: #9 |
+| Offline queue leaks history | Handled: logs sealed before they are queued |
+| Signing in as someone else uploads old data | Handled: outbox items are bound to the account that made them |
 
 ## What still remains
 

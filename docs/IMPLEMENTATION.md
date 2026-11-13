@@ -241,6 +241,7 @@ same commit. Examples from this phase, all reproduced before fixing:
 | live deployment | dashboard URL pasted as `SUPABASE_URL` | normalised; refused with guidance when not a URL |
 | CI | restore tests failed on the runner: `pg_restore` newer than the server | client pinned to the service's major |
 | CI | one timing-sensitive widget test failed only on slow runners | tests wait for the fake server to be idle instead of a fixed delay |
+| CI | the hosted-backup test built its own config and ignored the pinned client, so a PostgreSQL 18 dump went to a 16 server | all test configs share `pgDumpBinary`/`pgRestoreBinary`; reproduced locally against a PostgreSQL 16 container |
 | review | malformed ids in URLs reached the database and produced 500s | `uuidParam`/`idParam`; `api_test` "input validation" |
 
 ---
@@ -255,6 +256,8 @@ same commit. Examples from this phase, all reproduced before fixing:
   run) and the GUI integration test under Xvfb.
 - **Hosted**: https://echopin-server-z3tg.onrender.com with Supabase
   (eu-west-1) and Brevo, checked from the public internet.
+- **Phones**: Android phones with Bluetooth LE, app 0.5.0 release APK
+  installed by QR code, tested outdoors and indoors on 13 November 2026.
 
 ### 5.4.2 Test cases and results
 
@@ -330,6 +333,21 @@ same commit. Examples from this phase, all reproduced before fixing:
 | TC-49 | Database migrations on deploy | `schema_migrations` at the latest version | Pass |
 | TC-50 | Supabase security advisor | no critical findings | Pass |
 
+**F. Bluetooth LE between Android phones (manual, 13 November 2026)**
+
+| ID | Case | Expected | Result |
+| --- | --- | --- | --- |
+| TC-51 | Two phones, one creates a session, the other joins by QR | both appear in each other's tray within seconds | Pass |
+| TC-52 | Join by typed code, including one with a typo | typo refused with a precise message; correct code joins | Pass |
+| TC-53 | Walk apart and back | distance on the pinwheel rises and falls; peer card updates live | Pass |
+| TC-54 | Distance against a known spacing | figure within a few metres | Pass with limitation: signal strength moves with bodies, walls and how the phone is held, so the figure is close, not exact; the app labels it "about" and jitters it by design |
+| TC-55 | Cross the boundary circle | banner, haptic and notification on the other phone | Pass |
+| TC-56 | Check in on one person, then everyone | delivered receipts; answers appear in the tray | Pass |
+| TC-57 | Hold to send SOS; "I'm safe" | SOS reaches every phone with a halo and notification; resolves everywhere | Pass |
+| TC-58 | Compare safety codes and mark verified | codes match; badge shown | Pass |
+| TC-59 | Leave and rejoin from history | rejoin without retyping the code | Pass |
+| TC-60 | Bluetooth off on one phone | status tray with a one-tap "Turn on" | Pass |
+
 **E. Continuous integration (every push)**
 
 | Workflow | Jobs | Result on `main` |
@@ -356,11 +374,16 @@ same commit. Examples from this phase, all reproduced before fixing:
   sender, backup slot, exposed data API) and three logic defects (tie
   proof, SOS count, dialog crash). All have regression tests or are
   re-checked by the system test.
-- **Known gaps**, stated rather than hidden: Bluetooth between real phones
-  has not been tested on hardware; iOS and macOS builds are compiled in CI
-  but not run on devices; the Windows build fails in CI and no Windows
-  host was available to diagnose it; the Linux mDNS integration test is
-  reliable locally but not on GitHub's runners.
+- **Hardware.** Bluetooth LE between Android phones works as designed for
+  every flow (part F). The one limitation is distance accuracy: a
+  signal-strength estimate cannot be exact, which the design already
+  assumes (the radar says "about", jitters the figure, and a boundary alert
+  is a prompt to look up rather than a claim about metres). Direction is
+  not measured at all and the radar says so.
+- **Known gaps**, stated rather than hidden: iOS and macOS builds are
+  compiled in CI but not run on devices; the Windows build fails in CI and
+  no Windows host was available to diagnose it; the Linux mDNS integration
+  test is reliable locally but not on GitHub's runners.
 
 ---
 

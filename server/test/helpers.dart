@@ -7,6 +7,13 @@ import 'package:echopin_protocol/echopin_protocol.dart';
 import 'package:echopin_server/echopin_server.dart';
 import 'package:shelf/shelf.dart';
 
+/// CI pins these to the PostgreSQL major of its database service; locally
+/// the tools on PATH are used. Every config a test builds must use them,
+/// or a newer client's dump cannot be restored into an older server.
+final String pgDumpBinary = Platform.environment['PG_DUMP'] ?? 'pg_dump';
+final String pgRestoreBinary =
+    Platform.environment['PG_RESTORE'] ?? 'pg_restore';
+
 /// Admin URL of a Postgres the tests may create databases on, e.g.
 /// `postgresql://echopin@127.0.0.1:54329/postgres`. Integration tests skip
 /// when it is unset; `tool/test.sh` starts a throwaway cluster and sets it.
@@ -86,10 +93,8 @@ class TestEnv {
       requireStaffTwoStep: false,
       passwordBreachCheck: false,
       custodianPublicKeys: custodianPublicKeys,
-      // CI pins these to the service's PostgreSQL major; locally the
-      // defaults on PATH are used.
-      pgDump: Platform.environment['PG_DUMP'] ?? 'pg_dump',
-      pgRestore: Platform.environment['PG_RESTORE'] ?? 'pg_restore',
+      pgDump: pgDumpBinary,
+      pgRestore: pgRestoreBinary,
     );
     final EchoPinServer server = EchoPinServer.create(
       config: config,

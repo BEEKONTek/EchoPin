@@ -1,199 +1,64 @@
-# Security Policy
+# Security policy
 
-## Overview
+## Reporting a vulnerability
 
-EchoPin prioritizes **user privacy and data security** as core design principles. This document outlines our security model, threat assumptions, and responsible disclosure process.
+Please do not open a public issue for a security problem. Email
+[402307375@my.richfield.ac.za](mailto:402307375@my.richfield.ac.za) with:
 
-## Security Model
+- what the problem is and where it is in the code;
+- steps to reproduce it;
+- what an attacker could do with it;
+- a suggested fix, if you have one.
 
-### What We Protect
+You will get an acknowledgement within three days. A fix for a confirmed
+problem is the next priority for the project; the report is made public
+together with the fix.
 
-**Location Privacy**
-- Absolute GPS coordinates are **never** transmitted
-- Only **relative bearing** (direction) + **distance** (metres) are shared
-- Coordinates are obfuscated with **planar Laplace noise** (ε=0.5)
-- Expected noise radius ≈ 4m; 95th percentile plausible deniability within ~50m
+## Supported versions
 
-**End-to-End Encryption**
-- All messages encrypted with **Noise XX protocol**
-- Mutual authentication between peers
-- Forward secrecy via ephemeral key rotation per session
+| Version | Supported |
+| --- | --- |
+| 0.5.x | yes |
+| earlier | no; upgrade |
 
-**Ephemeral Sessions**
-- No persistent user accounts
-- All session data wiped on exit
-- Encryption keys never stored to disk
-- Session auto-expires after 8 hours (configurable)
+## What EchoPin protects
 
-**Offline Operation**
-- Zero server dependency — works with zero internet
-- No cloud backend, no user tracking, no analytics
+- **Sessions** are encrypted and signed end to end between phones
+  (XChaCha20-Poly1305 envelopes, Ed25519 signatures, keys derived from the
+  invite code with HKDF). No server is in the path.
+- **No coordinates exist anywhere.** Distance is estimated locally from
+  Bluetooth signal strength and jittered before display.
+- **Local locks.** The admin panel and a signed-in account each sit behind
+  a PIN with lockout and idle auto-lock.
+- **The optional server** stores Argon2id password hashes, token hashes
+  and sealed session records it cannot read on its own. Every opening of a
+  record is audited in an HMAC-chained log and every admin is emailed.
 
-### What We Don't Protect
+The full analysis is in [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+The review of the account and verification code, with what was fixed and
+what is accepted, is in [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md).
 
-**Local Device Security**
-- If attacker gains physical access to unlocked device, they can read GPS data in memory *during* an active session
-- Mitigation: Lock your device, use device encryption (enabled by default on modern Android/iOS)
+## What it does not protect
 
-**Device Fingerprinting**
-- BLE MAC address can identify a device across sessions (BLE privacy randomization is OS-dependent)
-- Mitigation: Use BLE privacy mode (available on Android 6.0+, iOS 14+)
+- A phone that is unlocked and in someone else's hands. The PINs limit what
+  they reach; sessions and SOS stay open on purpose.
+- The Bluetooth channel from jamming. Impact is loss of discovery, not of
+  secrecy.
+- A session whose invite code has been shared with someone outside the
+  group. Holding the code is membership.
+- With a server: who uploaded a record and when is visible to anyone with
+  database access, even though the content is sealed.
 
-**Timing Side-Channels**
-- Bearing/distance calculations may leak information via processing latency
-- Mitigation: Not addressed in MVP (future: constant-time arithmetic)
+## For developers
 
-**Radio Eavesdropping**
-- BLE traffic is encrypted but peer discovery (advertising) is unencrypted
-- Attacker can see *that* a session exists, but not contents or participants' locations
-- Mitigation: Session ID is ephemeral; QR codes are only shown in-person
+- All cryptography is in Dart, in `lib/security` and
+  `packages/echopin_protocol`, using the `cryptography` package only.
+  Native code moves opaque bytes.
+- Never log keys, codes, tokens or anything that looks like a position.
+- A change to a wire format needs a matching change in `docs/PROTOCOL.md`
+  and a version bump.
+- Run the security tests before and after any change in those areas:
 
----
-
-## Threat Model (STRIDE)
-
-| Threat | Description | Mitigation |
-|--------|-------------|-----------|
-| **Spoofing** | Attacker impersonates a peer | Noise XX mutual authentication; ephemeral keys per handshake |
-| **Tampering** | Attacker modifies messages in transit | AEAD encryption (Noise XX); MAC prevents forgery |
-| **Repudiation** | Peer denies sending a location update | Nonce + timestamp validation; locally logged only |
-| **Information Disclosure** | Attacker reads plaintext location | End-to-end encryption; Laplace noise obfuscation |
-| **Denial of Service** | Attacker floods peers with messages | Rate limiting (2 updates/sec per peer); session size cap (20 peers) |
-| **Elevation of Privilege** | Attacker gains unauthorized access to peers | No persistent credentials; ephemeral session tokens |
-
----
-
-## Privacy Guarantees
-
-### Geo-Indistinguishability
-
-EchoPin implements **planar Laplace mechanism** (Andres et al., 2013) for location obfuscation:
-
-p(z | x) ∝ e^(−ε·d(x,z))
-
-where:
-- `x` = true location
-- `z` = noised location
-- `ε` = privacy budget (0.5 by default)
-- `d(x,z)` = Haversine distance
-
-**At ε=0.5:**
-- Expected noise radius: ~4 metres
-- 95th percentile: ~50 metres
-- 99th percentile: ~100 metres
-
-**Trade-off:** Lower `ε` = more privacy but less accuracy. Users can adjust via settings.
-
-### Differential Privacy
-
-The Laplace mechanism provides **ε-differential privacy**, meaning:
-- An attacker observing the noised location cannot distinguish between true locations within `2/ε` metres
-- True position is **plausibly deniable** within the noise radius
-
----
-
-## Vulnerability Disclosure
-
-### Responsible Disclosure
-
-If you discover a security vulnerability, **please report it responsibly:**
-
-1. **Do NOT open a public GitHub issue** (this discloses the vulnerability)
-2. **Email directly:** [402307375@my.richfield.ac.za](mailto:402307375@my.richfield.ac.za)
-3. **Include:**
-   - Description of the vulnerability
-   - Steps to reproduce
-   - Potential impact
-   - Suggested fix (if applicable)
-
-### Response Timeline
-
-- **Within 24 hours:** Acknowledge receipt
-- **Within 7 days:** Initial assessment and security patch
-- **Within 14 days:** Public disclosure (after patch release)
-
----
-
-## Security Checklist
-
-### For Users
-
-- Keep device software updated (Android/iOS patches)
-- Use device lock (PIN, biometric)
-- Enable full-disk encryption (default on modern devices)
-- Only join sessions with people you trust
-- Review peer list before accepting location shares
-
-### For Developers
-
-- Run `flutter analyze` on all PRs
-- Write tests for crypto operations
-- Audit Noise handshake implementation
-- Use `cryptography` package only (no roll-your-own crypto)
-- Never log sensitive data (keys, GPS coordinates)
-
-### For Deployments
-
-- Use official Flutter SDK (from flutter.dev)
-- Verify cryptographic libraries match pubspec.lock
-- Test on multiple devices before release
-- Include privacy notice in app store listings
-
----
-
-## Known Limitations
-
-### Current MVP (v0.1.0)
-
-1. **BLE Privacy:** Depends on OS-level MAC randomization (not guaranteed)
-2. **Constant-Time Crypto:** Not implemented; timing may leak information
-3. **Rate Limiting:** Per-peer token bucket (not network-wide)
-4. **Session Persistence:** Session memory is not cleared if app crashes
-5. **Heartbeat Messages:** Implicit privacy leak if heartbeat timing is observable
-
-### Planned Mitigations (Beta)
-
-- [ ] Implement constant-time distance calculations
-- [ ] Add explicit heartbeat padding (cover-traffic)
-- [ ] Integrate OS-level BLE privacy APIs
-- [ ] Formal security audit by third party
-
----
-
-## Testing & Auditing
-
-### Unit Tests
-
-```bash
-flutter test test/unit/location_engine_test.dart  # Noise generation
-flutter test test/unit/mesh_service_test.dart     # Message validation
-```
-
-### Integration Tests
-
-```bash
-flutter test integration_test/                    # Full session lifecycle
-```
-
-### Manual Audit Checklist
-
-- [ ] Verify no absolute GPS coordinates in network traffic
-- [ ] Confirm Noise XX handshake completes successfully
-- [ ] Check that keys are cleared on session exit
-- [ ] Validate rate limiting (>2 msgs/sec = dropped)
-- [ ] Test replay protection (duplicate nonces = dropped)
-
----
-
-## References
-
-- [Noise Protocol Framework](https://noiseprotocol.org/)
-- [Geo-Indistinguishability (Andres et al., 2013)](https://arxiv.org/abs/1212.1984)
-- [OWASP Mobile Security Testing Guide](https://owasp.org/www-project-mobile-security-testing-guide/)
-- [Flutter Security Best Practices](https://flutter.dev/docs/testing/best-practices)
-
----
-
-## Contact
-
-**Security Questions?** Email: [402307375@my.richfield.ac.za](mailto:402307375@my.richfield.ac.za)
+      flutter test test/security
+      (cd packages/echopin_protocol && dart test)
+      (cd server && tool/test.sh)

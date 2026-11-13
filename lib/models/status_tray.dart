@@ -25,7 +25,7 @@ enum TrayKind {
   ended,
 }
 
-/// One animated status card ("Bluetooth is off — Turn on").
+/// One animated status card ("Bluetooth is off. Turn on").
 @immutable
 class StatusTray {
   const StatusTray({

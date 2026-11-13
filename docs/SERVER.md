@@ -44,11 +44,11 @@ invite codes or message contents beyond ping notes.
     └───────────────────────────────┘            │ keys/ (escrow, data, backup)│
                                                  └─────────────────────────────┘
 
-- `packages/echopin_protocol` — shared by app and server: the sealed-box
+- `packages/echopin_protocol`: shared by app and server: the sealed-box
   format, device proofs, roles and other wire enums.
-- `server/` — Dart (shelf + postgres). One binary (`echopin-server`) and an
+- `server/`: Dart (shelf + postgres). One binary (`echopin-server`) and an
   operator CLI (`echopin_admin`).
-- App side — `lib/account/` (API client, account provider, device key,
+- App side: `lib/account/` (API client, account provider, device key,
   outbox, session recorder) and `lib/screens/{account,console}/`.
 
 ### Identity: why not IMEI
@@ -193,10 +193,10 @@ report updates and notes, every unseal with its reason, backups.
 
 | | member | responder | admin |
 | --- | --- | --- | --- |
-| Use EchoPin, file and follow own reports | ✓ | ✓ | ✓ |
-| Console overview, reports triage, session index | | ✓ | ✓ |
-| Open sealed records (with a reason) | | ✓ | ✓ |
-| People, diagnostics, audit log, backups | | | ✓ |
+| Use EchoPin, file and follow own reports | yes | yes | yes |
+| Console overview, reports triage, session index | | yes | yes |
+| Open sealed records (with a reason) | | yes | yes |
+| People, diagnostics, audit log, backups | | | yes |
 
 Admins cannot change their own role or status, and the last active admin
 cannot be demoted or disabled.
@@ -231,9 +231,9 @@ Keys come from one of two places:
 With neither set, the server refuses to start rather than create keys it
 would lose. With `KEYS_DIR` on a brand-new database it creates `keys/`:
 
-- `escrow-<time>-<id>.json` — opens sealed records
-- `data.key` — encrypts TOTP secrets
-- `backup.key` — encrypts backups
+- `escrow-<time>-<id>.json`: opens sealed records
+- `data.key`: encrypts TOTP secrets
+- `backup.key`: encrypts backups
 
 **Copy `keys/` to offline storage immediately.** Without it, sealed records,
 two-step sign-in and backups are unreadable, and nobody can recover them.
@@ -249,15 +249,15 @@ records still open. `export-keys` converts a keys directory into
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `DATABASE_URL` | — (required) | `postgresql://user:pw@host:5432/db`; add `?sslmode=require` for remote databases |
+| `DATABASE_URL` | none (required) | `postgresql://user:pw@host:5432/db`; add `?sslmode=require` for remote databases |
 | `HOST`, `PORT` | `0.0.0.0`, `8080` | Listen address |
 | `ECHOPIN_KEYS` | unset | All keys as one secret (hosted) |
 | `KEYS_DIR` | unset | Key directory on a lasting disk (self-hosted; never inside a backup) |
 | `BACKUP_STORE` | `local` | `local` (files in `BACKUPS_DIR`) or `supabase` (private Storage bucket) |
-| `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BACKUP_BUCKET` | —, —, `echopin-backups` | For `BACKUP_STORE=supabase` |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BACKUP_BUCKET` | none, none, `echopin-backups` | For `BACKUP_STORE=supabase` |
 | `BACKUPS_DIR` | `backups` | Local backups, or staging for remote ones |
 | `MAIL_PROVIDER` | `console` | `brevo`, `resend`, `smtp`, or `console` (prints codes to the log; development only) |
-| `BREVO_API_KEY` / `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_FROM_NAME` | — | For the HTTP mail providers |
+| `BREVO_API_KEY` / `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_FROM_NAME` | none | For the HTTP mail providers |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_SSL` | unset | For `MAIL_PROVIDER=smtp` (set automatically when `SMTP_HOST` is set) |
 | `DATABASE_POOL_SIZE` | `5` | Open connections (free hosted databases allow few) |
 | `TRUST_PROXY` | `false` | Read client IPs from proxy headers instead of the TCP peer |

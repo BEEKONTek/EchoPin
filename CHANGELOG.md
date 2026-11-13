@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.5.0] — 2026-11-12
+## [0.5.0] - 2026-11-12
+
+### Verified
+- Bluetooth LE between Android phones in the field (13 November 2026):
+  discovery, joining, check-ins, SOS and boundary alerts as designed.
+  Signal-strength distance is approximate; see `docs/IMPLEMENTATION.md`
+  section 5.4, part F.
 
 ### Added
 - **Input validation everywhere.** Every text field is capped in the app at
@@ -55,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Privacy noise maximum is now 20 m.
 
 ### Fixed
+- CI: the hosted-backup test built its own server config and ignored the
+  pinned `pg_dump`/`pg_restore`, so a newer client dumped for an older
+  server; every test config now shares the pinned binaries. Failing test
+  names are now repeated as annotations on the run page.
 - **Pinwheel no longer shows a made-up direction.** Bluetooth measures
   distance only, but people were drawn at an angle derived from their id,
   with a direction line and an "N" marker, so it looked like a compass
@@ -62,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no line and no "N", under the caption *Distance only · direction
   unknown*. New `PeerPresence.hasBearing` marks which angles are real.
 
-## [0.4.0] — 2026-11-08
+## [0.4.0] - 2026-11-08
 
 ### Added
 - **EchoPin server** (`server/`, `docs/SERVER.md`): Dart + PostgreSQL,
@@ -170,7 +180,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   also checks network interfaces (rechecked every 15 s).
 - **Window title** reads "EchoPin" on Linux and Windows.
 
-## [0.3.0] — 2026-11-06
+## [0.3.0] - 2026-11-06
 
 Protocol v2. Breaking: v1 invite codes no longer work; old entries are
 hidden from Recent sessions.
@@ -211,13 +221,13 @@ hidden from Recent sessions.
 - Wi-Fi socket write errors are handled instead of escaping as unhandled
   errors.
 
-## [0.2.0] — 2026-11-05
+## [0.2.0] - 2026-11-05
 
 ### Added
 - PIN-protected admin system, settings, privacy noise, drag-to-set pinwheel,
   QR display, session history. Build fixes for every platform.
 
-## [0.1.0] — 2026-06-15 (MVP Alpha)
+## [0.1.0] - 2026-06-15 (MVP Alpha)
 
 ### Added
 - **Core Session Management**
@@ -297,98 +307,6 @@ hidden from Recent sessions.
 
 ---
 
-## [0.2.0] — TBD (MVP Beta)
-
-### Planned
-- **Networking Hardening**
-  - Real Noise XX implementation (using dart_libp2p)
-  - Actual BLE encryption payload transmission
-  - Wi-Fi Direct peer-to-peer upgrade
-  - Multi-hop relay validation
-
-- **Location Fusion**
-  - Full IMU integration (accelerometer + gyroscope)
-  - Step detection for dead-reckoning
-  - Gyroscope heading fusion
-  - Error drift correction on GPS resume
-
-- **UWB Ranging** (optional, device-dependent)
-  - Sub-10m precision on supported Android/iOS devices
-  - Fallback to BLE/GPS on unsupported devices
-
-- **Smartwatch Companion**
-  - Wear OS app (simplified pinwheel)
-  - watchOS app (simplified pinwheel)
-  - Breach alerts → watch haptics
-
-- **Privacy Audit**
-  - Third-party security review
-  - Formal differential privacy proof review
-  - Penetration testing report
-
-### Testing
-- Integration tests for full Noise handshake
-- Battery profiling (compare vs. map apps)
-- Field trials in Pretoria parks (accuracy validation)
-- Usability testing with 8–12 participants
-
----
-
-## [0.3.0] — TBD (Release Candidate)
-
-### Planned
-- **Production Hardening**
-  - Constant-time cryptographic operations
-  - Secure memory clearing (no plaintext key leaks)
-  - Comprehensive error handling
-
-- **Platform Expansion**
-  - Google Play Store release (Android)
-  - Apple App Store release (iOS)
-  - Web demo (Flutter Web, read-only)
-
-- **Documentation**
-  - API documentation (dartdoc)
-  - User manual
-  - Developer onboarding guide
-
-### Testing
-- Full test coverage (>85% code coverage)
-- Continuous integration (GitHub Actions)
-- Automated dependency scanning
-
----
-
-## [1.0.0] — TBD (General Availability)
-
-### Planned
-- Full feature parity with design spec
-- Multi-language support (i18n)
-- Accessibility (a11y) improvements
-- Performance optimization
-- Community contributions integrated
-
----
-
-## Deprecated Features
-
-None currently.
-
----
-
-## Migration Guides
-
-None currently (MVP pre-release).
-
----
-
-## Removed Features
-
-None currently.
-
----
-
 ## Contributors
 
-- **Botlhale Pono Maruma** — Creator, core implementation
-- *Your name here* — (Contributions welcome!)
+- Botlhale Pono Maruma, creator and core implementation.

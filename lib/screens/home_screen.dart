@@ -501,7 +501,7 @@ class _Hero extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   'See your group relative to you, check in, and call for '
-                  'help — over Bluetooth or Wi-Fi, no servers.',
+                  'help, over Bluetooth or Wi-Fi, no servers.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

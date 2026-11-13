@@ -9,7 +9,7 @@ import 'package:echo_pin/models/session.dart';
 ///     trigger an alert on first appearance (no "previous" state).
 ///   - Exactly-on-radius counts as inside (consistent with the UI check in
 ///     session_screen.dart).
-///   - No filtering of "self" — the caller decides whether self is present in
+///   - No filtering of "self"; the caller decides whether self is present in
 ///     the peer list. The current [PeerPresence] model has no isSelf marker.
 ///   - Only authenticated peers with a measured distance count. An
 ///     unconfirmed BLE sighting could be spoofed, and a Wi-Fi-only peer has

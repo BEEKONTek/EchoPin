@@ -400,12 +400,14 @@ On top of that, an integration test runs real Bonjour discovery and real
 TCP between two engines on Linux. Continuous integration builds for
 Android, web, Linux, iOS, macOS, and Windows.
 
+Bluetooth between Android phones has since been tested in the field:
+discovery, joining, check-ins, SOS and boundary alerts all worked. The
+distance figure is approximate, as expected from signal strength.
+
 Here's what isn't verified yet:
 
-- **Bluetooth between two real phones.** The Android and iOS Bluetooth
-  code compiles, and the transport is tested against a simulated radio,
-  but it hasn't met real hardware. That's the very next step:
-  Android to Android, then Android to iPhone.
+- **Android with an iPhone.** The iOS Bluetooth code follows
+  CoreBluetooth's rules but has not met an Android radio.
 - **iOS and macOS builds** need a Mac. CI runs them on macOS machines.
 - **Running in the background.** Bluetooth discovery works while the app
   is open. iOS doesn't advertise names in the background, and Android may
@@ -473,9 +475,10 @@ phone. That's why the app says "about 40 m" and blurs it on top of that.
 Measuring accuracy outdoors is on the roadmap.
 
 **What's the range?**
-It depends heavily on the phones and the surroundings, and I haven't
-measured it on real devices yet. Wi-Fi or a hotspot extends it beyond
-Bluetooth.
+It depends heavily on the phones and the surroundings. On the Android
+phones tested, people stayed visible across the radar's range and the
+figure tracked walking apart and back, but it is an estimate rather than
+a measurement. Wi-Fi or a hotspot extends it beyond Bluetooth.
 
 **What if someone shares the code with an outsider?**
 Then that person is a member. Holding the code *is* membership, by

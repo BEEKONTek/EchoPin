@@ -6,7 +6,8 @@ a change works, and what is still open. Read `README.md` first, then
 
 ## Where things stand (0.5.0)
 
-- The app runs real sessions over Bluetooth LE and Wi-Fi: encrypted,
+- The app runs real sessions over Bluetooth LE (verified between Android
+  phones) and Wi-Fi: encrypted,
   signed, with check-ins, SOS, a 100 m pinwheel and a PIN-locked admin
   panel. Everything works with no server at all.
 - The optional server (`server/`) adds verified accounts, device-bound
@@ -48,10 +49,10 @@ a change works, and what is still open. Read `README.md` first, then
 
 ## Open work
 
-1. **Bluetooth between real phones.** The GATT code compiles for Android
-   and follows CoreBluetooth's rules on iOS, but has not met real radios.
-   Test two Androids in one session, then an Android with an iPhone; watch
-   MTU negotiation, chunk reassembly and the 10 s job timeout.
+1. **Android with an iPhone.** Android to Android is verified in the
+   field (`docs/IMPLEMENTATION.md`, part F). The iOS side follows
+   CoreBluetooth's rules but has not met an Android radio; watch MTU
+   negotiation, chunk reassembly and the 10 s job timeout.
 2. **iOS and macOS on a Mac** (`flutter build ios --no-codesign`; CI builds
    them unsigned). A signed build needs a bundle id you own, not
    `com.example`, and the same goes for Android's `applicationId` before
@@ -63,9 +64,10 @@ a change works, and what is still open. Read `README.md` first, then
    does not advertise local names in the background; Android may pause
    scans with the screen off. Needs a foreground service (Android) and
    service-UUID advertising (iOS).
-5. **Direction.** Signal strength gives distance only. Real arrows need
-   ultra-wideband (iPhone 11+, some Android flagships): native ranging
-   plus a `hasBearing: true` presence from it.
+5. **Direction and exact distance.** Signal strength gives an approximate
+   distance only, as the field test confirmed. Real arrows and metre-level
+   figures need ultra-wideband (iPhone 11+, some Android flagships):
+   native ranging plus a `hasBearing: true` presence from it.
 6. **Forward secrecy** within a session would need per-pair key exchange
    (`docs/PROTOCOL.md` §8).
 7. **OS deep links**, so a camera-app scan of an invite opens EchoPin.

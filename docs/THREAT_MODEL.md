@@ -1,445 +1,166 @@
- EchoPin Threat Model & Privacy Analysis
+# Threat model
 
-## Executive Summary
+What EchoPin protects, against whom, how, and what it deliberately leaves
+open. The wire format is in `PROTOCOL.md`; the server is described in
+`SERVER.md`; the full review of the account and verification code, with
+what was fixed, is in `SECURITY_REVIEW.md`.
 
-EchoPin is designed with **privacy-first principles**: no servers, no accounts, no absolute location transmission. This document outlines threats we address, threats we accept, and privacy guarantees we provide.
+## Scope
 
----
+EchoPin has two halves with different trust assumptions.
 
-## Implementation status (protocol v2)
+- **Sessions** run phone to phone over Bluetooth LE and Wi-Fi. There is no
+  server in the path, and nothing about a session leaves the phones unless
+  the optional server is in use.
+- **The central server** is optional. When a deployment runs one, the app
+  gains accounts, sealed emergency records, reports and a staff console.
+  The server never joins a session and cannot read a sealed record on its
+  own.
 
-How each attack below is handled in the shipped code. The wire format is
-specified in `PROTOCOL.md`.
+The one rule that holds everywhere: **no coordinates exist anywhere in
+EchoPin**. Distance is estimated locally from Bluetooth signal strength.
+No field in any message, record, log or backup holds a latitude, a
+longitude or anything derived from GPS.
 
-| Attack | Status in v2 |
+## Assets
+
+| Asset | Where it lives | Why it matters |
+| --- | --- | --- |
+| Session key and id | derived from the invite code with HKDF; memory only | anyone with the key is a member |
+| Session identity key (Ed25519) | fresh per device per session; memory only | signs every message; pinned by peers |
+| Member names, distances, check-ins, SOS state | memory on each phone | the content of a session |
+| Invite history | OS keystore (app preferences only where none exists) | lets a phone rejoin |
+| Admin PIN and account PIN hashes | OS keystore | local locks |
+| Device key (Ed25519) | OS keystore | binds an account sign-in to one install |
+| Account data (email, name, Argon2id hash, device keys, token hashes) | server database | identity for the optional console |
+| Sealed session records | sealed on the phone, stored on the server | emergency evidence that only break-glass can open |
+| Audit chain | server database, keyed from `ECHOPIN_KEYS` | proves who opened what, and when |
+| Backups | encrypted with the backup key, private bucket | recovery without exposing the database |
+
+## Attackers
+
+| Attacker | Has | Does not have |
+| --- | --- | --- |
+| Radio eavesdropper | every frame on the air, ability to inject and replay frames | the invite code |
+| Former or outside member | an invite code that was shared with them | other sessions' codes |
+| Thief with an unlocked phone | the phone, the running app | the PINs |
+| Network attacker on the server path | TLS-terminated traffic at the edge, forged headers | server keys, database |
+| Database or backup reader | a copy of the database or a backup file | `ECHOPIN_KEYS`, the custodian key |
+| Malicious or compromised staff account | a responder or admin login | the custodian key on another device, the ability to edit the audit chain |
+
+## Sessions
+
+### How each attack is handled
+
+| Attack | Handling in the shipped protocol (v2) | Tested by |
+| --- | --- | --- |
+| Reading session traffic | Every message, including its type, is an XChaCha20-Poly1305 envelope under the session key. Without the invite code there is no key. | `test/security/secure_messenger_test.dart` |
+| Reading where someone is | No coordinates exist. Distance comes from signal strength on the receiving phone and is jittered (plus or minus 7 m by default, fixed per peer per minute) before alerts or the display see it. | `test/services/location_engine_noise_test.dart` |
+| Replay | Per-sender 64-message replay window, plus a clock window of two minutes either way. | secure messenger tests |
+| Impersonation | Ed25519 signature on every message; the sender id is derived from the key and pinned on first use. A different key under a known id raises a security tray. 12-digit safety codes let people compare identities in person. | secure messenger tests, widget tests |
+| Flooding | Token bucket per sender (5 tokens, one refilled every 500 ms), a 20-member cap, a 1 KiB body limit, at most 32 recipients per message, a cooldown on check-ins. | secure messenger and session engine tests |
+| Spoofed Bluetooth sightings | A sighting without a signed message is shown as unconfirmed, never triggers an alert, and cannot be pinged. | `test/services/ble_mesh_transport_test.dart` |
+| Hostile names and notes | Control and bidirectional-override characters are stripped; lengths are capped. | session engine tests |
+| Tracking a phone across sessions | The advertisement carries the public session id and an 8-character peer id that is fresh per session. Linking is possible within a session, not across sessions. | design |
+| Timing analysis | Not mitigated beyond the distance jitter. A watcher can see that frames are being sent. | accepted |
+| Leaked invite code | Out of scope by design: holding the code is membership. There is no forward secrecy inside a session (`PROTOCOL.md` section 8). | accepted |
+
+### STRIDE summary for sessions
+
+| Threat | Response | Residual risk |
+| --- | --- | --- |
+| Spoofing | per-session Ed25519 identities, pinning, safety codes | a code holder can impersonate a *new* member, never a pinned one |
+| Tampering | authenticated encryption; a modified frame fails the tag and is dropped | none observed |
+| Repudiation | signatures prove which session key sent a message; nothing is logged centrally unless a server is in use | a member can deny a message only by denying the phone |
+| Information disclosure | encryption of all content; no coordinates; jittered distances | presence of traffic is visible; distance is roughly inferable by anyone with a radio anyway |
+| Denial of service | rate limits, member cap, size limits | the Bluetooth channel itself can be jammed |
+| Elevation of privilege | there are no privileges inside a session; the admin panel is local and PIN-locked | none |
+
+### Privacy properties
+
+| Property | Status |
 | --- | --- |
-| 1. Eavesdropping location | No coordinates exist anywhere. Distance is measured locally from RSSI; every message is XChaCha20-Poly1305 encrypted, including its type. |
-| 2. Replay | Per-sender 64-message replay window plus a ±2 min timestamp check. Tested. |
-| 3. Impersonation | Ed25519 signatures; sender id derived from the key and pinned on first use; a key change for a known id raises a security tray. Safety codes allow in-person verification. Tested. |
-| 4. Flooding | Token bucket per sender (5, refill 1 / 500 ms), 20-member cap, 1 KiB body and 32-recipient limits, check-in cooldown. Tested. |
-| 5. Timing inference | Not mitigated beyond privacy noise on displayed distances. |
-| 6. BLE address tracking | The public session id and an 8-character per-session peer id are advertised. Peer ids are fresh per session, so devices are not linkable across sessions; within a session they are. |
-| 7. GPS jamming | Not applicable: GPS is not used. |
-| Spoofed BLE sightings | Unconfirmed sightings are shown as such, never trigger alerts, and cannot be pinged until a signed message proves identity. |
-| Hostile names / notes | Control and bidi-override characters stripped, lengths capped. Tested. |
-| Code leakage | Out of scope by design: whoever has the code is a member. No forward secrecy within a session (see `PROTOCOL.md` §8). |
+| No account needed for sessions | yes, by design |
+| No coordinates anywhere | yes, enforced by the data model |
+| Names are chosen by the user and live only in memory | yes |
+| Nothing is sent to anyone outside the session | yes, unless the phone is signed in to a server, in which case only sealed records, reports and diagnostics go to it |
+| Distances shown are approximate | yes, by construction and by the jitter |
+| Linkability across sessions | peer ids change per session; the OS randomises the Bluetooth address on modern Android and iOS |
 
-## Central server (optional, v0.4)
+## Central server (optional)
 
-When a deployment runs the EchoPin server (`docs/SERVER.md`), the
-"no servers, no accounts" statement above no longer holds for that
-deployment. Sessions still run phone to phone; the server adds accounts,
-sealed session records, reports, diagnostics and backups.
+When a deployment runs the server, the "no accounts" statement no longer
+holds for that deployment. Sessions still run phone to phone; the server
+adds accounts, sealed records, reports, diagnostics and backups.
 
 | Threat | Mitigation | Residual risk |
 | --- | --- | --- |
-| Password guessing / stuffing | Argon2id (19 MiB, t=2); per-IP, per-email and per-device limits in PostgreSQL; lockout after 5 failures, doubling to 24 h; breached passwords refused; optional TOTP, required for staff | A stranger can pause *new-device* sign-ins for an email; the owner's own phones are unaffected |
-| Account enumeration | Same answers and timing (600 ms floor, background mail) for every address; unknown emails lock like real ones; one generic code error | "Email unverified" shows only after a correct password |
-| Stolen refresh token | Tokens bound to an Ed25519 device key; every refresh signed; rotation with family revocation on reuse (audited) | A fully compromised, unlocked phone can act as its owner until the device is removed |
-| Someone picks up a signed-in phone | Account PIN in front of Account, reports and the console (PBKDF2, separate from the admin PIN); auto-lock after 5 min idle, wall clock; 5 wrong PINs lock it 60 s, the 3rd lockout in a row signs out (15 guesses in all); PIN wiped on every sign-in and sign-out | Sessions and SOS stay open by design. A 4-digit PIN gives 15 guesses at 10,000 possibilities (0.15%); longer PINs are allowed. The PIN doesn't encrypt anything: someone who can read the app's storage directly isn't stopped by it |
-| Phone identity spoofing | No IMEI / serial / advertising ids; device keys live in the OS keystore and never leave it | Platforms without a keystore fall back to app preferences |
-| Database or backup leak | Only token hashes stored; TOTP secrets encrypted with a key outside the database; session records sealed to an escrow key outside the database; backups AES-256-GCM encrypted | Session metadata (names, times, counts, uploader accounts) is readable to anyone with database access |
-| Insider reading session records | Break-glass only: staff role with two-step, written reason, grant and audit row committed before decryption, every admin emailed; optional custodian second seal means the server alone can't decrypt | Without a custodian key configured, whoever controls the server and its keys can decrypt; with one, they also need a responder's device |
-| Fake uploads into a session | Session tag derived from the invite code; console flags non-members | A real member can upload junk under their own name |
-| Tampering with the audit trail | HMAC chain over every row, keyed from `ECHOPIN_KEYS` (never in the database); UPDATE/DELETE/TRUNCATE refused by triggers; chain check in console and CLI; chain tip logged with every backup | Someone with the database *and* the keys can rewrite it; rows cut off the end leave a valid shorter chain (compare with the logged tip) |
-| Account pre-hijacking | Confirming an email needs the code *and* the sign-up password, checked atomically | Someone can keep re-registering a pending address to annoy its owner (no access gained) |
-| Spoofed client IPs | IP taken from an edge-overwritten header (`CLIENT_IP_HEADER`) or counted from the right of X-Forwarded-For | Wrong `TRUSTED_PROXY_HOPS` for a custom proxy setup lumps users together or reopens spoofing |
-| Code guessing (email codes) | 8 digits, 5 guesses per code, at most 10 codes per account per day in the database | About 0.02 % a year against one account |
-| Data kept too long | Daily retention job (records 365 d, diagnostics 90 d, closed reports 730 d) | The audit log is kept forever by design |
-| Backup truncation / tampering | Per-frame authentication with index and final-frame flag; verify before restore; restore is CLI-only | Lost `keys/` means unrecoverable backups |
-| Malicious uploads | Auth required; size limits; sealed-box structure and escrow key id checked; idempotent ids; reports cannot be filed below "high" for safety | A signed-in member can upload junk under their own name (attributable) |
+| Password guessing and credential stuffing | Argon2id (19 MiB, t=2); per-IP, per-email and per-device limits kept in PostgreSQL; lockout after 5 failures, doubling up to 24 h; breached passwords refused; optional TOTP, required for staff | a stranger can pause *new-device* sign-ins for an email; the owner's known phones are unaffected |
+| Account enumeration | Same answers and timing (600 ms floor, mail sent in the background) for every address; unknown emails lock like real ones; one generic code error | "Email unverified" shows only after a correct password |
+| Stolen refresh token | Tokens are bound to an Ed25519 device key; every refresh is signed; rotation with family revocation on reuse, audited | a fully compromised, unlocked phone can act as its owner until the device is removed |
+| Someone picks up a signed-in phone | Account PIN in front of Account, reports and the console (PBKDF2, separate from the admin PIN); auto-lock after 5 minutes idle on the wall clock; 5 wrong PINs lock it for 60 s and the third lockout in a row signs out (15 guesses in all); the PIN is wiped on every sign-in and sign-out | sessions and SOS stay open by design; a 4-digit PIN gives 15 guesses at 10,000 possibilities (0.15 %); the PIN does not encrypt anything, so direct reads of app storage are not stopped by it |
+| Phone identity spoofing | No IMEI, serial or advertising id is read; device keys live in the OS keystore and never leave it | platforms without a keystore fall back to app preferences, with a visible warning |
+| Database or backup leak | Only token hashes are stored; TOTP secrets are encrypted with a key outside the database; session records are sealed to an escrow key outside the database; backups are AES-256-GCM encrypted | session metadata (names, times, counts, uploader accounts) is readable to anyone with database access |
+| Insider reading session records | Break-glass only: a staff role with two-step, a written reason, the grant and audit row committed before decryption, every admin emailed; the optional custodian second seal means the server alone cannot decrypt | without a custodian key, whoever controls the server and its keys can decrypt; with one, they also need a responder's device |
+| Fake uploads into a session | Session tag derived from the invite code; the console flags non-members and tie votes | a real member can upload junk under their own name |
+| Tampering with the audit trail | HMAC chain over every row, keyed from `ECHOPIN_KEYS` (never in the database); UPDATE, DELETE and TRUNCATE refused by triggers; chain check in the console and CLI; chain tip logged with every backup | someone with the database *and* the keys can rewrite it; rows cut from the end leave a valid shorter chain, caught by comparing with the logged tip |
+| Account pre-hijacking | Confirming an email needs the code *and* the sign-up password, checked atomically | someone can keep re-registering a pending address to annoy its owner, gaining nothing |
+| Spoofed client IPs | IP taken from an edge-overwritten header (`CLIENT_IP_HEADER`) or counted from the right of `X-Forwarded-For` | a wrong `TRUSTED_PROXY_HOPS` for a custom proxy lumps users together or reopens spoofing |
+| Guessing email codes | 8 digits, 5 guesses per code, at most 10 codes per account per day | about 0.02 % a year against one account |
+| Malformed or oversized input | Bodies size-capped and typed; ids in URLs validated before any query; paging clamped; database value errors become a 400 without the database's wording | none observed |
+| Data kept too long | Daily retention job: records 365 days, diagnostics 90 days, closed reports 730 days | the audit log is kept forever by design |
+| Backup truncation or tampering | Per-frame authentication with index and final-frame flag; verify before restore; restore is CLI-only | losing `ECHOPIN_KEYS` means unrecoverable backups |
+| Malicious uploads | Sign-in required; size limits; sealed-box structure and escrow key id checked; idempotent ids; reports cannot be filed below "high" for safety | a signed-in member can upload junk under their own name, attributably |
 
 Records never contain coordinates: the recorder stores events and each
-member's last noisy, RSSI-based distance from the recording phone.
-
-The full review of authentication and verification faults, with what was
-fixed and what is accepted, is in `SECURITY_REVIEW.md`.
-
-> **Note on the sections below.** They describe the original design
-> (Noise XX handshakes, planar Laplace noise with an ε guarantee). The
-> shipped protocol differs. Messages are XChaCha20-Poly1305 envelopes signed
-> with per-session Ed25519 keys (`PROTOCOL.md`), and displayed distances get
-> a bounded jitter that is fixed per person per minute. That jitter is a
-> display nicety, not a differential-privacy guarantee. The tables above
-> are authoritative.
-
-## Threat Model Framework
-
-### STRIDE Analysis
-
-| Threat | Description | EchoPin Response | Residual Risk |
-|--------|-------------|------------------|----------------|
-| **Spoofing** | Attacker impersonates a peer | Noise XX mutual authentication; ephemeral keys per handshake | Low |
-| **Tampering** | Attacker modifies messages in transit | AEAD encryption; MAC prevents forgery | Low |
-| **Repudiation** | Peer denies sending a location update | Locally logged with nonce; no cloud record | Medium (local only) |
-| **Information Disclosure** | Attacker reads plaintext location | E2E encryption + Laplace noise obfuscation | Low |
-| **Denial of Service** | Attacker floods peers with messages | Rate limiting (2/sec per peer); session size cap (20) | Medium (DoS possible at BLE layer) |
-| **Elevation of Privilege** | Attacker gains unauthorized access to peers | No persistent credentials; ephemeral tokens; no trusted third party | Low |
-
----
-
-### LINDDUN Privacy Analysis
-
-| Privacy Threat | Description | Mitigation | Residual Risk |
-|---|---|---|---|
-| **Linkability** | Attacker links multiple sessions to same device | BLE privacy mode (OS-dependent); ephemeral session IDs | Medium (BLE MAC address leakage possible) |
-| **Identifiability** | Attacker identifies real-world person | No name, email, phone required; anonymous display names | Low |
-| **Non-Repudiation** | User claims they weren't in a session | Local logs only; no third-party timestamp server | Medium (user dispute possible) |
-| **Detectability** | Attacker detects that a session exists | BLE advertising is unencrypted; adversary sees UUID | Medium (can see session active, not participants) |
-| **Disclosure of Information** | Attacker learns GPS coordinates | Laplace noise + relative bearing/distance only | Low |
-| **Unawareness** | User unaware of location sharing | Clear UI; peer list visible; consent model| Low |
-| **Non-Compliance** | System doesn't comply with privacy laws (GDPR, PIPEDA) | No data storage; ephemeral; user-controlled | Low |
-
----
-
-## Attack Scenarios & Mitigations
-
-### Attack 1: Eavesdropping GPS Coordinates
-
-**Scenario:** Attacker intercepts network traffic to read exact coordinates.
-
-**Mitigation:**
-1. **No absolute GPS coordinates transmitted** — only bearing + distance
-2. **Planar Laplace noise** — even if attacker somehow gets coordinates, they're noised
-3. **E2E encryption** — Noise XX protects all messages
-
-**Residual Risk:** **Low**
-
----
-
-### Attack 2: Replay Attack
-
-**Scenario:** Attacker captures an old presence update and replays it to make peers appear in old locations.
-
-**Mitigation:**
-1. **Nonce tracking** — each peer's nonce must be strictly increasing
-2. **Timestamp validation** — updates older than 30 seconds rejected
-3. **_NonceCache** — maintains latest nonce per peer
-
-**Example:**
-```dart
-// Attacker tries to replay nonce=5 twice
-Peer A sends update with nonce=5, timestamp=T
-Peer B accepts (latest=5)
-Attacker replays same message (nonce=5)
-Peer B rejects (5 <= 5) Prevented
-```
-
-**Residual Risk:** **Low**
-
----
-
-### Attack 3: Impersonation (Peer Spoofing)
-
-**Scenario:** Attacker creates fake BLE device claiming to be peer in session.
-
-**Mitigation:**
-1. **Noise XX handshake** — requires both parties to prove ownership of private keys
-2. **Mutual authentication** — XX pattern verifies both directions
-3. **Ephemeral keys** — new keys per session, impossible to pre-compute
-
-**Noise XX Flow:**
-Device A ──→ e, s  ──→ Device B
-Device A ←─ e, ee, s, es ←─ Device B
-Device A ──→ se ──→ Device B
-After handshake: both have confirmed shared secret; impersonation detected.
-
-**Residual Risk:** **Low**
-
----
-
-### Attack 4: Denial of Service (Message Flooding)
-
-**Scenario:** Attacker sends thousands of fake location updates to overwhelm peers.
-
-**Mitigation:**
-1. **Rate limiting** — token bucket: 5 tokens per peer, 1 token per message, refill every 500ms → max 2 msgs/sec
-2. **Session size cap** — max 20 peers; additional peers rejected with "session full"
-3. **Bandwidth cap** — BLE MTU limits message size (~240 bytes)
-
-**Token Bucket Example:**
-```dart
-// Attacker tries to send 10 messages in 1 second
-for (int i = 0; i < 10; i++) {
-  if (_rateLimiter.allow(peerId)) {  // Tokens: 5 → 4 → 3 → 2 → 1 → 0
-    process_message();                // First 5 accepted
-  } else {
-    drop_message();                   // Messages 6–10 dropped
-  }
-}
-```
-
-**Residual Risk:** **Medium** (BLE layer DoS still possible; mitigated by kernel-level mechanisms)
-
----
-
-### Attack 5: Location Inference via Timing
-
-**Scenario:** Attacker observes when location updates arrive; infers movement patterns.
-
-**Mitigation:**
-1. **Partial:** GPS update filter (3m minimum movement) reduces inference window
-2. **Partial:** Broadcast rate is visible to attacker
-3. **Not addressed in MVP** — cover-traffic padding planned for future
-
-**Residual Risk:** **Medium** (Addressed in Beta with constant-time crypto + padding)
-
----
-
-### Attack 6: BLE MAC Address Tracking
-
-**Scenario:** Attacker tracks BLE MAC address across sessions to link device identity.
-
-**Mitigation:**
-1. **BLE privacy mode** — randomize MAC per connection (OS-dependent, enabled on modern Android/iOS)
-2. **Partial:** UUID in advertisement is session-specific (changes per session)
-
-**Residual Risk:** **Medium** (Depends on OS implementation; user responsible for enabling privacy mode)
-
----
-
-### Attack 7: GPS Jamming (Local)
-
-**Scenario:** Attacker jams GPS signal to force reliance on BLE RSSI fallback (less accurate).
-
-**Mitigation:**
-1. **Graceful degradation** — fall back to BLE RSSI (less accurate, but functional)
-2. **Dead-reckoning** — use IMU to maintain estimate during gaps
-3. **User aware** — GPS loss causes accuracy decrease (user sees effect)
-
-**Residual Risk:** **Medium** (Physical attack; hard to prevent; impact is reduced accuracy, not security)
-
----
-
-## Privacy Guarantees
-
-### Guarantee 1: No Absolute Coordinates Broadcast
-
-**Claim:** Your true GPS coordinates **never** leave your device.
-
-**Evidence:**
-- LocationEngine computes relative bearing + distance from **noised** coordinates
-- buildPresenceUpdate() returns only {bearingDeg, distanceM, nonce} — no lat/lon
-- MeshService transmits only encrypted RelativePresenceUpdate payload
-
-**Verification:**
-```bash
-# Capture network traffic; decrypt Noise frame; verify payload
-# RelativePresenceUpdate JSON: {"b": 45.0, "d": 120.0, "n": 1}
-# No "lat", "lon", "latitude", "longitude" fields present
-```
-
----
-
-### Guarantee 2: Planar Laplace Noise (ε-Differential Privacy)
-
-**Claim:** Your location is obfuscated; true position is **plausibly deniable** within noise radius.
-
-**Evidence:**
-```dart
-// Laplace mechanism at ε=0.5
-Noise radius r ~ Laplace(1/ε = 2 metres)
-Expected noise: 4 metres
-95th percentile: ~50 metres
-99th percentile: ~100 metres
-```
-
-**Mathematical Property:**
-p(observed_noised_location | true_location_A)
-─────────────────────────────────────────────── ≤ e^ε
-p(observed_noised_location | true_location_B)
-For ε=0.5: at most e^0.5 ≈ 1.65× more likely given location A vs. B
-
-**Meaning:** Adversary cannot distinguish between true locations within ~50m; higher ε → more indistinguishable.
-
----
-
-### Guarantee 3: End-to-End Encryption
-
-**Claim:** Only peers with handshake keys can decrypt messages.
-
-**Evidence:**
-- Noise XX establishes shared secret (DH result)
-- Transport keys derived via HKDF
-- AEAD encryption (AES-256-GCM or ChaCha20-Poly1305)
-- No key server; no key escrow
-
-**Security:** No cloud provider, ISP, or man-in-the-middle can decrypt.
-
----
-
-### Guarantee 4: Ephemeral & Volatile
-
-**Claim:** No data persists; everything is wiped on session exit.
-
-**Evidence:**
-- SessionKeys generated fresh per session
-- Keys never written to disk
-- session.wipe() clears all peers, keys, timestamps
-- Called unconditionally in dispose() method
-
-**Verification:**
-```bash
-# After app exits, inspect device storage
-# No .json files, no .db files, no cache containing coordinates
-```
-
----
-
-## Threat Acceptance (Known Limitations)
-
-### 1. Local Device Compromise
-
-**Threat:** If attacker gains physical/remote access to unlocked device, they can read GPS data in memory.
-
-**Why We Accept It:** 
-- No way to prevent with software alone
-- User responsibility: lock device, use strong password
-- Mitigation: device encryption (enabled by default)
-
-**What We Could Do (Future):**
-- Use secure enclave for key storage (hardware-backed)
-- Wipe keys on screen lock
-- Biometric auth for session join
-
----
-
-### 2. BLE Layer DoS
-
-**Threat:** Attacker floods BLE channel with junk packets, preventing peers from connecting.
-
-**Why We Accept It:**
-- BLE bandwidth is shared radio spectrum
-- No way to authenticate at PHY layer
-- Would require regulatory intervention
-
-**What We Could Do (Future):**
-- Use higher frequency bands (5.8 GHz Wi-Fi Direct)
-- Implement channel hopping
-
----
-
-### 3. Sybil Attack (Limited)
-
-**Threat:** Attacker creates 20+ fake identities to fill session; blocks real peers.
-
-**Why We Accept It (Partially Mitigated):**
-- Session size cap at 20 peers
-- Session join only via QR code (in-person, trusted)
-- No way to join without knowing sessionId + publicKey
-
-**Residual Risk:** **Low** (requires physical proximity + QR scan)
-
----
-
-### 4. Physical Proximity Required for Join
-
-**Threat:** Attacker must be within BLE range (~100m) + have QR code to join.
-
-**Why We Accept It:**
-- **Feature, not a bug!** Intended trust model
-- Out-of-band join (QR) prevents online attackers
-- In-person verification possible
-
-**Residual Risk:** **Low** (attacker must be present)
-
----
-
-## Testing & Validation
-
-### Privacy Tests (Planned for Beta)
-
-```dart
-// Test 1: Verify no absolute coordinates in memory
-void testNoAbsoluteCoordinatesInMemory() {
-  final location = LocationEngine().applyPlanarLaplaceNoise(rawPos);
-  final update = buildPresenceUpdate(...);
-  
-  final payload = jsonEncode(update);
-  assert(!payload.contains(rawPos.latitude.toString())); 
-  assert(!payload.contains(rawPos.longitude.toString()));
-}
-
-// Test 2: Verify Laplace noise distribution
-void testLaplaceNoiseRadius() {
-  final samples = List.generate(10000, (_) {
-    final noised = engine.applyPlanarLaplaceNoise(knownPosition);
-    return engine.computeDistance(
-      ObfuscatedLocation(latNoisedDeg: knownPosition.latitude, ...),
-      noised,
-    );
-  });
-  
-  final p95 = samples.sorted()[9500];
-  assert(p95 < 60);  // 95th percentile < 60m
-}
-
-// Test 3: Replay protection
-void testReplayProtection() {
-  final msg = MeshMessage(nonce: 1, timestamp: now);
-  assert(_nonceCache.isFresh('peer1', 1, now.ms)); 
-  assert(!_nonceCache.isFresh('peer1', 1, now.ms)); // Rejected 
-}
-```
-
----
-
-## Security Audit Checklist
-
-- [ ] Code review of Noise XX handshake (cryptography expert)
-- [ ] Review of Laplace noise implementation (statistician)
-- [ ] Penetration testing (BLE, messages, key derivation)
-- [ ] Memory safety audit (no buffer overflows, use-after-free)
-- [ ] Dependency audit (all cryptography packages verified)
-- [ ] Radio security review (BLE scanning privacy)
-
----
-
-## Compliance
-
-### GDPR (General Data Protection Regulation)
-
-| Requirement | EchoPin Compliance |
-|---|---|
-| Explicit consent | User chooses to join session |
-| Data minimization | Only relative bearing + distance |
-| Storage limitation | No persistent storage; auto-wipe |
-| User rights (access, delete) | No centralized data; nothing to access |
-| Privacy by design | No servers, no accounts, no IDs |
-
-**Status:** Compliant (no personal data collection)
-
----
-
-### PIPEDA (Canada)
-
-Similar to GDPR. Compliant.
-
----
-
-### CCPA (California)
-
-Applies to businesses collecting resident data. Likely exempt (not a business collecting data).
-
----
-
-## Future Hardening
-
-- [ ] Constant-time distance calculations (prevent timing side-channels)
-- [ ] Cover-traffic padding (hide activity patterns)
-- [ ] Secure enclave integration (hardware-backed keys)
-- [ ] Formal privacy proof (academic verification)
-- [ ] zk-SNARK location attestation (long-term research)
-
----
-
-## Contact & Disclosure
-
-**Found a vulnerability?** See [SECURITY.md](../SECURITY.md) for responsible disclosure process.
-
-**Questions?** Email: 402307375@my.richfield.ac.za
-
----
-
-*Last updated: June 2026*  
-*Threat model version: 1.0 (Alpha)*
+member's last jittered, signal-strength distance from the recording phone.
+
+## Field findings
+
+Bluetooth LE between Android phones was exercised on real devices in
+November 2026 (see `IMPLEMENTATION.md`, section 5.4). Discovery, joining,
+check-ins, SOS and boundary alerts behaved as designed. The one limit
+observed is accuracy: signal-strength distance moves with bodies, walls
+and how a phone is held, so the radar's figure is an estimate, not a
+measurement. This is why the app says "about" and jitters the value, and
+it is why a boundary alert is a prompt to look up, not a claim about
+metres.
+
+## Accepted limitations
+
+1. **Bluetooth jamming.** The radio channel is shared spectrum and cannot
+   be authenticated. Impact is loss of discovery, not loss of secrecy.
+2. **Traffic presence.** An observer can see that a session exists and
+   roughly how many devices take part. They cannot read anything.
+3. **Code leakage.** Whoever holds the invite code is a member. Sessions
+   cap at 20 people, and safety codes let a group confirm who is who.
+4. **Compromised unlocked phone.** Software cannot defend against someone
+   holding an unlocked phone. The account PIN limits what they reach;
+   sessions and SOS remain open so that help is never locked away.
+5. **No forward secrecy inside a session.** A code learnt later decrypts
+   that session's past traffic if it was recorded. Per-pair key exchange
+   is noted as future work in `PROTOCOL.md`.
+6. **Server metadata.** With a server in use, who uploaded which sealed
+   record, and when, is visible to database readers even though the
+   content is not.
+
+## Personal data (deployments with a server)
+
+| Data | Purpose | Kept for |
+| --- | --- | --- |
+| Email address and display name | sign-in, alerts to admins, console display | until the account is deleted |
+| Argon2id password hash, TOTP secret (encrypted) | authentication | until changed or deleted |
+| Device public keys | binding sign-ins to installs | until the device is removed |
+| Sealed session records | emergency evidence | 365 days |
+| Diagnostics | support | 90 days |
+| Reports | triage | 730 days after closing |
+| Audit rows | accountability | forever |
+
+Accounts that have opened sealed records cannot be deleted while those
+audit rows exist, which is a deliberate foreign key; a deployment must
+decide how it honours deletion requests for staff (`HANDOFF.md`).
+
+## Disclosure
+
+Report a vulnerability as described in `../SECURITY.md`. Please do not
+open a public issue for it.

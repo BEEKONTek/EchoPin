@@ -1,53 +1,27 @@
 ---
-name: Bug Report
-about: Report a bug or crash
-title: "[BUG] "
+name: Bug report
+about: Something is broken or behaves unexpectedly
+title: ""
 labels: bug
 assignees: ''
 ---
 
-## Describe the Bug
+## What happened
 
-A clear and concise description of what the bug is.
+What you did, what you expected, and what happened instead.
 
-## Steps to Reproduce
+## Steps to reproduce
 
-Steps to reproduce the behavior:
+1.
+2.
+3.
 
-1. Go to '...'
-2. Click on '...'
-3. See error
+## Where
 
-## Expected Behavior
+- Device and OS version (for example Pixel 7, Android 14):
+- App version (admin panel, Diagnostics) or commit:
+- With a server? If so, which version (`GET /v1/health`):
 
-A clear and concise description of what you expected to happen.
+## Logs or screenshots
 
-## Actual Behavior
-
-What actually happened instead.
-
-## Screenshots
-
-If applicable, add screenshots or screen recordings to help explain your problem.
-
-## Device Information
-
-- **OS:** Android / iOS
-- **OS Version:** (e.g., Android 12, iOS 16)
-- **Device Model:** (e.g., Pixel 6, iPhone 13)
-- **App Version:** 0.1.0 or commit hash
-
-## Logs
-
-Paste any error messages or stack traces here.
-
-## Additional Context
-
-Add any other context about the problem here.
-
-## Checklist
-
-- [ ] I have searched for existing issues (no duplicates)
-- [ ] I can reproduce this bug consistently
-- [ ] I have attached screenshots/logs if applicable
-- [ ] I am using the latest version of the app
+Paste error text here, or attach screenshots.

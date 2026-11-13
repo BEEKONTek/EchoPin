@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 enum TransportMode { none, simulated, ble }
 
 /// Owns the peer-presence stream. Can be driven by simulation (jitter) or by
-/// a real [BleMeshTransport]. Session factories are transport-agnostic — the
+/// a real [BleMeshTransport]. Session factories are transport-agnostic; the
 /// caller decides which stream source to start.
 ///
 /// Synthetic peers (admin test tooling) are kept separately and merged into

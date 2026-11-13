@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 /// Persisted summary of a past session. Mirrors the fields of [Session] that
 /// matter for the "recent sessions" list, plus the encoded code so a tap can
-/// rejoin directly. No peer data, no locations — only what is needed to
+/// rejoin directly. No peer data, no locations, only what is needed to
 /// identify a session you already belong to.
 @immutable
 class SessionSummary {

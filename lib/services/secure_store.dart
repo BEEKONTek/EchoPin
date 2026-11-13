@@ -32,7 +32,7 @@ class SecureStore {
     }
 
     // One-time migration. Only meaningful when the current backend is not
-    // plain prefs — otherwise the read above would already have found it.
+    // plain prefs; otherwise the read above would already have found it.
     if (_kv is! PrefsKvStore) {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       final String? legacy = prefs.getString(_kSecret);

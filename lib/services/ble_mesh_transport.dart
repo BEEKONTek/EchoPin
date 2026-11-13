@@ -244,7 +244,7 @@ class BleMeshTransport implements MessageTransport {
     final int before = _peers.length;
     _peers.removeWhere((_, PeerPresence p) {
       final DateTime? seen = p.lastSeen;
-      if (seen == null) return true; // unknown age — treat as stale
+      if (seen == null) return true; // unknown age: treat as stale
       return now.difference(seen) > staleTimeout;
     });
     if (_peers.length != before) _emit();

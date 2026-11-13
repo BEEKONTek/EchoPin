@@ -1679,6 +1679,8 @@ void main() {
           config: ServerConfig(
             databaseUrl: env.url,
             backupsDir: Directory.systemTemp.path,
+            pgDump: pgDumpBinary,
+            pgRestore: pgRestoreBinary,
           ),
           audit: AuditLog(macKey: env.server.keys.auditMacKey),
           store: SupabaseBackupStore(
@@ -1769,6 +1771,8 @@ void main() {
           config: ServerConfig(
             databaseUrl: env.url,
             backupsDir: Directory.systemTemp.path,
+            pgDump: pgDumpBinary,
+            pgRestore: pgRestoreBinary,
           ),
           audit: AuditLog(macKey: env.server.keys.auditMacKey),
           store: SupabaseBackupStore(

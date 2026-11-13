@@ -29,7 +29,7 @@ class SecureStorageKvStore implements KeyValueStore {
     try {
       await _storage.write(key: key, value: value);
     } catch (_) {
-      // Silent — the caller treats the write as best-effort.
+      // Silent; the caller treats the write as best-effort.
     }
   }
 

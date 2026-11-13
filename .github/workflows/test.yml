@@ -15,8 +15,13 @@ jobs:
           flutter-version: '3.44.0'
           cache: true
       - run: flutter pub get
-      # The github reporter turns each failing test into an annotation.
-      - run: flutter test --coverage --reporter github
+      # The expanded reporter names each failing test; the failures are
+      # repeated as annotations so they show on the run page without opening
+      # the log.
+      - run: |
+          set -o pipefail
+          flutter test --coverage --reporter expanded 2>&1 | tee app-test.log || {
+            grep -E '\[E\]' app-test.log | sed 's/^/::error::/' ; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: coverage
@@ -77,4 +82,8 @@ jobs:
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y postgresql-client-16
       - run: cd packages/echopin_protocol && dart pub get && dart analyze && dart test --reporter github
-      - run: cd server && dart pub get && dart analyze && dart test --reporter github
+      - run: |
+          set -o pipefail
+          cd server && dart pub get && dart analyze
+          dart test --reporter expanded 2>&1 | tee server-test.log || {
+            grep -E '\[E\]' server-test.log | sed 's/^/::error::/' ; exit 1; }
