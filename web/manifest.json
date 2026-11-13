@@ -1,11 +1,11 @@
 {
-    "name": "echo_pin",
-    "short_name": "echo_pin",
+    "name": "EchoPin",
+    "short_name": "EchoPin",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Keep your group together, privately. Demo build.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
