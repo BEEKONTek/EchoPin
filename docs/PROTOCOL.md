@@ -97,7 +97,10 @@ failure:
    dropped silently. Counters older than the window are replays.
 6. Timestamp within ±2 minutes of the local clock.
 7. Token bucket per sender (5 tokens, 1 every 500 ms) and a cap of 20
-   members per session.
+   members per session. Only frames addressed to the receiver (broadcasts
+   and frames naming it) spend the sender's tokens: on a shared radio a
+   phone also hears frames meant for others, such as the direct hellos
+   sent to each newcomer, and those are not flooding.
 
 Rejections are counted and surfaced: impersonation and forged signatures
 raise a "Security warning" tray; the rest appear in the admin diagnostics.

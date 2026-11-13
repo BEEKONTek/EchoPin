@@ -210,7 +210,13 @@ class SecureMessenger {
       );
     }
 
-    if (!_limiter.tryAcquire(senderId)) {
+    // On a shared radio every phone receives every frame, including ones
+    // addressed to someone else (direct hellos to each newcomer, for
+    // instance). Those must not spend the sender's budget here, or a group
+    // joining at the same moment drowns the messages that follow.
+    final bool forMe =
+        inner.recipients.isEmpty || inner.recipients.contains(identity.peerId);
+    if (forMe && !_limiter.tryAcquire(senderId)) {
       final DateTime now = _clock();
       final DateTime? last = _lastFloodReport[senderId];
       if (last == null || now.difference(last) > const Duration(seconds: 10)) {

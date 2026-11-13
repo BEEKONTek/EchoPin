@@ -505,6 +505,7 @@ class SessionProvider extends ChangeNotifier {
         credentials: credentials,
         displayName: me,
         transports: transports,
+        clock: _clock,
       );
       _engine = engine;
 
@@ -513,7 +514,7 @@ class SessionProvider extends ChangeNotifier {
           .toDouble();
       List<PeerPresence> initial = const <PeerPresence>[];
       if (simulated) {
-        _crowd = await DemoCrowd.start(hub: hub!, body: body);
+        _crowd = await DemoCrowd.start(hub: hub!, body: body, clock: _clock);
         initial = _crowd!.initialPresence();
       }
       _meshService.createSession(

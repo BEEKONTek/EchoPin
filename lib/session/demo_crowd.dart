@@ -38,6 +38,7 @@ class DemoCrowd {
     math.Random? random,
     Duration replyDelayMin = const Duration(milliseconds: 1500),
     Duration replyDelayMax = const Duration(milliseconds: 4500),
+    DateTime Function()? clock,
   }) async {
     final List<_Seat> seats = _defaultSeats.take(count).toList();
     final List<SessionEngine> engines = <SessionEngine>[];
@@ -47,6 +48,7 @@ class DemoCrowd {
           credentials: await SessionCredentials.derive(body),
           displayName: seat.name,
           transports: <LoopbackTransport>[LoopbackTransport(hub)],
+          clock: clock,
         ),
       );
     }

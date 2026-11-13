@@ -264,6 +264,47 @@ void main() {
       );
     });
 
+    test('frames addressed to someone else do not spend the budget', () async {
+      final SecureMessenger alice = await _messenger(body);
+      final SecureMessenger bob = await _messenger(
+        body,
+        limiter: RateLimiter(
+          capacity: 2,
+          refillEvery: const Duration(hours: 1),
+        ),
+      );
+      // A hello storm at join: direct hellos to four other people, which
+      // bob hears on the shared radio but which are not for him.
+      for (int i = 0; i < 4; i++) {
+        final SecureMessage? m = await bob.open(
+          await alice.seal(
+            MessageKind.hello,
+            <String, Object?>{'n': 'Alice'},
+            to: <String>{'OTHER00$i'},
+          ),
+        );
+        expect(m, isNotNull);
+        expect(m!.isFor(bob.identity.peerId), isFalse);
+      }
+      // Both tokens are still there for the messages that are for bob.
+      for (int i = 0; i < 2; i++) {
+        final SecureMessage? m = await bob.open(
+          await alice.seal(
+            MessageKind.ping,
+            <String, Object?>{'id': 'PING000$i', 'k': 'checkin'},
+            to: <String>{bob.identity.peerId},
+          ),
+        );
+        expect(m, isNotNull);
+      }
+      expect(
+        await bob.open(
+          await alice.seal(MessageKind.hello, <String, Object?>{}),
+        ),
+        isNull,
+      );
+    });
+
     test('member cap refuses newcomers', () async {
       final SecureMessenger host = await _messenger(body, maxMembers: 2);
       final SecureMessenger a = await _messenger(body);

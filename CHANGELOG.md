@@ -61,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Privacy noise maximum is now 20 m.
 
 ### Fixed
+- Sessions: frames addressed to other members no longer count against a
+  sender's rate limit at phones that merely overhear them. Five people
+  joining in the same instant could otherwise spend the whole budget on
+  direct hellos and lose the next check-in answer (seen on CI runners).
 - CI: the hosted-backup test built its own server config and ignored the
   pinned `pg_dump`/`pg_restore`, so a newer client dumped for an older
   server; every test config now shares the pinned binaries. Failing test
