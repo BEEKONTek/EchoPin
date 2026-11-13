@@ -21,7 +21,7 @@ jobs:
       - run: |
           set -o pipefail
           flutter test --coverage --reporter expanded 2>&1 | tee app-test.log || {
-            sed -n '/\[E\]/,/^[0-9:]* +/p' app-test.log | head -80 | sed 's/^/::error::/' ; exit 1; }
+            grep -B 60 '\[E\]' app-test.log | head -200 | sed 's/^/::error::/' ; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: coverage
@@ -86,4 +86,4 @@ jobs:
           set -o pipefail
           cd server && dart pub get && dart analyze
           dart test --reporter expanded 2>&1 | tee server-test.log || {
-            sed -n '/\[E\]/,/^[0-9:]* +/p' server-test.log | head -80 | sed 's/^/::error::/' ; exit 1; }
+            grep -B 60 '\[E\]' server-test.log | head -200 | sed 's/^/::error::/' ; exit 1; }
