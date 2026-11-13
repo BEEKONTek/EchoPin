@@ -61,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Privacy noise maximum is now 20 m.
 
 ### Fixed
+- Sessions: a phone re-broadcast hello on every transport status change,
+  including a peer merely appearing or leaving, so a group joining at
+  once produced a hello storm; it now announces only when a radio comes
+  back up. Regression test in `session_engine_test`.
 - Sessions: frames addressed to other members no longer count against a
   sender's rate limit at phones that merely overhear them. Five people
   joining in the same instant could otherwise spend the whole budget on

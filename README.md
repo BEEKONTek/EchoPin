@@ -148,7 +148,7 @@ Server docs: [SERVER.md](docs/SERVER.md). Hosted for free: [DEPLOY_HOSTED.md](do
 
     flutter pub get && (cd packages/echopin_protocol && dart pub get) && (cd server && dart pub get)
     flutter analyze                                # must be clean, covers all three packages
-    flutter test                                   # app: 240 unit + widget tests
+    flutter test                                   # app: 241 unit + widget tests
     (cd server && tool/test.sh)                    # server: 75 tests on a throwaway PostgreSQL
     (cd server && tool/live_check.sh)              # system test: 31 end-to-end checks over HTTP
     (cd packages/echopin_protocol && dart test)    # shared crypto and models

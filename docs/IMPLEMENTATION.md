@@ -242,6 +242,7 @@ same commit. Examples from this phase, all reproduced before fixing:
 | CI | restore tests failed on the runner: `pg_restore` newer than the server | client pinned to the service's major |
 | CI | one timing-sensitive widget test failed only on slow runners | tests wait for the fake server to be idle instead of a fixed delay |
 | CI | the hosted-backup test built its own config and ignored the pinned client, so a PostgreSQL 18 dump went to a 16 server | all test configs share `pgDumpBinary`/`pgRestoreBinary`; reproduced locally against a PostgreSQL 16 container |
+| CI | every change of a radio's reachable count re-broadcast hello, so five people joining at once sent each other up to six hellos | announce only when a radio comes back up; `session_engine_test` counts the frames a newcomer costs |
 | CI | one check-in answer out of four was lost on fast runners: a group joining in the same instant sends each newcomer a direct hello, every phone overhears them, and the per-sender token bucket was charged for frames not addressed to it | the messenger charges the bucket only for frames addressed to the receiver; regression test in `secure_messenger_test` |
 | review | malformed ids in URLs reached the database and produced 500s | `uuidParam`/`idParam`; `api_test` "input validation" |
 

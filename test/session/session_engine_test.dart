@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:echo_pin/core/echo_error.dart';
 import 'package:echo_pin/models/ping.dart';
 import 'package:echo_pin/security/session_credentials.dart';
 import 'package:echo_pin/services/session_codec.dart';
 import 'package:echo_pin/session/session_engine.dart';
 import 'package:echo_pin/transport/loopback_transport.dart';
+import 'package:echo_pin/transport/message_transport.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Polls [condition] until true or [timeout].
@@ -56,6 +59,34 @@ void main() {
     }
     engines.clear();
   });
+
+  test(
+    'a newcomer costs each member one direct hello, not a broadcast',
+    () async {
+      final SessionEngine a = await join('Ann');
+      final SessionEngine b = await join('Ben');
+      await eventually(() => a.members.length == 1 && b.members.length == 1);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      // Overhear every frame on the shared radio from here on.
+      final LoopbackTransport sniffer = LoopbackTransport(hub);
+      int frames = 0;
+      final StreamSubscription<TransportFrame> sub = sniffer.frames.listen(
+        (_) => frames++,
+      );
+      await sniffer.start(sessionId: a.sessionId, peerId: 'SNIFFER1');
+
+      final SessionEngine c = await join('Cat');
+      await eventually(() => c.members.length == 2 && a.members.length == 2);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      unawaited(sub.cancel());
+
+      // The hub hands direct frames only to their recipient, so the sniffer
+      // sees broadcasts alone: Cat's one hello. Before the fix every change
+      // of the reachable count made Ann and Ben re-broadcast too (three).
+      expect(frames, 1);
+    },
+  );
 
   test('members discover each other with names and safety codes', () async {
     final SessionEngine a = await join('Amara');

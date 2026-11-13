@@ -109,7 +109,7 @@ raise a "Security warning" tray; the rest appear in the admin diagnostics.
 
 | Kind | Body | Sent |
 | --- | --- | --- |
-| `hello` | `{n: name}` | On start, every 20 s, and directly to each newcomer |
+| `hello` | `{n: name}` | On start, when a radio comes back up, every 20 s, and directly to each newcomer |
 | `ping` | `{id, k: "checkin"\|"sos", m?: note}` | To selected recipients or everyone |
 | `ping` (resolve) | `{id, k: "sos", x: true}` | When an SOS sender is safe, to everyone the SOS went to |
 | `receipt` | `{id, for: "ping"\|"reply"\|"safe"}` | Automatically, on every copy received |

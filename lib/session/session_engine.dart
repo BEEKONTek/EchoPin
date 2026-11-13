@@ -181,6 +181,7 @@ class SessionEngine {
 
   Timer? _helloTimer;
   Timer? _retryTimer;
+  bool _anyUp = false;
   DateTime? _lastCheckIn;
   bool _reportedNoTransport = false;
   bool _stopped = false;
@@ -224,12 +225,17 @@ class SessionEngine {
     _subs.add(_messenger.events.listen(_emitError));
     for (final MessageTransport t in _transports) {
       _subs.add(t.frames.listen(_onFrame));
-      _subs.add(t.statusChanges.listen((_) => _onTransportStatus()));
       try {
         await t.start(sessionId: sessionId, peerId: peerId);
       } catch (e) {
         _emitError(TransportError(t.label, '$e'));
       }
+    }
+    // Status is watched only from here on, so the start-up transitions
+    // above do not each announce us; the single hello below does that.
+    _anyUp = anyTransportUp;
+    for (final MessageTransport t in _transports) {
+      _subs.add(t.statusChanges.listen((_) => _onTransportStatus()));
     }
     _helloTimer = Timer.periodic(helloInterval, (_) => unawaited(_hello()));
     _retryTimer = Timer.periodic(retryInterval, (_) => unawaited(_retry()));
@@ -740,15 +746,20 @@ class SessionEngine {
   }
 
   void _onTransportStatus() {
-    if (anyTransportUp) {
+    final bool up = anyTransportUp;
+    if (up && !_anyUp) {
       _reportedNoTransport = false;
       // A radio just came back: re-announce and flush pending pings now
-      // rather than waiting for the next tick.
+      // rather than waiting for the next tick. Status changes while a
+      // radio stays up (a peer appearing or leaving changes the reachable
+      // count) are not announcements: with a group joining at once they
+      // would make every phone broadcast hello once per newcomer.
       unawaited(_hello());
       for (final OutgoingPing p in _outgoing.values) {
         if (!p.cancelled) unawaited(_sendPingFrame(p));
       }
     }
+    _anyUp = up;
     _notify();
   }
 
