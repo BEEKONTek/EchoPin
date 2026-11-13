@@ -355,9 +355,9 @@ same commit. Examples from this phase, all reproduced before fixing:
 | Workflow | Jobs | Result on `main` |
 | --- | --- | --- |
 | Lint | analyze all packages, format check | Pass |
-| Test | app tests with coverage, Linux integration, server + protocol on PostgreSQL 16 | Pass (Linux integration best-effort on the runner's mDNS) |
+| Test | app tests with coverage, Linux integration, server + protocol on PostgreSQL 16 | Pass, 13 November 2026, after the two session fixes in 5.3.3 (Linux integration best-effort on the runner's mDNS) |
 | Build | Android, web, Linux, iOS (no codesign), macOS | Pass; **Windows fails** and is non-blocking |
-| Web demo | build and publish to GitHub Pages | Pass |
+| Web demo | build and publish to GitHub Pages | Pass; live at https://beekontek.github.io/EchoPin/ (the repository's Pages source is set to GitHub Actions once, by hand) |
 
 ### 5.4.3 Evaluation of the results
 
